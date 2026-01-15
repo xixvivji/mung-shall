@@ -1,0 +1,75 @@
+@import "tailwindcss";
+
+@layer base {
+  :root {
+    --primary: 25 90% 55%;
+    --primary-hover: 25 90% 48%;
+    --secondary: 220 15% 25%;
+    --accent: 35 100% 65%;
+    --background: 0 0% 100%;
+    --surface: 0 0% 98%;
+    --text: 220 15% 15%;
+    --text-secondary: 220 10% 45%;
+    --border: 220 15% 90%;
+  }
+
+  * {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+  }
+
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
+      'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
+      sans-serif;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    color: hsl(var(--text));
+    background-color: hsl(var(--background));
+  }
+
+  h1 {
+    font-size: 3.5rem;
+    font-weight: 700;
+    line-height: 1.1;
+    letter-spacing: -0.02em;
+  }
+
+  h2 {
+    font-size: 2.5rem;
+    font-weight: 700;
+    line-height: 1.2;
+    letter-spacing: -0.01em;
+  }
+
+  h3 {
+    font-size: 1.75rem;
+    font-weight: 600;
+    line-height: 1.3;
+  }
+
+  h4 {
+    font-size: 1.25rem;
+    font-weight: 600;
+    line-height: 1.4;
+  }
+
+  p {
+    line-height: 1.7;
+  }
+
+  @media (max-width: 768px) {
+    h1 {
+      font-size: 2.5rem;
+    }
+
+    h2 {
+      font-size: 2rem;
+    }
+
+    h3 {
+      font-size: 1.5rem;
+    }
+  }
+}

@@ -14,7 +14,6 @@ public class AbandonedDog {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
-    @Column(name = "dog_id")
     private Long id;
 
     @Column(unique = true, nullable = false)

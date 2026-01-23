@@ -12,7 +12,7 @@ import lombok.Setter;
 @AllArgsConstructor
 public class DogDetailResponse {
 
-    private Long dogId;
+    private Long id;
     private String desertionNo;
     private String happenDt;
     private String happenPlace;
@@ -44,11 +44,8 @@ public class DogDetailResponse {
                 dog.getDesertionNo(),
                 dog.getHappenDt(),
                 dog.getHappenPlace(),
-                dog.getUpKindCd(),
-                dog.getUpKindNm(),
                 dog.getKindCd(),
                 dog.getKindNm(),
-                dog.getKindFullNm(),
                 dog.getColorCd(),
                 dog.getAge(),
                 dog.getWeight(),

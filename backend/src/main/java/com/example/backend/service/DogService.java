@@ -1,5 +1,6 @@
 package com.example.backend.service;
 
+import com.example.backend.api.dog.dto.DogDetailResponse;
 import com.example.backend.api.dog.dto.DogSummaryResponse;
 import com.example.backend.domain.dog.AbandonedDog;
 import com.example.backend.repository.AbandonedDogRepository;

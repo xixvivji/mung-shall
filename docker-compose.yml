@@ -1,0 +1,61 @@
+version: '3.8'
+
+services:
+  # 1. Frontend (Nginx + React) - [★추가됨]
+  frontend:
+    container_name: frontend-server
+    image: frontend-image:latest   # 젠킨스가 빌드해 줄 프론트 이미지 이름
+    ports:
+      - "80:80"                    # 사용자는 이제 80포트(http://IP)로 접속합니다
+    networks:
+      - app-network
+    restart: always                # 서버 재부팅되면 자동으로 켜짐
+    depends_on:
+      - backend                    # 백엔드가 켜진 뒤에 실행
+
+  # 2. Spring Boot 백엔드 (기존 설정 유지 + 안정성 강화)
+  backend:
+    container_name: backend-server
+    image: backend-image:latest
+    ports:
+      - "8080:8080"
+    environment:
+      - SPRING_DATASOURCE_URL=jdbc:mysql://mysql-container:3306/mydb?useSSL=false&allowPublicKeyRetrieval=true&characterEncoding=UTF-8
+      - SPRING_DATASOURCE_USERNAME=root
+      - SPRING_DATASOURCE_PASSWORD=root
+      - SPRING_DATA_REDIS_HOST=redis-container
+      - SPRING_DATA_REDIS_PORT=6379
+    networks:
+      - app-network
+    restart: on-failure            # [★중요] DB 연결 실패 시 죽지 않고 재시도
+    depends_on:
+      - mysql
+      - redis
+
+  # 3. MySQL (기존 내용 유지)
+  mysql:
+    container_name: mysql-container
+    image: mysql:8.0.23
+    ports:
+      - "3306:3306"
+    environment:
+      MYSQL_ROOT_PASSWORD: root
+      MYSQL_DATABASE: mydb
+    volumes:
+      - ./db_data:/var/lib/mysql   # 호스트에 데이터 영구 저장
+    networks:
+      - app-network
+    command: --character-set-server=utf8mb4 --collation-server=utf8mb4_unicode_ci
+
+  # 4. Redis (기존 내용 유지)
+  redis:
+    container_name: redis-container
+    image: redis:alpine
+    ports:
+      - "6379:6379"
+    networks:
+      - app-network
+
+networks:
+  app-network:
+    driver: bridge

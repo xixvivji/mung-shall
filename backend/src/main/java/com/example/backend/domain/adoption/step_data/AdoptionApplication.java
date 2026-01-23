@@ -5,7 +5,8 @@ import com.example.backend.domain.adoption.MaritalStatus;
 import com.example.backend.domain.adoption.MonthlyExpenseRange;
 import com.example.backend.domain.adoption.PetPreference;
 import com.example.backend.domain.adoption.ResidenceType;
-import com.example.backend.domain.adoption.embed.CohabitantInfo;
+import com.example.backend.domain.adoption.embed.CohabitantComposition; // New import
+import com.example.backend.domain.adoption.embed.CohabitantDetail; // New import
 import com.example.backend.domain.adoption.embed.CurrentPetDetail;
 import com.example.backend.domain.adoption.embed.EmergencyContactInfo;
 import com.example.backend.domain.adoption.embed.PastPetExperience;
@@ -76,8 +77,12 @@ public class AdoptionApplication {
     @Column(nullable = false)
     private Boolean hasCohabitant; // 함께 사는 동거인이 있으신가요?
 
-    @Embedded
-    private CohabitantInfo cohabitantInfo; // 동거인 구성 (이전 구조 유지)
+    @Embedded // For counts of cohabitants
+    private CohabitantComposition cohabitantComposition;
+
+    @ElementCollection(fetch = FetchType.LAZY) // For individual cohabitant details
+    @CollectionTable(name = "adoption_app_cohabitant_detail", joinColumns = @JoinColumn(name = "adoption_application_id"))
+    private List<CohabitantDetail> cohabitantDetails = new ArrayList<>();
 
     @Column(nullable = false)
     private Boolean cohabitantAllergy; // 동거인 구성원 중 동물에 대한 알레르기 증상은 없습니까?

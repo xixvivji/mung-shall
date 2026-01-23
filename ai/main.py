@@ -1,95 +1,129 @@
 # main.py
 from fastapi import FastAPI, UploadFile, File
 from ultralytics import YOLO
-import shutil
-import os
 import cv2
+import numpy as np
+import io
+from PIL import Image
 
 app = FastAPI()
 
-# 저장할 폴더 생성
-UPLOAD_DIR = "uploaded_videos"
-os.makedirs(UPLOAD_DIR, exist_ok=True)
+# 1. 모델 로드 (경로 확인 필수!)
+# model 폴더 안에 튜닝된 best.pt 모델이 있어야 합니다.
+MODEL_PATH = "model/best.pt"
+try:
+    model = YOLO(MODEL_PATH)
+    print(f"✅ 모델 로드 성공: {MODEL_PATH}")
+except Exception as e:
+    print(f"❌ 모델 로드 실패: {e}")
+    print("models 폴더에 best.pt 파일이 있는지 확인해주세요.")
 
-# 1. 모델 로드(초기 실행시 자동 다운로드)
-# 아직은 사람의 포즈 모델로 테스트 가능한 수준임
-print("AI 모델 로딩 중...")
-model = YOLO('yolov8n-pose.pt')
-print("AI 모델 로딩 완료!")
+# 2. 관절 매핑 (사진 분석 결과 적용)
+KEYPOINTS = {
+    "NOSE": 19,
+    "R_F_PAW": 0,  "R_F_WRIST": 1,  "R_F_SHOULDER": 2,
+    "R_B_PAW": 3,  "R_B_HOCK": 4,   "R_B_HIP": 5,
+    "L_F_PAW": 6,  "L_F_WRIST": 7,  "L_F_SHOULDER": 8,
+    "L_B_PAW": 9,  "L_B_HOCK": 10,  "L_B_HIP": 11,
+    "SHOULDER_TOP": 20, # 등 (기준점)
+    "CHEST_BOTTOM": 21,
+    "BELLY_BOTTOM": 22,
+    "HIP_TOP": 23       # 엉덩이 (앉을 때 내려감)
+}
 
-@app.get("/")
-def read_root():
-    return {"message": "멍쉘 AI 서버: 모델 적용 완료"}
-
-@app.post("/analyze")
-async def analyze_video(file: UploadFile = File(...)):
-    # 1. 파일 저장
-    file_location = f"{UPLOAD_DIR}/{file.filename}"
-    with open(file_location, "wb") as buffer:
-        shutil.copyfileobj(file.file, buffer)
+def analyze_pose(kpts):
+    """
+    좌표를 받아 '앉아', '손' 여부를 판단하는 핵심 로직
+    """
+    # 1. 좌표 추출 편의 함수
+    def get_y(name):
+        idx = KEYPOINTS[name]
+        return kpts[idx][1] # y좌표 (높이)
     
-    print(f"영상 저장 완료: {file_location}")
+    action = "stand" # 기본 동작은 stand
 
-    # 2. OpenCV로 영상 읽기
-    cap = cv2.VideoCapture(file_location)
-
-    fps = cap.get(cv2.CAP_PROP_FPS)
-    if fps == 0:
-        fps = 30.0
+    # 좌표 가져오기
+    shoulder_y = get_y("SHOULDER_TOP")
+    hip_y = get_y("HIP_TOP")
     
-    total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
-    target_frame_idx = int(fps * 1)
-    print(f"영상 정보: {fps} FPS, 총 {total_frames} 프레임")
+    # 앞발 높이
+    rf_y = get_y("R_F_PAW")
+    lf_y = get_y("L_F_PAW")
+    rb_y = get_y("R_B_PAW")
+    lb_y = get_y("L_B_PAW")
 
-    if target_frame_idx < total_frames:
-        print(f"✅ 안정적인 분석을 위해 1초 시점({target_frame_idx}번 프레임)으로 이동합니다.")
-        # 타임머신: 해당 프레임 위치로 비디오 포인터를 이동시킵니다.
-        cap.set(cv2.CAP_PROP_POS_FRAMES, target_frame_idx)
-    else:
-        print("⚠️ 영상이 1초보다 짧습니다. 그냥 첫 프레임을 사용합니다.")
-        cap.set(cv2.CAP_PROP_POS_FRAMES, 0)
+    ground_y = max(rf_y, lf_y, rb_y, lb_y)
 
-    # 3. 추론(Interface) - 프레임 테스트
-    # 일단 한 프레임의 좌표 반환만 확인. 이후 반복문으로 변경해야 함
-    if cap.isOpened():
-        ret, frame = cap.read()
-        if ret:
-            # YOLO 모델에 프레임 던지기
-            results = model(frame)
+    # ---------------------------------------------------------
+    # 1. 앉아(Sit) 판단
+    # 조건 A: 엉덩이가 어깨보다 낮아야 함
+    # 조건 B: 엉덩이가 바닥(뒷발)과 가까워야 함
+    # ---------------------------------------------------------
 
-            # COCO Keypoint 라벨 정의
-            KEYPOINT_NAMES = [
-                "코", "왼쪽 눈", "오른쪽 눈", "왼쪽 귀", "오른쪽 귀",
-                "왼쪽 어깨", "오른쪽 어깨", "왼쪽 팔꿈치", "오른쪽 팔꿈치",
-                "왼쪽 손목", "오른쪽 손목", "왼쪽 골반", "오른쪽 골반",
-                "왼쪽 무릎", "오른쪽 무릎", "왼쪽 발목", "오른쪽 발목"
-            ]
+    # 어깨와 엉덩이 부분의 지면으로부터의 높이 계산
+    shoulder_height = ground_y - shoulder_y
+    hip_height = ground_y - hip_y
 
-            # 결과 분석
-            for result in results:
-                # 관절 좌표 추출
-                # xy 좌표가 Tensor 형태로 반환됨
-                keypoints = result.keypoints.xy.cpu().numpy()
+    # 어깨 높이가 0이거나 너무 낮으면 0 나누기 방지를 위해 1로 조정
+    if shoulder_height < 1: shoulder_height = 1
 
-                print("\n========= [AI의 시선] ==========")
-                if len(keypoints) > 0:
-                    # 첫 번째 사람의 관절 정보
-                    person_kpts = keypoints[0]
-                    
-                    for i, (x, y) in enumerate(person_kpts):
-                        # x, y가 0이면 탐지 못한 부위입니다.
-                        if x == 0 and y == 0:
-                            continue
-                            
-                        # 보기 좋게 출력
-                        name = KEYPOINT_NAMES[i]
-                        print(f"{i:02d} {name}: ({x:.1f}, {y:.1f})")
-                print("==========================================\n")
-    
-    cap.release()
-    
+    # 어깨 높이에 대한 엉덩이 높이의 비율 계산
+    sit_ratio = hip_height / shoulder_height
+
+    # 비율로 판단: 엉덩이 높이가 몸통 길이보다 훨씬 작게(납작하게) 바닥에 붙어있으면 앉은 것
+    # (수치는 테스트하며 조정 가능. 보통 앉으면 이 거리가 매우 짧아짐)
+    # 100은 픽셀값이라 해상도 타니까, 나중엔 비율로 바꾸는 게 좋음. 일단 하드코딩.
+    is_sit_pose = sit_ratio < 0.6
+
+    if is_sit_pose:
+        action = "sit"
+
+    # ---------------------------------------------------------
+    # 2. 손(Paw) 판단
+    # 우선순위 높음(앉아서 손 할 수도 있으므로)
+    # ---------------------------------------------------------
+    paw_diff = abs(rf_y - lf_y)
+    if paw_diff > (shoulder_height * 0.15): # 한쪽 발이 많이 올라감
+        action = "paw"
+
     return {
-        "filename": file.filename,
-        "status": "completed",
-        "message": "터미널 로그에 좌표가 찍혔는지 확인할 것"
+        "action": action, # 최종 판단된 행동 문자열 바로 반환
+        "details": {
+            "sit_ratio": float(sit_ratio),
+            "shoulder_h": float(shoulder_height),
+            "hip_h": float(hip_height)
+        }
     }
+
+@app.post("/predict/dog")
+async def predict_dog(file: UploadFile = File(...)):
+    # 이미지 읽기
+    contents = await file.read()
+    nparr = np.frombuffer(contents, np.uint8)
+    img = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
+
+    # 추론
+    results = model(img)
+    
+    # 결과 처리
+    detection_result = {"detected": False, "action": "stand"} # 기본값
+    
+    for result in results:
+        keypoints = result.keypoints.xy.cpu().numpy()
+        
+        if len(keypoints) > 0:
+            kpts = keypoints[0] # 첫 번째 강아지
+            
+            # 포즈 분석 실행
+            analysis = analyze_pose(kpts)
+            
+            detection_result["detected"] = True
+            detection_result["analysis"] = analysis
+            
+            # 최종 판단
+            detection_result["action"] = analysis["action"]
+                
+            # (디버깅용) 관절 좌표 로그 출력
+            print(f"🐶 Action: {detection_result['action']}")
+            
+    return detection_result

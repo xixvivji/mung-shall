@@ -67,7 +67,7 @@ public class AdoptionService {
                 .orElseThrow(() -> new IllegalArgumentException("AbandonedDog not found with ID: " + abandonedDogId));
 
         // 이미 해당 유저-강아지 조합으로 입양 신청이 있는지 확인
-        if (adoptionRepository.findByUser_UserIdAndAbandonedDog_Id(userId, abandonedDogId).isPresent()) {
+        if (adoptionRepository.findByUserUserIdAndAbandonedDogId(userId, abandonedDogId).isPresent()) {
             throw new IllegalArgumentException("이미 해당 유기견에 대한 입양 신청 프로세스가 존재합니다.");
         }
 

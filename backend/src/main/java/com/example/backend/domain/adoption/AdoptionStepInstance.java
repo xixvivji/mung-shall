@@ -1,5 +1,6 @@
 package com.example.backend.domain.adoption;
 
+import com.example.backend.domain.adoption.enums.AdoptionStepStatus;
 import com.example.backend.domain.user.User;
 import jakarta.persistence.*;
 import lombok.Getter;

@@ -1,7 +1,7 @@
 package com.example.backend.domain.adoption.step_data;
 
 import com.example.backend.domain.adoption.AdoptionStepInstance;
-import com.example.backend.domain.adoption.CounselingType;
+import com.example.backend.domain.adoption.enums.CounselingType;
 import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.NoArgsConstructor;

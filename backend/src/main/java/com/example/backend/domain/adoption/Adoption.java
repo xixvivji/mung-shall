@@ -2,6 +2,8 @@ package com.example.backend.domain.adoption;
 
 import com.example.backend.domain.dog.AbandonedDog;
 import com.example.backend.domain.user.User;
+import com.example.backend.domain.adoption.enums.AdoptionProcessStatus; // UPDATED IMPORT
+import com.example.backend.domain.adoption.AdoptionStepInstance; // UPDATED IMPORT
 import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.NoArgsConstructor;

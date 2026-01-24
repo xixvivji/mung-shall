@@ -44,7 +44,8 @@ public class SecurityConfig {
                         .requestMatchers("/api/auth/**").permitAll()
 
                         .requestMatchers("/oauth2/**", "/login/**").permitAll()
-
+                        // OpenVidu server 관련 API 일단 전부다 열어둠
+                        .requestMatchers("/api/openvidu/**").permitAll()
                         .anyRequest().authenticated()
                 )
                 .formLogin(f -> f.disable())

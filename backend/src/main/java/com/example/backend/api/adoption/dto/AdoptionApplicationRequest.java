@@ -67,8 +67,7 @@ public class AdoptionApplicationRequest {
     @Valid
     private List<CohabitantDetailRequest> cohabitantDetails; // New: For individual cohabitant details
 
-    @NotNull(message = "동거인 중 알레르기 유무는 필수입니다.")
-    private Boolean cohabitantAllergy;
+    
 
     // Current Pets
     @NotNull(message = "현재 반려동물 유무는 필수입니다.")
@@ -177,6 +176,8 @@ public class AdoptionApplicationRequest {
         private Integer age;
         @NotNull(message = "동물에 대한 알레르기 유무는 필수입니다.")
         private Boolean hasAllergy;
+        @NotNull(message = "유기견 입양 동의 여부는 필수입니다.")
+        private Boolean adoptionAgreement;
     }
 
     @Getter

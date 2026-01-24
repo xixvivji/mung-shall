@@ -84,8 +84,7 @@ public class AdoptionApplication {
     @CollectionTable(name = "adoption_app_cohabitant_detail", joinColumns = @JoinColumn(name = "adoption_application_id"))
     private List<CohabitantDetail> cohabitantDetails = new ArrayList<>();
 
-    @Column(nullable = false)
-    private Boolean cohabitantAllergy; // 동거인 구성원 중 동물에 대한 알레르기 증상은 없습니까?
+    
 
     // Current Pets
     @Column(nullable = false)
@@ -143,7 +142,6 @@ public class AdoptionApplication {
 
     private String petLivingSpacePhotoUrl; // 반려동물 거주 공간 사진 (URL)
 
-    // Financial & Health Agreement
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
     private MonthlyExpenseRange monthlyExpenseRange; // 반려동물을 위해 한달 지출 가능한 금액?

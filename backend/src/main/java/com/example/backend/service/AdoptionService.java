@@ -236,7 +236,7 @@ public class AdoptionService {
                        .collect(Collectors.toList())
             );
         }
-        application.setCohabitantAllergy(request.getCohabitantAllergy());
+        
 
         // Current Pets
         application.setHasCurrentPets(request.getHasCurrentPets());
@@ -336,7 +336,7 @@ public class AdoptionService {
                            .collect(Collectors.toList())
             );
         }
-        response.setCohabitantAllergy(application.getCohabitantAllergy());
+        
 
         // Current Pets
         response.setHasCurrentPets(application.getHasCurrentPets());
@@ -430,6 +430,7 @@ public class AdoptionService {
         embeddable.setRelationship(request.getRelationship());
         embeddable.setAge(request.getAge());
         embeddable.setHasAllergy(request.getHasAllergy());
+        embeddable.setAdoptionAgreement(request.getAdoptionAgreement());
         return embeddable;
     }
 
@@ -438,6 +439,7 @@ public class AdoptionService {
         response.setRelationship(embeddable.getRelationship());
         response.setAge(embeddable.getAge());
         response.setHasAllergy(embeddable.getHasAllergy());
+        response.setAdoptionAgreement(embeddable.getAdoptionAgreement());
         return response;
     }
 

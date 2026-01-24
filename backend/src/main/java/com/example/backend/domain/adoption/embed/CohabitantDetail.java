@@ -20,4 +20,7 @@ public class CohabitantDetail {
 
     @Column(nullable = false)
     private Boolean hasAllergy; // 동물에 대한 알레르기 증상 유무
+
+    @Column(nullable = false)
+    private Boolean adoptionAgreement; // 유기견 입양 동의 여부
 }

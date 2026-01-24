@@ -42,7 +42,7 @@ public class AdoptionApplicationResponse {
     private Boolean hasCohabitant;
     private CohabitantCompositionResponse cohabitantComposition; // New: For counts of cohabitants
     private List<CohabitantDetailResponse> cohabitantDetails; // New: For individual cohabitant details
-    private Boolean cohabitantAllergy;
+    
 
     // Current Pets
     private Boolean hasCurrentPets;
@@ -111,6 +111,7 @@ public class AdoptionApplicationResponse {
         private String relationship;
         private Integer age;
         private Boolean hasAllergy;
+        private Boolean adoptionAgreement;
     }
 
     @Getter

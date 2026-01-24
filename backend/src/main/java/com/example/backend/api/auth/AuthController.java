@@ -17,6 +17,9 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import com.example.backend.api.auth.dto.FindUsernameRequest;
 
+import com.example.backend.api.auth.dto.PasswordResetRequest;
+import com.example.backend.api.auth.dto.PasswordResetConfirmRequest;
+
 import java.time.Duration;
 import java.time.LocalDateTime;
 import java.util.Map;
@@ -136,5 +139,17 @@ public class AuthController {
     public ResponseEntity<?> findUsername(@Valid @RequestBody FindUsernameRequest request) {
         String username = authService.findUsernameByEmail(request.getEmail());
         return ResponseEntity.ok(Map.of("username", username));
+    }
+
+    @PostMapping("/password/reset")
+    public ResponseEntity<?> passwordReset(@Valid @RequestBody PasswordResetRequest request) {
+        authService.requestPasswordReset(request.getUsername(), request.getEmail());
+        return ResponseEntity.ok(Map.of("message", "Reset link sent"));
+    }
+
+    @PostMapping("/password/reset/confirm")
+    public ResponseEntity<?> passwordResetConfirm(@Valid @RequestBody PasswordResetConfirmRequest request) {
+        authService.confirmPasswordReset(request.getToken(), request.getNewPassword());
+        return ResponseEntity.ok(Map.of("message", "Success"));
     }
 }

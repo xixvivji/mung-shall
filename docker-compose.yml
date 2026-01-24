@@ -58,7 +58,7 @@ services:
 
   # 3. OpenVidu Server (화상회의 엔진)
   openvidu:
-    image: openvidu/openvidu-server-kms:2.29.0
+    image: openvidu/openvidu-dev:2.29.0
     container_name: openvidu-server
     restart: always
     ports:

@@ -15,6 +15,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import com.example.backend.api.auth.dto.FindUsernameRequest;
 
 import java.time.Duration;
 import java.time.LocalDateTime;
@@ -129,5 +130,11 @@ public class AuthController {
                 + "; SameSite=" + sameSite;
 
         response.setHeader("Set-Cookie", header);
+    }
+
+    @PostMapping("/find-username")
+    public ResponseEntity<?> findUsername(@Valid @RequestBody FindUsernameRequest request) {
+        String username = authService.findUsernameByEmail(request.getEmail());
+        return ResponseEntity.ok(Map.of("username", username));
     }
 }

@@ -8,5 +8,5 @@ import java.util.Optional;
 
 @Repository
 public interface AdoptionRepository extends JpaRepository<Adoption, Long> {
-    Optional<Adoption> findByUser_idAndAbandonedDog_id(Long userId, Long abandonedDogId);
+    Optional<Adoption> findByUser_UserIdAndAbandonedDog_Id(Long userId, Long abandonedDogId);
 }

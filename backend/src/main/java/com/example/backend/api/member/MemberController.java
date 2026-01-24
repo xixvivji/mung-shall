@@ -1,6 +1,7 @@
 package com.example.backend.api.member;
 
 import com.example.backend.api.member.dto.MemberUpdateRequest;
+import com.example.backend.api.member.dto.MemberWithdrawRequest;
 import com.example.backend.common.ApiException;
 import com.example.backend.domain.user.User;
 import com.example.backend.repository.UserRepository;
@@ -40,7 +41,7 @@ public class MemberController {
 
         Map<String, Object> body = new LinkedHashMap<>();
         body.put("userId", me.getUserId());
-        body.put("username", me.getUsername()); // null이어도 OK (Map.of만 안 쓰면 됨)
+        body.put("username", me.getUsername());
         body.put("name", me.getName());
         body.put("phone", me.getPhone());
         body.put("email", me.getEmail());
@@ -61,8 +62,27 @@ public class MemberController {
         }
 
         Long userId = Long.parseLong(authentication.getName());
-
         memberService.updateMe(userId, request);
+
+        return ResponseEntity.ok(Map.of("message", "Success"));
+    }
+
+    @DeleteMapping("/me")
+    @Transactional
+    public ResponseEntity<?> withdrawMe(
+            Authentication authentication,
+            @RequestBody(required = false) MemberWithdrawRequest request
+    ) {
+        if (authentication == null || authentication.getName() == null) {
+            throw ApiException.unauthorized("Unauthorized");
+        }
+
+        Long userId = Long.parseLong(authentication.getName());
+
+        // request가 null로 들어오는 경우도 있어서 방어
+        if (request == null) request = new MemberWithdrawRequest();
+
+        memberService.withdraw(userId, request);
 
         return ResponseEntity.ok(Map.of("message", "Success"));
     }

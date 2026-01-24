@@ -7,9 +7,13 @@ import com.example.backend.domain.user.UserType;
 import com.example.backend.repository.AuthUserRepository;
 import com.example.backend.repository.UserRepository;
 import com.example.backend.security.jwt.JwtTokenProvider;
+import com.example.backend.security.jwt.RefreshTokenRedisService;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.ResponseCookie;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.oauth2.core.user.OAuth2User;
 import org.springframework.security.web.authentication.AuthenticationSuccessHandler;
@@ -19,26 +23,38 @@ import org.springframework.transaction.annotation.Transactional;
 import java.io.IOException;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
+import java.time.Duration;
 import java.util.Optional;
 
 @Component
 public class OAuth2AuthenticationSuccessHandler implements AuthenticationSuccessHandler {
 
-    // 프론트 콜백 URL (원하면 properties로 뺄 수 있음)
-    private static final String DEFAULT_REDIRECT_URL = "http://localhost:3000/oauth/callback";
+    private static final String REFRESH_COOKIE_NAME = "refreshToken";
+
+    @Value("${app.front-oauth-redirect-url:http://localhost:3000/oauth/callback}")
+    private String frontRedirectUrl;
+
+    @Value("${app.cookie.secure:false}")
+    private boolean cookieSecure;
+
+    @Value("${app.cookie.samesite:Lax}")
+    private String cookieSameSite;
 
     private final UserRepository userRepository;
     private final AuthUserRepository authUserRepository;
     private final JwtTokenProvider jwtTokenProvider;
+    private final RefreshTokenRedisService refreshTokenRedisService;
 
     public OAuth2AuthenticationSuccessHandler(
             UserRepository userRepository,
             AuthUserRepository authUserRepository,
-            JwtTokenProvider jwtTokenProvider
+            JwtTokenProvider jwtTokenProvider,
+            RefreshTokenRedisService refreshTokenRedisService
     ) {
         this.userRepository = userRepository;
         this.authUserRepository = authUserRepository;
         this.jwtTokenProvider = jwtTokenProvider;
+        this.refreshTokenRedisService = refreshTokenRedisService;
     }
 
     @Override
@@ -58,18 +74,23 @@ public class OAuth2AuthenticationSuccessHandler implements AuthenticationSuccess
         }
 
         AuthProvider provider = toAuthProvider(providerStr);
+
         if (providerUserId == null || providerUserId.isBlank()) {
             redirectError(response, "PROVIDER_ID_MISSING", "소셜 사용자 식별값이 없습니다.");
             return;
         }
 
-        Optional<AuthUser> existAuthUser = authUserRepository.findByProviderAndOauthId(provider, providerUserId);
+        Optional<AuthUser> existAuthUser =
+                authUserRepository.findByProviderAndOauthId(provider, providerUserId);
+
         User user;
+
         if (existAuthUser.isPresent()) {
             user = existAuthUser.get().getUser();
         } else {
             if (userRepository.existsByEmail(email)) {
-                redirectError(response, "EMAIL_ALREADY_EXISTS", "이미 가입된 이메일입니다. 일반 로그인으로 진행해주세요.");
+                redirectError(response, "EMAIL_ALREADY_EXISTS",
+                        "이미 가입된 이메일입니다. 일반 로그인으로 진행해주세요.");
                 return;
             }
 
@@ -101,12 +122,32 @@ public class OAuth2AuthenticationSuccessHandler implements AuthenticationSuccess
         String accessToken = jwtTokenProvider.createAccessToken(user.getUserId(), usernameForToken);
         String refreshToken = jwtTokenProvider.createRefreshToken(user.getUserId(), usernameForToken);
 
-        String redirectUrl = DEFAULT_REDIRECT_URL
+        refreshTokenRedisService.save(user.getUserId(), refreshToken);
+
+        setRefreshCookie(response, refreshToken);
+
+        String redirectUrl = frontRedirectUrl
                 + "?accessToken=" + URLEncoder.encode(accessToken, StandardCharsets.UTF_8)
-                + "&refreshToken=" + URLEncoder.encode(refreshToken, StandardCharsets.UTF_8)
                 + "&provider=" + URLEncoder.encode(providerStr, StandardCharsets.UTF_8);
 
         response.sendRedirect(redirectUrl);
+    }
+
+    private void setRefreshCookie(HttpServletResponse response, String refreshToken) {
+        Duration ttl = jwtTokenProvider.getRefreshTtl();
+        long maxAgeSec = ttl.getSeconds();
+
+        String sameSite = (cookieSameSite == null || cookieSameSite.isBlank()) ? "Lax" : cookieSameSite;
+
+        ResponseCookie cookie = ResponseCookie.from(REFRESH_COOKIE_NAME, refreshToken)
+                .httpOnly(true)
+                .secure(cookieSecure)
+                .path("/")
+                .maxAge(maxAgeSec)
+                .sameSite(sameSite)
+                .build();
+
+        response.addHeader(HttpHeaders.SET_COOKIE, cookie.toString());
     }
 
     private AuthProvider toAuthProvider(String providerStr) {
@@ -120,7 +161,7 @@ public class OAuth2AuthenticationSuccessHandler implements AuthenticationSuccess
     }
 
     private void redirectError(HttpServletResponse response, String code, String message) throws IOException {
-        String url = DEFAULT_REDIRECT_URL
+        String url = frontRedirectUrl
                 + "?error=" + URLEncoder.encode(code, StandardCharsets.UTF_8)
                 + "&message=" + URLEncoder.encode(message, StandardCharsets.UTF_8);
         response.sendRedirect(url);
@@ -149,8 +190,7 @@ public class OAuth2AuthenticationSuccessHandler implements AuthenticationSuccess
                     if (name != null && !String.valueOf(name).isBlank()) return String.valueOf(name);
                 }
             }
-        } catch (Exception ignore) {
-        }
+        } catch (Exception ignore) {}
 
         int at = email.indexOf("@");
         return (at > 0) ? email.substring(0, at) : email;

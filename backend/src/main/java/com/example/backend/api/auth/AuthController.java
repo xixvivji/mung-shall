@@ -4,13 +4,19 @@ import com.example.backend.api.auth.dto.EmailSendRequest;
 import com.example.backend.api.auth.dto.EmailVerifyRequest;
 import com.example.backend.api.auth.dto.LoginRequest;
 import com.example.backend.api.auth.dto.SignUpRequest;
+import com.example.backend.security.jwt.JwtTokenProvider;
 import com.example.backend.service.AuthService;
 import com.example.backend.service.EmailVerificationService;
+import jakarta.servlet.http.Cookie;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import java.time.Duration;
 import java.time.LocalDateTime;
 import java.util.Map;
 
@@ -19,8 +25,17 @@ import java.util.Map;
 @RequestMapping("/api/auth")
 public class AuthController {
 
+    private static final String REFRESH_COOKIE_NAME = "refreshToken";
+
     private final EmailVerificationService emailVerificationService;
     private final AuthService authService;
+    private final JwtTokenProvider jwtTokenProvider;
+
+    @Value("${app.cookie.secure:false}")
+    private boolean cookieSecure;
+
+    @Value("${app.cookie.samesite:Lax}")
+    private String cookieSameSite;
 
     @GetMapping("/check-username")
     public ResponseEntity<?> checkUsername(@RequestParam String username) {
@@ -53,11 +68,80 @@ public class AuthController {
     }
 
     @PostMapping("/login")
-    public ResponseEntity<?> login(@Valid @RequestBody LoginRequest request) {
+    public ResponseEntity<?> login(@Valid @RequestBody LoginRequest request, HttpServletResponse response) {
         AuthService.LoginResult result = authService.login(request.getUsername(), request.getPassword());
-        return ResponseEntity.ok(Map.of(
-                "accessToken", result.getAccessToken(),
-                "refreshToken", result.getRefreshToken()
-        ));
+
+        setRefreshCookie(response, result.getRefreshToken());
+
+        return ResponseEntity.ok(Map.of("accessToken", result.getAccessToken()));
+    }
+
+    @PostMapping("/refresh")
+    public ResponseEntity<?> refresh(HttpServletRequest request) {
+        String refreshToken = readRefreshCookie(request);
+
+        String newAccessToken = authService.refreshAccessToken(refreshToken);
+
+        return ResponseEntity.ok(Map.of("accessToken", newAccessToken));
+    }
+
+    @PostMapping("/logout")
+    public ResponseEntity<?> logout(HttpServletRequest request, HttpServletResponse response) {
+        String refreshToken = readRefreshCookie(request);
+
+        authService.logout(refreshToken);
+        deleteRefreshCookie(response);
+
+        return ResponseEntity.ok(Map.of("message", "logout"));
+    }
+
+    private void setRefreshCookie(HttpServletResponse response, String refreshToken) {
+        Duration ttl = jwtTokenProvider.getRefreshTtl();
+        int maxAgeSec = (int) ttl.getSeconds();
+
+        Cookie cookie = new Cookie(REFRESH_COOKIE_NAME, refreshToken);
+        cookie.setHttpOnly(true);
+        cookie.setSecure(cookieSecure);
+        cookie.setPath("/");
+        cookie.setMaxAge(maxAgeSec);
+
+        response.addCookie(cookie);
+
+        String sameSite = (cookieSameSite == null || cookieSameSite.isBlank()) ? "Lax" : cookieSameSite;
+        String header = REFRESH_COOKIE_NAME + "=" + refreshToken
+                + "; Path=/"
+                + "; Max-Age=" + maxAgeSec
+                + "; HttpOnly"
+                + (cookieSecure ? "; Secure" : "")
+                + "; SameSite=" + sameSite;
+
+        response.addHeader("Set-Cookie", header);
+    }
+
+    private String readRefreshCookie(HttpServletRequest request) {
+        Cookie[] cookies = request.getCookies();
+        if (cookies == null) return null;
+        for (Cookie c : cookies) {
+            if (REFRESH_COOKIE_NAME.equals(c.getName())) {
+                return c.getValue();
+            }
+        }
+        return null;
+    }
+
+    private void deleteRefreshCookie(HttpServletResponse response) {
+        Cookie cookie = new Cookie(REFRESH_COOKIE_NAME, "");
+        cookie.setHttpOnly(true);
+        cookie.setSecure(cookieSecure);
+        cookie.setPath("/");
+        cookie.setMaxAge(0);
+        response.addCookie(cookie);
+
+        String sameSite = (cookieSameSite == null || cookieSameSite.isBlank()) ? "Lax" : cookieSameSite;
+        String header = REFRESH_COOKIE_NAME + "=; Path=/; Max-Age=0; HttpOnly"
+                + (cookieSecure ? "; Secure" : "")
+                + "; SameSite=" + sameSite;
+
+        response.addHeader("Set-Cookie", header);
     }
 }

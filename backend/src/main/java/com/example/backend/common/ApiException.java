@@ -14,7 +14,6 @@ public class ApiException extends RuntimeException {
         return status;
     }
 
-    // 편의 메서드들(원하면 더 추가 가능)
     public static ApiException badRequest(String message) {
         return new ApiException(HttpStatus.BAD_REQUEST, message);
     }
@@ -29,5 +28,9 @@ public class ApiException extends RuntimeException {
 
     public static ApiException unauthorized(String message) {
         return new ApiException(HttpStatus.UNAUTHORIZED, message);
+    }
+
+    public static ApiException notFound(String message) {
+        return new ApiException(HttpStatus.NOT_FOUND, message);
     }
 }

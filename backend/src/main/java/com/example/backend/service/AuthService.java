@@ -7,6 +7,8 @@ import com.example.backend.domain.user.User;
 import com.example.backend.domain.user.UserType;
 import com.example.backend.repository.EmailVerificationRepository;
 import com.example.backend.repository.UserRepository;
+import com.example.backend.security.jwt.JwtTokenProvider;
+import lombok.Getter;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
@@ -20,6 +22,7 @@ public class AuthService {
     private final UserRepository userRepository;
     private final EmailVerificationRepository emailVerificationRepository;
     private final PasswordEncoder passwordEncoder;
+    private final JwtTokenProvider jwtTokenProvider;
 
     public void signUp(SignUpRequest request) {
         validateUsernameAvailable(request.getUsername());
@@ -76,5 +79,41 @@ public class AuthService {
     public boolean isEmailAvailable(String email) {
         validateEmailAvailable(email);
         return true;
+    }
+
+    public LoginResult login(String username, String password) {
+        if (username == null || username.isBlank()) {
+            throw ApiException.badRequest("username은 필수입니다.");
+        }
+        if (password == null || password.isBlank()) {
+            throw ApiException.badRequest("password는 필수입니다.");
+        }
+
+        User user = userRepository.findByUsername(username)
+                .orElseThrow(() -> ApiException.notFound("계정 없음"));
+
+        if (user.getPassword() == null || user.getPassword().isBlank()) {
+            throw ApiException.unauthorized("비밀번호 불일치");
+        }
+
+        if (!passwordEncoder.matches(password, user.getPassword())) {
+            throw ApiException.unauthorized("비밀번호 불일치");
+        }
+
+        String accessToken = jwtTokenProvider.createAccessToken(user.getUserId(), user.getUsername());
+        String refreshToken = jwtTokenProvider.createRefreshToken(user.getUserId(), user.getUsername());
+
+        return new LoginResult(accessToken, refreshToken);
+    }
+
+    @Getter
+    public static class LoginResult {
+        private final String accessToken;
+        private final String refreshToken;
+
+        public LoginResult(String accessToken, String refreshToken) {
+            this.accessToken = accessToken;
+            this.refreshToken = refreshToken;
+        }
     }
 }

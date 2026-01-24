@@ -2,6 +2,7 @@ package com.example.backend.api.auth;
 
 import com.example.backend.api.auth.dto.EmailSendRequest;
 import com.example.backend.api.auth.dto.EmailVerifyRequest;
+import com.example.backend.api.auth.dto.LoginRequest;
 import com.example.backend.api.auth.dto.SignUpRequest;
 import com.example.backend.service.AuthService;
 import com.example.backend.service.EmailVerificationService;
@@ -49,5 +50,14 @@ public class AuthController {
     public ResponseEntity<?> signUp(@Valid @RequestBody SignUpRequest request) {
         authService.signUp(request);
         return ResponseEntity.ok(Map.of("message", "Success"));
+    }
+
+    @PostMapping("/login")
+    public ResponseEntity<?> login(@Valid @RequestBody LoginRequest request) {
+        AuthService.LoginResult result = authService.login(request.getUsername(), request.getPassword());
+        return ResponseEntity.ok(Map.of(
+                "accessToken", result.getAccessToken(),
+                "refreshToken", result.getRefreshToken()
+        ));
     }
 }

@@ -1,19 +1,19 @@
 version: '3.8'
 
 services:
-  # 1. Frontend (Nginx + React) - [★추가됨]
+  # 1. Frontend (Nginx + React)
   frontend:
     container_name: frontend-server
-    image: frontend-image:latest   # 젠킨스가 빌드해 줄 프론트 이미지 이름
+    image: frontend-image:latest
     ports:
-      - "80:80"                    # 사용자는 이제 80포트(http://IP)로 접속합니다
+      - "80:80"
     networks:
       - app-network
-    restart: always                # 서버 재부팅되면 자동으로 켜짐
+    restart: always
     depends_on:
-      - backend                    # 백엔드가 켜진 뒤에 실행
+      - backend
 
-  # 2. Spring Boot 백엔드 (기존 설정 유지 + 안정성 강화)
+  # 2. Spring Boot 백엔드
   backend:
     container_name: backend-server
     image: backend-image:latest
@@ -22,32 +22,68 @@ services:
     environment:
       - SPRING_DATASOURCE_URL=jdbc:mysql://mysql-container:3306/mydb?useSSL=false&allowPublicKeyRetrieval=true&characterEncoding=UTF-8
       - SPRING_DATASOURCE_USERNAME=root
-      - SPRING_DATASOURCE_PASSWORD=root
+      - SPRING_DATASOURCE_PASSWORD=${DB_ROOT_PASSWORD}
+
+      # Redis 설정
       - SPRING_DATA_REDIS_HOST=redis-container
       - SPRING_DATA_REDIS_PORT=6379
+
+      # OpenVidu 설정 환경변수 주입
+      - OPENVIDU_URL=${OPENVIDU_PUBLIC_URL}
+      - OPENVIDU_SECRET=${OPENVIDU_SECRET}
+
+      # JWT 및 OAuth 설정
+      - JWT_SECRET=${JWT_SECRET}
+      - JWT_ACCESS_EXP_MIN=${JWT_ACCESS_EXP_MIN}
+      - JWT_REFRESH_EXP_DAYS=${JWT_REFRESH_EXP_DAYS}
+      - GOOGLE_CLIENT_ID=${GOOGLE_CLIENT_ID}
+      - GOOGLE_CLIENT_SECRET=${GOOGLE_CLIENT_SECRET}
+      - KAKAO_CLIENT_ID=${KAKAO_CLIENT_ID}
+      - KAKAO_CLIENT_SECRET=${KAKAO_CLIENT_SECRET}
+      - NAVER_CLIENT_ID=${NAVER_CLIENT_ID}
+      - NAVER_CLIENT_SECRET=${NAVER_CLIENT_SECRET}
+
     networks:
       - app-network
-    restart: on-failure            # [★중요] DB 연결 실패 시 죽지 않고 재시도
+    restart: on-failure
     depends_on:
       - mysql
       - redis
+      - openvidu
 
-  # 3. MySQL (기존 내용 유지)
+  # 3. OpenVidu Server (화상회의 엔진)
+  openvidu:
+    image: openvidu/openvidu-server-kms:2.30.0
+    container_name: openvidu-server
+    restart: always
+    ports:
+      - "4443:4443"
+    environment:
+      - OPENVIDU_SECRET=${OPENVIDU_SECRET}
+      - OPENVIDU_PUBLIC_URL=${OPENVIDU_PUBLIC_URL}
+      - DOMAIN_OR_PUBLIC_IP=${DOMAIN_OR_PUBLIC_IP}
+      - HTTPS_PORT=4443
+    networks:
+      - app-network
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+
+  # 4. MySQL
   mysql:
     container_name: mysql-container
     image: mysql:8.0.23
     ports:
       - "3306:3306"
     environment:
-      MYSQL_ROOT_PASSWORD: root
+      MYSQL_ROOT_PASSWORD: ${DB_ROOT_PASSWORD}
       MYSQL_DATABASE: mydb
     volumes:
-      - ./db_data:/var/lib/mysql   # 호스트에 데이터 영구 저장
+      - ./db_data:/var/lib/mysql
     networks:
       - app-network
     command: --character-set-server=utf8mb4 --collation-server=utf8mb4_unicode_ci
 
-  # 4. Redis (기존 내용 유지)
+  # 5. Redis
   redis:
     container_name: redis-container
     image: redis:alpine

@@ -2,6 +2,8 @@ package com.example.backend.domain.adoption;
 
 import com.example.backend.domain.dog.AbandonedDog;
 import com.example.backend.domain.user.User;
+import com.example.backend.domain.adoption.enums.AdoptionProcessStatus; // UPDATED IMPORT
+import com.example.backend.domain.adoption.AdoptionStepInstance; // UPDATED IMPORT
 import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
@@ -35,8 +37,8 @@ public class Adoption {
     private AbandonedDog abandonedDog;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "shelter_id") // Shelter user responsible for this adoption
-    private User shelter; // Assuming User entity can represent shelter users
+    @JoinColumn(name = "shelter_id")
+    private User shelter;
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)

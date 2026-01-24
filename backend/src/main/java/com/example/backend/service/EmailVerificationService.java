@@ -1,5 +1,6 @@
 package com.example.backend.service;
 
+import com.example.backend.common.ApiException;
 import com.example.backend.domain.auth.EmailVerification;
 import com.example.backend.repository.EmailVerificationRepository;
 import com.example.backend.repository.UserRepository;
@@ -20,8 +21,12 @@ public class EmailVerificationService {
 
     public LocalDateTime sendCode(String email, String purpose) {
 
+        if (!"signup".equals(purpose)) {
+            throw ApiException.badRequest("purpose는 signup만 허용됩니다.");
+        }
+
         if (userRepository.existsByEmail(email)) {
-            throw new IllegalArgumentException("이미 사용 중인 이메일입니다.");
+            throw ApiException.conflict("이미 사용 중인 이메일입니다.");
         }
 
         String code = String.format("%06d", new Random().nextInt(1_000_000));
@@ -41,20 +46,27 @@ public class EmailVerificationService {
 
     public void verifyCode(String email, String purpose, String code) {
 
+        if (!"signup".equals(purpose)) {
+            throw ApiException.badRequest("purpose는 signup만 허용됩니다.");
+        }
+
         EmailVerification ev = emailVerificationRepository
                 .findTopByEmailAndPurposeOrderByCreatedAtDesc(email, purpose)
-                .orElseThrow(() -> new IllegalArgumentException("인증 코드가 올바르지 않습니다."));
+                .orElseThrow(() -> ApiException.badRequest("인증 코드가 올바르지 않습니다."));
 
         if (ev.isExpired()) {
-            throw new IllegalArgumentException("인증 코드가 만료되었습니다.");
+            throw ApiException.badRequest("인증 코드가 만료되었습니다.");
+        }
+
+        if (code == null || code.isBlank()) {
+            throw ApiException.badRequest("code는 필수입니다.");
         }
 
         if (!ev.getCode().equals(code)) {
-            throw new IllegalArgumentException("인증 코드가 올바르지 않습니다.");
+            throw ApiException.badRequest("인증 코드가 올바르지 않습니다.");
         }
 
         ev.setVerifiedAt(LocalDateTime.now());
-        // @Transactional이라 save 없어도 반영되지만, 명시적으로 저장해도 됨
         emailVerificationRepository.save(ev);
     }
 }

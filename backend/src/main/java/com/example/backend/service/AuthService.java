@@ -1,6 +1,7 @@
 package com.example.backend.service;
 
 import com.example.backend.api.auth.dto.SignUpRequest;
+import com.example.backend.common.ApiException;
 import com.example.backend.domain.auth.EmailVerification;
 import com.example.backend.domain.user.User;
 import com.example.backend.domain.user.UserType;
@@ -21,33 +22,21 @@ public class AuthService {
     private final PasswordEncoder passwordEncoder;
 
     public void signUp(SignUpRequest request) {
+        validateUsernameAvailable(request.getUsername());
+        validateEmailAvailable(request.getEmail());
 
-        // username 중복 체크
-        if (userRepository.existsByUsername(request.getUsername())) {
-            throw new IllegalArgumentException("이미 사용 중인 아이디입니다.");
-        }
-
-        // email 중복 체크 (소셜 포함)
-        if (userRepository.existsByEmail(request.getEmail())) {
-            throw new IllegalArgumentException("이미 사용 중인 이메일입니다.");
-        }
-
-        // 이메일 인증 기록 확인
         EmailVerification verification = emailVerificationRepository
-                .findTopByEmailAndPurposeOrderByCreatedAtDesc(
-                        request.getEmail(), "signup"
-                )
-                .orElseThrow(() -> new IllegalArgumentException("이메일 인증 기록이 없습니다."));
+                .findTopByEmailAndPurposeOrderByCreatedAtDesc(request.getEmail(), "signup")
+                .orElseThrow(() -> ApiException.badRequest("이메일 인증 기록이 없습니다."));
 
         if (verification.isExpired()) {
-            throw new IllegalArgumentException("이메일 인증이 만료되었습니다.");
+            throw ApiException.badRequest("이메일 인증이 만료되었습니다.");
         }
 
         if (!verification.isVerified()) {
-            throw new IllegalArgumentException("이메일 인증이 완료되지 않았습니다.");
+            throw ApiException.badRequest("이메일 인증이 완료되지 않았습니다.");
         }
 
-        // User 생성
         User user = new User();
         user.setUsername(request.getUsername());
         user.setPassword(passwordEncoder.encode(request.getPassword()));
@@ -61,19 +50,31 @@ public class AuthService {
         userRepository.save(user);
     }
 
-    // 아이디 중복 확인
-    public boolean isUsernameAvailable(String username) {
+    public void validateUsernameAvailable(String username) {
         if (username == null || username.isBlank()) {
-            throw new IllegalArgumentException("username은 필수입니다.");
+            throw ApiException.badRequest("username은 필수입니다.");
         }
-        return !userRepository.existsByUsername(username);
+        if (userRepository.existsByUsername(username)) {
+            throw ApiException.conflict("이미 존재하는 아이디입니다.");
+        }
     }
 
-    // 이메일 중복 확인
-    public boolean isEmailAvailable(String email) {
+    public void validateEmailAvailable(String email) {
         if (email == null || email.isBlank()) {
-            throw new IllegalArgumentException("email은 필수입니다.");
+            throw ApiException.badRequest("email은 필수입니다.");
         }
-        return !userRepository.existsByEmail(email);
+        if (userRepository.existsByEmail(email)) {
+            throw ApiException.conflict("이미 사용 중인 이메일입니다.");
+        }
+    }
+
+    public boolean isUsernameAvailable(String username) {
+        validateUsernameAvailable(username);
+        return true;
+    }
+
+    public boolean isEmailAvailable(String email) {
+        validateEmailAvailable(email);
+        return true;
     }
 }

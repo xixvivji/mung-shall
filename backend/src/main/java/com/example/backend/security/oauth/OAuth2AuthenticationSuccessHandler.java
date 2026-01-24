@@ -12,8 +12,6 @@ import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.http.HttpHeaders;
-import org.springframework.http.ResponseCookie;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.oauth2.core.user.OAuth2User;
 import org.springframework.security.web.authentication.AuthenticationSuccessHandler;
@@ -135,19 +133,19 @@ public class OAuth2AuthenticationSuccessHandler implements AuthenticationSuccess
 
     private void setRefreshCookie(HttpServletResponse response, String refreshToken) {
         Duration ttl = jwtTokenProvider.getRefreshTtl();
-        long maxAgeSec = ttl.getSeconds();
+        long maxAgeSecLong = ttl.getSeconds();
+        int maxAgeSec = (maxAgeSecLong > Integer.MAX_VALUE) ? Integer.MAX_VALUE : (int) maxAgeSecLong;
 
         String sameSite = (cookieSameSite == null || cookieSameSite.isBlank()) ? "Lax" : cookieSameSite;
 
-        ResponseCookie cookie = ResponseCookie.from(REFRESH_COOKIE_NAME, refreshToken)
-                .httpOnly(true)
-                .secure(cookieSecure)
-                .path("/")
-                .maxAge(maxAgeSec)
-                .sameSite(sameSite)
-                .build();
+        String header = REFRESH_COOKIE_NAME + "=" + refreshToken
+                + "; Path=/"
+                + "; Max-Age=" + maxAgeSec
+                + "; HttpOnly"
+                + (cookieSecure ? "; Secure" : "")
+                + "; SameSite=" + sameSite;
 
-        response.addHeader(HttpHeaders.SET_COOKIE, cookie.toString());
+        response.setHeader("Set-Cookie", header);
     }
 
     private AuthProvider toAuthProvider(String providerStr) {

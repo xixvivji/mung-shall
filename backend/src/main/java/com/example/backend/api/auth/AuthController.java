@@ -79,9 +79,7 @@ public class AuthController {
     @PostMapping("/refresh")
     public ResponseEntity<?> refresh(HttpServletRequest request) {
         String refreshToken = readRefreshCookie(request);
-
         String newAccessToken = authService.refreshAccessToken(refreshToken);
-
         return ResponseEntity.ok(Map.of("accessToken", newAccessToken));
     }
 
@@ -97,17 +95,11 @@ public class AuthController {
 
     private void setRefreshCookie(HttpServletResponse response, String refreshToken) {
         Duration ttl = jwtTokenProvider.getRefreshTtl();
-        int maxAgeSec = (int) ttl.getSeconds();
-
-        Cookie cookie = new Cookie(REFRESH_COOKIE_NAME, refreshToken);
-        cookie.setHttpOnly(true);
-        cookie.setSecure(cookieSecure);
-        cookie.setPath("/");
-        cookie.setMaxAge(maxAgeSec);
-
-        response.addCookie(cookie);
+        long maxAgeSecLong = ttl.getSeconds();
+        int maxAgeSec = (maxAgeSecLong > Integer.MAX_VALUE) ? Integer.MAX_VALUE : (int) maxAgeSecLong;
 
         String sameSite = (cookieSameSite == null || cookieSameSite.isBlank()) ? "Lax" : cookieSameSite;
+
         String header = REFRESH_COOKIE_NAME + "=" + refreshToken
                 + "; Path=/"
                 + "; Max-Age=" + maxAgeSec
@@ -115,7 +107,7 @@ public class AuthController {
                 + (cookieSecure ? "; Secure" : "")
                 + "; SameSite=" + sameSite;
 
-        response.addHeader("Set-Cookie", header);
+        response.setHeader("Set-Cookie", header);
     }
 
     private String readRefreshCookie(HttpServletRequest request) {
@@ -130,18 +122,12 @@ public class AuthController {
     }
 
     private void deleteRefreshCookie(HttpServletResponse response) {
-        Cookie cookie = new Cookie(REFRESH_COOKIE_NAME, "");
-        cookie.setHttpOnly(true);
-        cookie.setSecure(cookieSecure);
-        cookie.setPath("/");
-        cookie.setMaxAge(0);
-        response.addCookie(cookie);
-
         String sameSite = (cookieSameSite == null || cookieSameSite.isBlank()) ? "Lax" : cookieSameSite;
+
         String header = REFRESH_COOKIE_NAME + "=; Path=/; Max-Age=0; HttpOnly"
                 + (cookieSecure ? "; Secure" : "")
                 + "; SameSite=" + sameSite;
 
-        response.addHeader("Set-Cookie", header);
+        response.setHeader("Set-Cookie", header);
     }
 }

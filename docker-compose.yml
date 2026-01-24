@@ -30,7 +30,7 @@ services:
       - SPRING_DATA_REDIS_PASSWORD=${REDIS_PASSWORD}
 
       # OpenVidu 설정 환경변수 주입
-      - OPENVIDU_URL=${OPENVIDU_PUBLIC_URL}
+      - OPENVIDU_URL=https://openvidu-server:4443/
       - OPENVIDU_SECRET=${OPENVIDU_SECRET}
 
       # JWT 및 OAuth 설정

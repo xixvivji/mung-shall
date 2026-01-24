@@ -8,6 +8,7 @@ import com.example.backend.domain.user.UserType;
 import com.example.backend.repository.EmailVerificationRepository;
 import com.example.backend.repository.UserRepository;
 import com.example.backend.security.jwt.JwtTokenProvider;
+import com.example.backend.security.jwt.RefreshTokenRedisService;
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -23,6 +24,7 @@ public class AuthService {
     private final EmailVerificationRepository emailVerificationRepository;
     private final PasswordEncoder passwordEncoder;
     private final JwtTokenProvider jwtTokenProvider;
+    private final RefreshTokenRedisService refreshTokenRedisService;
 
     public void signUp(SignUpRequest request) {
         validateUsernameAvailable(request.getUsername());
@@ -35,7 +37,6 @@ public class AuthService {
         if (verification.isExpired()) {
             throw ApiException.badRequest("이메일 인증이 만료되었습니다.");
         }
-
         if (!verification.isVerified()) {
             throw ApiException.badRequest("이메일 인증이 완료되지 않았습니다.");
         }
@@ -71,23 +72,9 @@ public class AuthService {
         }
     }
 
-    public boolean isUsernameAvailable(String username) {
-        validateUsernameAvailable(username);
-        return true;
-    }
-
-    public boolean isEmailAvailable(String email) {
-        validateEmailAvailable(email);
-        return true;
-    }
-
     public LoginResult login(String username, String password) {
-        if (username == null || username.isBlank()) {
-            throw ApiException.badRequest("username은 필수입니다.");
-        }
-        if (password == null || password.isBlank()) {
-            throw ApiException.badRequest("password는 필수입니다.");
-        }
+        if (username == null || username.isBlank()) throw ApiException.badRequest("username은 필수입니다.");
+        if (password == null || password.isBlank()) throw ApiException.badRequest("password는 필수입니다.");
 
         User user = userRepository.findByUsername(username)
                 .orElseThrow(() -> ApiException.notFound("계정 없음"));
@@ -95,7 +82,6 @@ public class AuthService {
         if (user.getPassword() == null || user.getPassword().isBlank()) {
             throw ApiException.unauthorized("비밀번호 불일치");
         }
-
         if (!passwordEncoder.matches(password, user.getPassword())) {
             throw ApiException.unauthorized("비밀번호 불일치");
         }
@@ -103,7 +89,41 @@ public class AuthService {
         String accessToken = jwtTokenProvider.createAccessToken(user.getUserId(), user.getUsername());
         String refreshToken = jwtTokenProvider.createRefreshToken(user.getUserId(), user.getUsername());
 
+        refreshTokenRedisService.save(user.getUserId(), refreshToken);
+
         return new LoginResult(accessToken, refreshToken);
+    }
+
+    public String refreshAccessToken(String refreshToken) {
+        if (refreshToken == null || refreshToken.isBlank()) {
+            throw ApiException.unauthorized("refresh token missing");
+        }
+
+        if (!jwtTokenProvider.validate(refreshToken)) {
+            throw ApiException.unauthorized("refresh token invalid");
+        }
+
+        Long userIdFromRedis = refreshTokenRedisService.getUserIdIfValid(refreshToken);
+        if (userIdFromRedis == null) {
+            throw ApiException.unauthorized("refresh token not found");
+        }
+
+        Long userIdFromToken = jwtTokenProvider.getUserId(refreshToken);
+        if (!userIdFromRedis.equals(userIdFromToken)) {
+            throw ApiException.unauthorized("refresh token mismatch");
+        }
+
+        String username = jwtTokenProvider.getUsername(refreshToken);
+        if (username == null || username.isBlank()) {
+            username = String.valueOf(userIdFromRedis);
+        }
+
+        return jwtTokenProvider.createAccessToken(userIdFromRedis, username);
+    }
+
+    public void logout(String refreshToken) {
+        if (refreshToken == null || refreshToken.isBlank()) return;
+        refreshTokenRedisService.delete(refreshToken);
     }
 
     @Getter

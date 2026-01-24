@@ -136,4 +136,20 @@ public class AuthService {
             this.refreshToken = refreshToken;
         }
     }
+
+    public String findUsernameByEmail(String email) {
+        if (email == null || email.isBlank()) {
+            throw ApiException.badRequest("email은 필수입니다.");
+        }
+
+        User user = userRepository.findByEmail(email)
+                .orElseThrow(() -> ApiException.notFound("일치하는 회원 없음"));
+
+        if (user.getUsername() == null || user.getUsername().isBlank()) {
+            throw ApiException.badRequest("소셜 로그인 계정입니다.");
+        }
+
+        return user.getUsername();
+    }
+
 }

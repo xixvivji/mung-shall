@@ -1,8 +1,11 @@
 package com.example.backend.api.member;
 
+import com.example.backend.api.member.dto.MemberUpdateRequest;
 import com.example.backend.common.ApiException;
 import com.example.backend.domain.user.User;
 import com.example.backend.repository.UserRepository;
+import com.example.backend.service.MemberService;
+import jakarta.validation.Valid;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.transaction.annotation.Transactional;
@@ -17,9 +20,11 @@ import java.util.Map;
 public class MemberController {
 
     private final UserRepository userRepository;
+    private final MemberService memberService;
 
-    public MemberController(UserRepository userRepository) {
+    public MemberController(UserRepository userRepository, MemberService memberService) {
         this.userRepository = userRepository;
+        this.memberService = memberService;
     }
 
     @GetMapping("/me")
@@ -43,6 +48,23 @@ public class MemberController {
         body.put("loginType", resolveLoginType(me));
 
         return ResponseEntity.ok(body);
+    }
+
+    @PatchMapping("/me")
+    @Transactional
+    public ResponseEntity<?> updateMe(
+            Authentication authentication,
+            @RequestBody @Valid MemberUpdateRequest request
+    ) {
+        if (authentication == null || authentication.getName() == null) {
+            throw ApiException.unauthorized("Unauthorized");
+        }
+
+        Long userId = Long.parseLong(authentication.getName());
+
+        memberService.updateMe(userId, request);
+
+        return ResponseEntity.ok(Map.of("message", "Success"));
     }
 
     private String resolveLoginType(User user) {

@@ -37,16 +37,22 @@ public class OpenViduController {
                     }
             };
 
+            // 2. TLS 설정 만들기
             SSLContext sc = SSLContext.getInstance("TLS");
             sc.init(null, trustAllCerts, new java.security.SecureRandom());
+
+            SSLContext.setDefault(sc);
+
             HttpsURLConnection.setDefaultSSLSocketFactory(sc.getSocketFactory());
             HttpsURLConnection.setDefaultHostnameVerifier((hostname, session) -> true);
 
-            System.out.println("SSL 인증서 검증 비활성화 완료 (개발 모드)");
+            System.out.println("SSL 인증서 검증 비활성화 완료 (System-wide 적용)");
 
         } catch (Exception e) {
             System.err.println("SSL 설정 실패: " + e.getMessage());
         }
+
+        // 오픈비두 객체 생성
         this.openVidu = new OpenVidu(OPENVIDU_URL, OPENVIDU_SECRET);
     }
 

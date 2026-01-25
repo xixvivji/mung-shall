@@ -103,6 +103,40 @@ public class AdoptionApplicationService {
         return mapAdoptionApplicationToResponse(application);
     }
 
+    /**
+     * 제출된 입양 신청서를 삭제하고 단계를 초기 상태로 되돌립니다.
+     *
+     * @param adoptionId 입양 프로세스 ID
+     */
+    public void deleteAdoptionApplication(Long adoptionId) {
+        AdoptionStepInstance applicationStep = adoptionStepInstanceRepository
+                .findByAdoptionIdAndStepDefStepName(adoptionId, "입양 신청서 제출")
+                .orElseThrow(() -> new IllegalArgumentException("입양 신청서 제출 단계를 찾을 수 없습니다."));
+
+        // 제출된 상태가 아니면 삭제할 필요 없음
+        if (applicationStep.getStatus() == AdoptionStepStatus.PENDING || applicationStep.getStatus() == AdoptionStepStatus.NOT_STARTED) {
+            return; // 이미 비어있는 상태이므로 아무것도 하지 않음
+        }
+        
+        // 관리자에 의해 완료된 상태라면 사용자가 임의로 삭제할 수 없음
+        if (applicationStep.getStatus() == AdoptionStepStatus.COMPLETED) {
+            throw new IllegalStateException("이미 승인 완료된 신청서는 삭제할 수 없습니다.");
+        }
+
+        AdoptionApplication application = adoptionApplicationRepository.findByStepInstanceId(applicationStep.getId())
+                .orElse(null);
+
+        if (application != null) {
+            adoptionApplicationRepository.delete(application);
+        }
+
+        // 단계 상태를 다시 PENDING으로 리셋
+        applicationStep.setStatus(AdoptionStepStatus.PENDING);
+        applicationStep.setSubmittedAt(null);
+        applicationStep.setRejectionReason(null);
+        adoptionStepInstanceRepository.save(applicationStep);
+    }
+
     // --- Mapper methods ---
 
     private void mapRequestToAdoptionApplication(AdoptionApplicationRequest request, AdoptionApplication application) {

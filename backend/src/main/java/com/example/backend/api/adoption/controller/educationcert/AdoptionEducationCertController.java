@@ -60,17 +60,15 @@ public class AdoptionEducationCertController {
         return ResponseEntity.ok(response);
     }
 
-    @Operation(summary = "교육 수료증 인증/반려", description = "관리자가 입양 교육 수료증을 인증하거나 반려합니다.")
+    @Operation(summary = "교육 수료증 삭제", description = "제출했던 교육 수료증을 삭제하고 단계를 다시 제출할 수 있도록 초기화합니다.")
     @ApiResponses(value = {
-            @ApiResponse(responseCode = "200", description = "수료증 인증/반려 처리 성공"),
-            @ApiResponse(responseCode = "400", description = "잘못된 요청 데이터"),
-            @ApiResponse(responseCode = "404", description = "해당 입양 프로세스 또는 수료증을 찾을 수 없음")
+            @ApiResponse(responseCode = "200", description = "수료증 삭제 성공"),
+            @ApiResponse(responseCode = "404", description = "해당 입양 프로세스를 찾을 수 없음")
     })
-    @PostMapping("/verify")
-    public ResponseEntity<?> verifyEducationCertificate(
-            @Parameter(description = "입양 프로세스 ID") @PathVariable Long adoptionId,
-            @Parameter(description = "인증 여부 (true: 인증, false: 반려)") @RequestParam Boolean isVerified) {
-        adoptionEducationCertService.verifyEducationCertificate(adoptionId, isVerified);
-        return ResponseEntity.ok(Map.of("message", "교육 수료증이 성공적으로 처리되었습니다."));
+    @DeleteMapping
+    public ResponseEntity<?> deleteEducationCertificate(
+            @Parameter(description = "입양 프로세스 ID") @PathVariable Long adoptionId) {
+        adoptionEducationCertService.deleteEducationCertificate(adoptionId);
+        return ResponseEntity.ok(Map.of("message", "교육 수료증이 성공적으로 삭제되었습니다."));
     }
 }

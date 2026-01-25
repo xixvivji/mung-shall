@@ -3,127 +3,224 @@ from fastapi import FastAPI, UploadFile, File
 from ultralytics import YOLO
 import cv2
 import numpy as np
-import io
-from PIL import Image
+import tempfile
+import os
+import shutil
 
 app = FastAPI()
 
-# 1. 모델 로드 (경로 확인 필수!)
-# model 폴더 안에 튜닝된 best.pt 모델이 있어야 합니다.
-MODEL_PATH = "model/best.pt"
+# 1. 모델 로드
+MODEL_PATH = "model/best.pt" 
 try:
     model = YOLO(MODEL_PATH)
     print(f"✅ 모델 로드 성공: {MODEL_PATH}")
 except Exception as e:
     print(f"❌ 모델 로드 실패: {e}")
-    print("models 폴더에 best.pt 파일이 있는지 확인해주세요.")
 
-# 2. 관절 매핑 (사진 분석 결과 적용)
+# 2. 관절 매핑
 KEYPOINTS = {
-    "NOSE": 19,
-    "R_F_PAW": 0,  "R_F_WRIST": 1,  "R_F_SHOULDER": 2,
-    "R_B_PAW": 3,  "R_B_HOCK": 4,   "R_B_HIP": 5,
-    "L_F_PAW": 6,  "L_F_WRIST": 7,  "L_F_SHOULDER": 8,
-    "L_B_PAW": 9,  "L_B_HOCK": 10,  "L_B_HIP": 11,
-    "SHOULDER_TOP": 20, # 등 (기준점)
-    "CHEST_BOTTOM": 21,
-    "BELLY_BOTTOM": 22,
-    "HIP_TOP": 23       # 엉덩이 (앉을 때 내려감)
+    # --- 다리 (Legs) ---
+    "R_F_PAW": 0,   "R_F_WRIST": 1,   "R_F_ELBOW": 2,  
+    "R_B_PAW": 3,   "R_B_HOCK": 4,    "R_B_KNEE": 5,   
+    "L_F_PAW": 6,   "L_F_WRIST": 7,   "L_F_ELBOW": 8,  
+    "L_B_PAW": 9,   "L_B_HOCK": 10,   "L_B_KNEE": 11,  
+    
+    # --- 꼬리 (Tail) ---
+    "TAIL_BASE": 12, "TAIL_TIP": 13,
+    
+    # --- 얼굴 (Head) - 사용자 정의 ---
+    "L_EAR_BASE": 14, # 왼쪽 귀 뿌리
+    "R_EAR_BASE": 15, # 오른쪽 귀 뿌리
+    "NOSE": 16,       # 코
+    "CHIN": 17,       # 턱
+    "L_EAR_TIP": 18,  # 왼쪽 귀 끝
+    "R_EAR_TIP": 19   # 오른쪽 귀 끝
 }
 
 def analyze_pose(kpts):
-    """
-    좌표를 받아 '앉아', '손' 여부를 판단하는 핵심 로직
-    """
-    # 1. 좌표 추출 편의 함수
+    # kpts는 이제 [x, y, conf] 형태를 가집니다.
+    
     def get_y(name):
-        idx = KEYPOINTS[name]
-        return kpts[idx][1] # y좌표 (높이)
+        return kpts[KEYPOINTS[name]][1]
     
-    action = "stand" # 기본 동작은 stand
+    # 신뢰도 확인 함수 (이제 에러 안 남)
+    def is_valid(name):
+        # [2]번째 값인 conf가 있는지 확인하고, 0.5 이상인지 체크
+        return kpts[KEYPOINTS[name]][2] > 0.5 
 
-    # 좌표 가져오기
-    shoulder_y = get_y("SHOULDER_TOP")
-    hip_y = get_y("HIP_TOP")
+    action = "stand"
     
-    # 앞발 높이
-    rf_y = get_y("R_F_PAW")
-    lf_y = get_y("L_F_PAW")
-    rb_y = get_y("R_B_PAW")
-    lb_y = get_y("L_B_PAW")
+    # -----------------------------------------------------------------
+    # [1] 척도(Scale) 설정: 앞다리 길이 (기준)
+    # -----------------------------------------------------------------
+    rf_len = abs(get_y("R_F_PAW") - get_y("R_F_ELBOW"))
+    lf_len = abs(get_y("L_F_PAW") - get_y("L_F_ELBOW"))
+    scale_len = max(rf_len, lf_len) 
+    
+    if scale_len < 1: scale_len = 1 
 
-    ground_y = max(rf_y, lf_y, rb_y, lb_y)
+    # -----------------------------------------------------------------
+    # [2] 앉아(Sit) 판단: "뒷발 기준" 상대 높이 (원근법 해결)
+    # -----------------------------------------------------------------
+    
+    # A. 뒷꿈치(Hock) 접힘 여부 check
+    r_hock_dist = abs(get_y("R_B_PAW") - get_y("R_B_HOCK"))
+    l_hock_dist = abs(get_y("L_B_PAW") - get_y("L_B_HOCK"))
+    
+    valid_hocks = []
+    if is_valid("R_B_PAW") and is_valid("R_B_HOCK"): valid_hocks.append(r_hock_dist)
+    if is_valid("L_B_PAW") and is_valid("L_B_HOCK"): valid_hocks.append(l_hock_dist)
+    
+    # 감지된 뒷다리가 없으면 scale_len(큰 값)을 넣어 Stand로 유도
+    min_hock_dist = min(valid_hocks) if valid_hocks else scale_len 
 
-    # ---------------------------------------------------------
-    # 1. 앉아(Sit) 판단
-    # 조건 A: 엉덩이가 어깨보다 낮아야 함
-    # 조건 B: 엉덩이가 바닥(뒷발)과 가까워야 함
-    # ---------------------------------------------------------
+    # B. 엉덩이(Tail Base) 낮음 여부 check
+    back_paws_y = []
+    if is_valid("R_B_PAW"): back_paws_y.append(get_y("R_B_PAW"))
+    if is_valid("L_B_PAW"): back_paws_y.append(get_y("L_B_PAW"))
+    
+    avg_back_paw_y = sum(back_paws_y) / len(back_paws_y) if back_paws_y else 0
+    hip_to_back_paw = abs(avg_back_paw_y - get_y("TAIL_BASE"))
 
-    # 어깨와 엉덩이 부분의 지면으로부터의 높이 계산
-    shoulder_height = ground_y - shoulder_y
-    hip_height = ground_y - hip_y
-
-    # 어깨 높이가 0이거나 너무 낮으면 0 나누기 방지를 위해 1로 조정
-    if shoulder_height < 1: shoulder_height = 1
-
-    # 어깨 높이에 대한 엉덩이 높이의 비율 계산
-    sit_ratio = hip_height / shoulder_height
-
-    # 비율로 판단: 엉덩이 높이가 몸통 길이보다 훨씬 작게(납작하게) 바닥에 붙어있으면 앉은 것
-    # (수치는 테스트하며 조정 가능. 보통 앉으면 이 거리가 매우 짧아짐)
-    # 100은 픽셀값이라 해상도 타니까, 나중엔 비율로 바꾸는 게 좋음. 일단 하드코딩.
-    is_sit_pose = sit_ratio < 0.6
-
-    if is_sit_pose:
+    # --- [최종 판단 로직] ---
+    # 조건: 뒷꿈치가 뒷발에 바짝 붙어 있거나(20% 이내) OR 엉덩이가 뒷발 높이까지 내려옴(40% 이내)
+    is_hock_folded = min_hock_dist < (scale_len * 0.2)
+    is_hip_low = hip_to_back_paw < (scale_len * 0.4)
+    
+    if is_hock_folded or is_hip_low:
         action = "sit"
 
-    # ---------------------------------------------------------
-    # 2. 손(Paw) 판단
-    # 우선순위 높음(앉아서 손 할 수도 있으므로)
-    # ---------------------------------------------------------
+    # -----------------------------------------------------------------
+    # [3] 손(Paw) 판단 (우선순위 최상)
+    # -----------------------------------------------------------------
+    rf_y = get_y("R_F_PAW")
+    lf_y = get_y("L_F_PAW")
     paw_diff = abs(rf_y - lf_y)
-    if paw_diff > (shoulder_height * 0.15): # 한쪽 발이 많이 올라감
+    
+    if paw_diff > (scale_len * 0.2):
         action = "paw"
 
     return {
-        "action": action, # 최종 판단된 행동 문자열 바로 반환
+        "action": action,
         "details": {
-            "sit_ratio": float(sit_ratio),
-            "shoulder_h": float(shoulder_height),
-            "hip_h": float(hip_height)
+            "scale": float(scale_len),
+            "hock_dist": float(min_hock_dist),
+            "hip_dist": float(hip_to_back_paw),
+            "is_folded": bool(is_hock_folded),
+            "is_hip_low": bool(is_hip_low)
         }
     }
 
 @app.post("/predict/dog")
 async def predict_dog(file: UploadFile = File(...)):
-    # 이미지 읽기
     contents = await file.read()
     nparr = np.frombuffer(contents, np.uint8)
     img = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
 
-    # 추론
     results = model(img)
-    
-    # 결과 처리
-    detection_result = {"detected": False, "action": "stand"} # 기본값
+    detection_result = {"detected": False, "action": "stand"}
     
     for result in results:
-        keypoints = result.keypoints.xy.cpu().numpy()
+        # [수정된 부분] .xy 대신 .data를 써야 (x, y, conf) 3개가 다 들어옵니다!
+        # .xy -> [N, 2] (x, y)
+        # .data -> [N, 3] (x, y, conf)
+        keypoints = result.keypoints.data.cpu().numpy()
         
         if len(keypoints) > 0:
             kpts = keypoints[0] # 첫 번째 강아지
             
-            # 포즈 분석 실행
             analysis = analyze_pose(kpts)
             
             detection_result["detected"] = True
+            detection_result["action"] = analysis["action"]
             detection_result["analysis"] = analysis
             
-            # 최종 판단
-            detection_result["action"] = analysis["action"]
-                
-            # (디버깅용) 관절 좌표 로그 출력
+            # 로그 출력
             print(f"🐶 Action: {detection_result['action']}")
+            print(f"   📏 Scale: {analysis['details']['scale']:.1f}")
+            print(f"   🦶 Hock Dist: {analysis['details']['hock_dist']:.1f} (Sit < {analysis['details']['scale']*0.2:.1f})")
+            print(f"   🍑 Hip Dist: {analysis['details']['hip_dist']:.1f} (Sit < {analysis['details']['scale']*0.4:.1f})")
             
     return detection_result
+
+@app.post("/analyze/video")
+async def analyze_video(file: UploadFile = File(...), target_action: str = "sit", duration_threshold: float = 2.0):
+    """
+    비디오를 받아 target_action이 duration_threshold(초) 이상 유지되었는지 판단
+    """
+    # 1. 임시 파일 저장
+    with tempfile.NamedTemporaryFile(delete=False, suffix=".mp4") as temp_file:
+        shutil.copyfileobj(file.file, temp_file)
+        temp_file_path = temp_file.name
+
+    cap = cv2.VideoCapture(temp_file_path)
+    fps = cap.get(cv2.CAP_PROP_FPS)
+    if fps == 0: fps = 30.0 # fallback
+
+    # 상태 추적 변수들
+    current_action_state = None
+    state_start_frame = 0
+    success_logs = []
+    
+    frame_index = 0
+    is_event_logged = False # 중복 기록 방지 플래그
+
+    # 2. 프레임 루프
+    while cap.isOpened():
+        ret, frame = cap.read()
+        if not ret:
+            break
+        
+        # YOLO 추론 (stream=True로 메모리 최적화)
+        results = model(frame, stream=True, verbose=False)
+        
+        detected_action = "unknown"
+        
+        # 결과 처리
+        for result in results:
+            if result.keypoints is not None and len(result.keypoints.data) > 0:
+                kpts = result.keypoints.data[0].cpu().numpy() # 첫 번째 강아지
+                analysis = analyze_pose(kpts)
+                detected_action = analysis["action"]
+                break # 한 마리만 분석하고 종료
+
+        # 3. 지속 시간 판단 로직 (State Machine)
+        if detected_action == current_action_state:
+            # 동작이 유지 중일 때
+            current_duration = (frame_index - state_start_frame) / fps
+            
+            # 목표 동작이고, 기준 시간을 넘겼으며, 아직 로그에 안 남겼다면 -> 성공 기록
+            if (detected_action == target_action and 
+                current_duration >= duration_threshold and 
+                not is_event_logged):
+                
+                success_logs.append({
+                    "action": detected_action,
+                    "timestamp": round(state_start_frame / fps, 2),
+                    "duration": round(current_duration, 2),
+                    "result": "SUCCESS"
+                })
+                is_event_logged = True # 현재 이벤트 기록 완료 처리
+                print(f"🎉 Success! {detected_action} maintained for {current_duration:.2f}s")
+
+        else:
+            # 동작이 바뀌었을 때 -> 상태 리셋
+            current_action_state = detected_action
+            state_start_frame = frame_index
+            is_event_logged = False # 새로운 동작이 시작되었으므로 플래그 초기화
+
+        frame_index += 1
+
+    # 4. 정리
+    cap.release()
+    os.unlink(temp_file_path) # 임시 파일 삭제
+
+    # 최종 결과 반환
+    is_success = len(success_logs) > 0
+    return {
+        "is_success": is_success,
+        "target_action": target_action,
+        "required_duration": duration_threshold,
+        "logs": success_logs, # 성공한 시점들의 기록
+        "message": "훈련 성공!" if is_success else "목표 동작 유지 실패"
+    }

@@ -4,6 +4,7 @@ import com.example.backend.domain.adoption.Adoption;
 import com.example.backend.domain.adoption.AdoptionStepInstance;
 import com.example.backend.domain.adoption.enums.AdoptionProcessStatus;
 import com.example.backend.domain.adoption.enums.AdoptionStepStatus;
+import com.example.backend.repository.AdoptionRepository;
 import com.example.backend.repository.adoption.step.AdoptionStepInstanceRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -19,6 +20,7 @@ import java.util.List;
 public class AdoptionShelterService {
 
     private final AdoptionStepInstanceRepository adoptionStepInstanceRepository;
+    private final AdoptionRepository adoptionRepository; // Added this dependency
 
     /**
      * 보호소 관리자가 입양 단계를 승인하거나 반려합니다.
@@ -51,7 +53,7 @@ public class AdoptionShelterService {
         // currentStep.setApprover(loggedInUser);
         adoptionStepInstanceRepository.save(currentStep);
 
-        // 다음 단계가 있는지 확인하고 활성화
+        // Find next step and activate it
         activateNextStep(currentStep);
     }
 
@@ -81,7 +83,34 @@ public class AdoptionShelterService {
         } else {
             // 마지막 단계였을 경우, 전체 입양 프로세스를 완료 상태로 변경
             adoption.setProcessStatus(AdoptionProcessStatus.COMPLETED);
-            // adoptionRepository.save(adoption)은 cascade 설정에 따라 필요 없을 수 있음
+            adoptionRepository.save(adoption); // Explicitly save the adoption
         }
+    }
+
+    /**
+     * 보호소 관리자가 입양 프로세스를 수동으로 완료시킵니다.
+     * @param adoptionId 완료할 입양 프로세스 ID
+     */
+    public void completeAdoptionProcess(Long adoptionId) {
+        Adoption adoption = adoptionRepository.findById(adoptionId)
+                .orElseThrow(() -> new IllegalArgumentException("Adoption not found with ID: " + adoptionId));
+
+        if (adoption.getProcessStatus() == AdoptionProcessStatus.COMPLETED || adoption.getProcessStatus() == AdoptionProcessStatus.CANCELLED) {
+            throw new IllegalStateException("이미 완료되었거나 취소된 입양 프로세스입니다.");
+        }
+
+        // TODO: 현재 로그인된 보호소 관리자가 이 입양 건을 처리할 권한이 있는지 확인하는 로직 추가 필요
+
+        adoption.setProcessStatus(AdoptionProcessStatus.COMPLETED);
+
+        // 아직 완료되지 않은 모든 하위 단계들도 COMPLETED 처리
+        adoption.getSteps().forEach(step -> {
+            if (step.getStatus() != AdoptionStepStatus.COMPLETED) {
+                step.setStatus(AdoptionStepStatus.COMPLETED);
+                step.setCompletedAt(LocalDateTime.now());
+            }
+        });
+        
+        adoptionRepository.save(adoption);
     }
 }

@@ -103,45 +103,4 @@ public class AdoptionEducationCertService {
 
         return mapAdoptionEducationCertToResponse(educationCert);
     }
-
-    /**
-     * 관리자가 입양 교육 수료증을 인증하거나 반려합니다.
-     *
-     * @param adoptionId 입양 프로세스 ID
-     * @param isVerified 인증 여부 (true: 인증, false: 반려)
-     */
-    public void verifyEducationCertificate(Long adoptionId, Boolean isVerified) {
-        Adoption adoption = adoptionRepository.findById(adoptionId)
-                .orElseThrow(() -> new IllegalArgumentException("Adoption not found with ID: " + adoptionId));
-
-        AdoptionStepInstance educationCertStep = adoptionStepInstanceRepository
-                .findByAdoptionIdAndStepDefStepName(adoptionId, "교육 수료증 제출")
-                .orElseThrow(() -> new IllegalArgumentException("교육 수료증 제출 단계를 찾을 수 없습니다."));
-
-        if (educationCertStep.getStatus() != AdoptionStepStatus.SUBMITTED &&
-            educationCertStep.getStatus() != AdoptionStepStatus.REJECTED) { // 제출된 상태이거나 반려된 상태에서만 인증/반려 가능
-            throw new IllegalStateException("교육 수료증 제출 단계가 현재 '제출 완료' 또는 '반려' 상태가 아닙니다.");
-        }
-
-        if (isVerified) {
-            educationCertStep.setStatus(AdoptionStepStatus.COMPLETED);
-            educationCertStep.setCompletedAt(LocalDateTime.now());
-            // TODO: 다음 단계 활성화 로직 필요
-        } else {
-            educationCertStep.setStatus(AdoptionStepStatus.REJECTED);
-            // TODO: 반려 사유 저장 로직 필요
-        }
-        adoptionStepInstanceRepository.save(educationCertStep);
-    }
-
-    private AdoptionEducationCertResponse mapAdoptionEducationCertToResponse(AdoptionEducationCert educationCert) {
-        AdoptionEducationCertResponse response = new AdoptionEducationCertResponse();
-        response.setId(educationCert.getId());
-        response.setStepInstanceId(educationCert.getStepInstance().getId());
-        response.setEducationInstitution(educationCert.getEducationInstitution());
-        response.setCertificateNumber(educationCert.getCertificateNumber());
-        response.setCompletionDate(educationCert.getCompletionDate());
-        response.setCertificateFileUrl(educationCert.getCertificateFileUrl());
-        return response;
-    }
 }

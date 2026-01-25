@@ -1,7 +1,8 @@
 plugins {
     id 'java'
-    id 'org.springframework.boot' version '3.3.1'
-    id 'io.spring.dependency-management' version '1.1.5'
+    id 'org.springframework.boot' version '3.4.1'
+    id 'io.spring.dependency-management' version '1.1.7'
+    id 'org.jetbrains.kotlin.jvm'
 }
 
 group = 'com.example'
@@ -30,7 +31,7 @@ dependencies {
     implementation 'org.springframework.boot:spring-boot-starter-security'
     implementation 'org.springframework.boot:spring-boot-starter-validation'
 
-    implementation 'org.springdoc:springdoc-openapi-starter-webmvc-ui:2.8.14'
+    implementation 'org.springdoc:springdoc-openapi-starter-webmvc-ui:2.8.5'
 
     implementation 'com.h2database:h2'
     runtimeOnly 'com.mysql:mysql-connector-j'
@@ -51,6 +52,7 @@ dependencies {
     implementation 'io.github.cdimascio:dotenv-java:3.0.0'
     implementation 'org.springframework.boot:spring-boot-starter-data-redis'
     implementation 'io.openvidu:openvidu-java-client:2.29.0'
+    implementation "org.jetbrains.kotlin:kotlin-stdlib-jdk8"
 
 }
 

@@ -11,6 +11,7 @@ import com.example.backend.security.jwt.JwtTokenProvider;
 import com.example.backend.security.jwt.RefreshTokenRedisService;
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -25,6 +26,11 @@ public class AuthService {
     private final PasswordEncoder passwordEncoder;
     private final JwtTokenProvider jwtTokenProvider;
     private final RefreshTokenRedisService refreshTokenRedisService;
+
+    private final PasswordResetTokenRedisService passwordResetTokenRedisService;
+
+    @Value("${app.front-reset-password-url:http://localhost:3000/reset-password}")
+    private String frontResetPasswordUrl;
 
     public void signUp(SignUpRequest request) {
         validateUsernameAvailable(request.getUsername());
@@ -135,5 +141,60 @@ public class AuthService {
             this.accessToken = accessToken;
             this.refreshToken = refreshToken;
         }
+    }
+
+    public String findUsernameByEmail(String email) {
+        if (email == null || email.isBlank()) {
+            throw ApiException.badRequest("email은 필수입니다.");
+        }
+
+        User user = userRepository.findByEmail(email)
+                .orElseThrow(() -> ApiException.notFound("일치하는 회원 없음"));
+
+        if (user.getUsername() == null || user.getUsername().isBlank()) {
+            throw ApiException.badRequest("소셜 로그인 계정입니다.");
+        }
+
+        return user.getUsername();
+    }
+
+    public void requestPasswordReset(String username, String email) {
+        if (username == null || username.isBlank()) throw ApiException.badRequest("username은 필수입니다.");
+        if (email == null || email.isBlank()) throw ApiException.badRequest("email은 필수입니다.");
+
+        User user = userRepository.findByUsername(username)
+                .orElseThrow(() -> ApiException.notFound("일치하는 회원 없음"));
+
+        if (user.getPassword() == null || user.getPassword().isBlank()) {
+            throw ApiException.badRequest("소셜 로그인 계정입니다.");
+        }
+
+        if (!email.equals(user.getEmail())) {
+            throw ApiException.notFound("일치하는 회원 없음");
+        }
+
+        String token = passwordResetTokenRedisService.createToken(user.getUserId());
+
+        String link = frontResetPasswordUrl + "?token=" + token;
+        System.out.println("[PASSWORD RESET] to=" + email + ", link=" + link);
+    }
+
+    @Transactional
+    public void confirmPasswordReset(String token, String newPassword) {
+        if (token == null || token.isBlank()) throw ApiException.badRequest("token은 필수입니다.");
+        if (newPassword == null || newPassword.isBlank()) throw ApiException.badRequest("newPassword는 필수입니다.");
+
+        Long userId = passwordResetTokenRedisService.getUserId(token);
+        if (userId == null) {
+            throw ApiException.notFound("유효하지 않거나 만료된 토큰입니다.");
+        }
+
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> ApiException.notFound("회원 없음"));
+
+        user.setPassword(passwordEncoder.encode(newPassword));
+        userRepository.save(user);
+
+        passwordResetTokenRedisService.delete(token);
     }
 }

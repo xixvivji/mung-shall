@@ -7,6 +7,10 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import javax.net.ssl.HttpsURLConnection;
+import javax.net.ssl.SSLContext;
+import javax.net.ssl.TrustManager;
+import javax.net.ssl.X509TrustManager;
 import java.util.Map;
 
 @RestController
@@ -24,7 +28,33 @@ public class OpenViduController {
 
     @PostConstruct
     public void init() {
-        // application.properties에서 가져온 URL과 Secret으로 오픈비두 객체 초기화
+
+        System.setProperty("jdk.internal.httpclient.disableHostnameVerification", "true");
+
+        try {
+            TrustManager[] trustAllCerts = new TrustManager[]{
+                    new X509TrustManager() {
+                        public java.security.cert.X509Certificate[] getAcceptedIssuers() { return null; }
+                        public void checkClientTrusted(java.security.cert.X509Certificate[] certs, String authType) { }
+                        public void checkServerTrusted(java.security.cert.X509Certificate[] certs, String authType) { }
+                    }
+            };
+
+            SSLContext sc = SSLContext.getInstance("TLSv1.2");
+            sc.init(null, trustAllCerts, new java.security.SecureRandom());
+
+            SSLContext.setDefault(sc);
+
+            HttpsURLConnection.setDefaultSSLSocketFactory(sc.getSocketFactory());
+            HttpsURLConnection.setDefaultHostnameVerifier((hostname, session) -> true);
+
+            System.out.println(" OpenVidu용 SSL(TLS1.2) 및 호스트 검증 해제 완료!");
+
+        } catch (Exception e) {
+            System.err.println(" SSL 설정 실패: " + e.getMessage());
+        }
+
+        // 오픈비두 객체 생성
         this.openVidu = new OpenVidu(OPENVIDU_URL, OPENVIDU_SECRET);
     }
 

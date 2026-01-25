@@ -4,6 +4,7 @@ import com.example.backend.api.postadoption.dto.PostAdoptionCreateRequest;
 import com.example.backend.api.postadoption.dto.PostAdoptionResponse;
 import com.example.backend.api.postadoption.dto.PostAdoptionStepResponse;
 import com.example.backend.domain.postadoption.PostAdoption;
+import com.example.backend.domain.postadoption.PostAdoptionStepInstance;
 import com.example.backend.service.postadoption.PostAdoptionService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;

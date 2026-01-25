@@ -15,6 +15,8 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.Map;
+
 @Tag(name = "입양 신청서 API", description = "입양 신청서 관련 API")
 @RestController
 @RequiredArgsConstructor
@@ -49,5 +51,17 @@ public class AdoptionApplicationController {
             @Parameter(description = "입양 프로세스 ID") @PathVariable Long adoptionId) {
         AdoptionApplicationResponse response = adoptionApplicationService.getAdoptionApplication(adoptionId);
         return ResponseEntity.ok(response);
+    }
+
+    @Operation(summary = "입양 신청서 삭제", description = "제출했던 입양 신청서 내용을 삭제하고 단계를 다시 작성할 수 있도록 초기화합니다.")
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "200", description = "신청서 삭제 성공"),
+            @ApiResponse(responseCode = "404", description = "해당 입양 프로세스를 찾을 수 없음")
+    })
+    @DeleteMapping
+    public ResponseEntity<?> deleteAdoptionApplication(
+            @Parameter(description = "입양 프로세스 ID") @PathVariable Long adoptionId) {
+        adoptionApplicationService.deleteAdoptionApplication(adoptionId);
+        return ResponseEntity.ok(Map.of("message", "입양 신청서가 성공적으로 삭제되었습니다."));
     }
 }

@@ -1,4 +1,4 @@
-package com.example.backend.service.adoption;
+package com.example.backend.service.shelter;
 
 import com.example.backend.domain.adoption.Adoption;
 import com.example.backend.domain.adoption.AdoptionStepInstance;

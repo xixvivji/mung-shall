@@ -103,4 +103,56 @@ public class AdoptionEducationCertService {
 
         return mapAdoptionEducationCertToResponse(educationCert);
     }
+
+    /**
+     * 제출된 교육 수료증을 삭제하고 단계를 초기 상태로 되돌립니다.
+     *
+     * @param adoptionId 입양 프로세스 ID
+     */
+    public void deleteEducationCertificate(Long adoptionId) {
+        AdoptionStepInstance educationCertStep = adoptionStepInstanceRepository
+                .findByAdoptionIdAndStepDefStepName(adoptionId, "교육 수료증 제출")
+                .orElseThrow(() -> new IllegalArgumentException("교육 수료증 제출 단계를 찾을 수 없습니다."));
+
+        if (educationCertStep.getStatus() == AdoptionStepStatus.PENDING || educationCertStep.getStatus() == AdoptionStepStatus.NOT_STARTED) {
+            return; // 삭제할 내용이 없음
+        }
+
+        if (educationCertStep.getStatus() == AdoptionStepStatus.COMPLETED) {
+            throw new IllegalStateException("이미 승인 완료된 수료증은 삭제할 수 없습니다.");
+        }
+
+        AdoptionEducationCert educationCert = adoptionEducationCertRepository.findByStepInstanceId(educationCertStep.getId())
+                .orElse(null);
+
+        if (educationCert != null) {
+            // 물리적 파일 삭제
+            try {
+                if (educationCert.getCertificateFileUrl() != null && !educationCert.getCertificateFileUrl().isEmpty()) {
+                    fileStorageService.deleteFile(educationCert.getCertificateFileUrl(), "education-certs");
+                }
+            } catch (IOException e) {
+                throw new RuntimeException("Failed to delete certificate file: " + educationCert.getCertificateFileUrl(), e);
+            }
+            // DB에서 엔티티 삭제
+            adoptionEducationCertRepository.delete(educationCert);
+        }
+
+        // 단계 상태 리셋
+        educationCertStep.setStatus(AdoptionStepStatus.PENDING);
+        educationCertStep.setSubmittedAt(null);
+        educationCertStep.setRejectionReason(null);
+        adoptionStepInstanceRepository.save(educationCertStep);
+    }
+
+    private AdoptionEducationCertResponse mapAdoptionEducationCertToResponse(AdoptionEducationCert educationCert) {
+        AdoptionEducationCertResponse response = new AdoptionEducationCertResponse();
+        response.setId(educationCert.getId());
+        response.setStepInstanceId(educationCert.getStepInstance().getId());
+        response.setEducationInstitution(educationCert.getEducationInstitution());
+        response.setCertificateNumber(educationCert.getCertificateNumber());
+        response.setCompletionDate(educationCert.getCompletionDate());
+        response.setCertificateFileUrl(educationCert.getCertificateFileUrl());
+        return response;
+    }
 }

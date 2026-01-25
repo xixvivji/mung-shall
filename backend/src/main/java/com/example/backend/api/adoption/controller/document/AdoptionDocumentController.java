@@ -1,9 +1,12 @@
 package com.example.backend.api.adoption.controller.document;
 
+import com.example.backend.api.adoption.dto.document.UploadedDocumentResponse;
 import com.example.backend.domain.adoption.enums.DocumentType;
 import com.example.backend.service.adoption.AdoptionDocumentService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
+import io.swagger.v3.oas.annotations.media.Content;
+import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -38,5 +41,31 @@ public class AdoptionDocumentController {
     ) {
         adoptionDocumentService.uploadAdoptionDocuments(adoptionId, documentTypes, files);
         return ResponseEntity.ok("Documents uploaded successfully.");
+    }
+
+    @Operation(summary = "업로드된 입양 문서 목록 조회", description = "해당 입양 프로세스에 업로드된 모든 문서의 목록을 조회합니다.")
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "200", description = "문서 목록 조회 성공"),
+            @ApiResponse(responseCode = "404", description = "해당 입양 프로세스를 찾을 수 없음")
+    })
+    @GetMapping
+    public ResponseEntity<List<UploadedDocumentResponse>> getUploadedDocuments(
+            @Parameter(description = "입양 프로세스 ID") @PathVariable Long adoptionId) {
+        List<UploadedDocumentResponse> documents = adoptionDocumentService.getUploadedDocuments(adoptionId);
+        return ResponseEntity.ok(documents);
+    }
+
+    @Operation(summary = "업로드된 입양 문서 삭제", description = "특정 문서를 삭제합니다.")
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "200", description = "문서 삭제 성공"),
+            @ApiResponse(responseCode = "404", description = "해당 문서나 입양 프로세스를 찾을 수 없음"),
+            @ApiResponse(responseCode = "403", description = "문서를 삭제할 권한이 없음")
+    })
+    @DeleteMapping("/{documentId}")
+    public ResponseEntity<?> deleteUploadedDocument(
+            @Parameter(description = "입양 프로세스 ID") @PathVariable Long adoptionId,
+            @Parameter(description = "삭제할 문서 ID") @PathVariable Long documentId) {
+        adoptionDocumentService.deleteUploadedDocument(adoptionId, documentId);
+        return ResponseEntity.ok(Map.of("message", "문서가 성공적으로 삭제되었습니다."));
     }
 }

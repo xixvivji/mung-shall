@@ -1,7 +1,7 @@
 package com.example.backend.api.shelter.controller;
 
 import com.example.backend.api.adoption.dto.StepVerificationRequest;
-import com.example.backend.service.adoption.AdoptionShelterService;
+import com.example.backend.service.shelter.AdoptionShelterService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;

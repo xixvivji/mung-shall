@@ -59,4 +59,16 @@ public class AdoptionEducationCertController {
         AdoptionEducationCertResponse response = adoptionEducationCertService.getEducationCertificate(adoptionId);
         return ResponseEntity.ok(response);
     }
+
+    @Operation(summary = "교육 수료증 삭제", description = "제출했던 교육 수료증을 삭제하고 단계를 다시 제출할 수 있도록 초기화합니다.")
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "200", description = "수료증 삭제 성공"),
+            @ApiResponse(responseCode = "404", description = "해당 입양 프로세스를 찾을 수 없음")
+    })
+    @DeleteMapping
+    public ResponseEntity<?> deleteEducationCertificate(
+            @Parameter(description = "입양 프로세스 ID") @PathVariable Long adoptionId) {
+        adoptionEducationCertService.deleteEducationCertificate(adoptionId);
+        return ResponseEntity.ok(Map.of("message", "교육 수료증이 성공적으로 삭제되었습니다."));
+    }
 }

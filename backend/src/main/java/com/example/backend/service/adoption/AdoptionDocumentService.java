@@ -1,5 +1,6 @@
 package com.example.backend.service.adoption;
 
+import com.example.backend.api.adoption.dto.document.UploadedDocumentResponse;
 import com.example.backend.common.file.FileStorageService;
 import com.example.backend.domain.adoption.Adoption;
 import com.example.backend.domain.adoption.AdoptionStepInstance;
@@ -20,6 +21,7 @@ import java.io.IOException;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -103,5 +105,54 @@ public class AdoptionDocumentService {
         documentStepInstance.setStatus(AdoptionStepStatus.SUBMITTED); // 제출 완료 상태로 변경
         documentStepInstance.setSubmittedAt(LocalDateTime.now());
         adoptionStepInstanceRepository.save(documentStepInstance);
+    }
+
+    /**
+     * 특정 입양 프로세스에 업로드된 모든 문서를 조회합니다.
+     *
+     * @param adoptionId 입양 프로세스 ID
+     * @return 업로드된 문서 정보 DTO 목록
+     */
+    @Transactional(readOnly = true)
+    public List<UploadedDocumentResponse> getUploadedDocuments(Long adoptionId) {
+        // '문서 제출' 단계 인스턴스 찾기
+        AdoptionStepInstance documentStepInstance = adoptionStepInstanceRepository
+                .findByAdoptionIdAndStepDefStepName(adoptionId, "문서 제출")
+                .orElseThrow(() -> new IllegalArgumentException("문서 제출 단계를 찾을 수 없습니다."));
+
+        // AdoptionDocument (단계 데이터) 조회
+        AdoptionDocument adoptionDocumentStep = adoptionDocumentRepository.findByStepInstanceId(documentStepInstance.getId())
+                .orElseThrow(() -> new IllegalStateException("문서 제출 데이터가 존재하지 않습니다."));
+
+        return adoptionDocumentStep.getUploadedDocuments().stream()
+                .map(UploadedDocumentResponse::fromEntity)
+                .collect(Collectors.toList());
+    }
+
+    /**
+     * 업로드된 특정 문서를 삭제합니다.
+     *
+     * @param adoptionId 입양 프로세스 ID (권한 확인용)
+     * @param documentId 삭제할 문서의 ID
+     */
+    public void deleteUploadedDocument(Long adoptionId, Long documentId) {
+        UploadedDocument document = uploadedDocumentRepository.findById(documentId)
+                .orElseThrow(() -> new IllegalArgumentException("Document not found with ID: " + documentId));
+
+        // 해당 입양 프로세스에 속한 문서가 맞는지 확인
+        if (!document.getAdoptionDocument().getStepInstance().getAdoption().getId().equals(adoptionId)) {
+            throw new SecurityException("User does not have permission to delete this document.");
+        }
+
+        try {
+            // 물리적 파일 삭제
+            fileStorageService.deleteFile(document.getFilePath(), "adoption-documents");
+        } catch (IOException e) {
+            // 파일이 없어도 그냥 진행하고 DB만 삭제하도록 할 수 있음. 일단은 예외 던지기.
+            throw new RuntimeException("Failed to delete physical file: " + document.getFilePath(), e);
+        }
+
+        // 데이터베이스에서 문서 정보 삭제
+        uploadedDocumentRepository.delete(document);
     }
 }

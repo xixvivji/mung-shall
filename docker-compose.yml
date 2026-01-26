@@ -47,7 +47,7 @@ services:
       - NAVER_CLIENT_ID=${NAVER_CLIENT_ID}
       - NAVER_CLIENT_SECRET=${NAVER_CLIENT_SECRET}
 
-      - DOMAIN_URL=http://13.125.3.38:8080
+      - DOMAIN_URL=${DOMAIN_URL}
 
       - FRONT_OAUTH_REDIRECT_URL=http://13.125.3.38/oauth/callback
       - FRONT_RESET_PASSWORD_URL=http://13.125.3.38/reset-password

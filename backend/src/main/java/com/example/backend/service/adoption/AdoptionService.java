@@ -1,5 +1,6 @@
 package com.example.backend.service.adoption;
 
+import com.example.backend.api.adoption.dto.AdoptionDetailResponse;
 import com.example.backend.domain.adoption.Adoption;
 import com.example.backend.domain.adoption.enums.AdoptionProcessStatus;
 import com.example.backend.domain.adoption.AdoptionStepDef;
@@ -8,13 +9,10 @@ import com.example.backend.domain.adoption.enums.AdoptionStepStatus;
 import com.example.backend.domain.dog.AbandonedDog;
 import com.example.backend.domain.user.User;
 import com.example.backend.repository.AbandonedDogRepository;
-import com.example.backend.repository.AdoptionRepository;
+import com.example.backend.repository.adoption.AdoptionRepository;
 import com.example.backend.repository.adoption.step.AdoptionStepDefRepository;
 import com.example.backend.repository.adoption.step.AdoptionStepInstanceRepository;
 import com.example.backend.repository.UserRepository;
-import com.example.backend.service.adoption.AdoptionApplicationService;
-import com.example.backend.service.adoption.AdoptionDocumentService;
-import com.example.backend.service.adoption.AdoptionEducationCertService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -32,10 +30,6 @@ public class AdoptionService {
     private final UserRepository userRepository;
     private final AbandonedDogRepository abandonedDogRepository;
 
-    // Inject new specialized services
-    private final AdoptionApplicationService adoptionApplicationService;
-    private final AdoptionEducationCertService adoptionEducationCertService;
-    private final AdoptionDocumentService adoptionDocumentService;
 
     /**
      * 초기 입양 프로세스를 생성합니다.
@@ -47,20 +41,20 @@ public class AdoptionService {
      * @return 생성된 Adoption의 ID
      */
     public Long createAdoptionProcess(Long userId, Long abandonedDogId) {
-        User user = userRepository.findById(userId)
+        User user = userRepository.findById(userId) // findById 정의 안되어 있음
                 .orElseThrow(() -> new IllegalArgumentException("User not found with ID: " + userId));
         AbandonedDog dog = abandonedDogRepository.findById(abandonedDogId)
                 .orElseThrow(() -> new IllegalArgumentException("AbandonedDog not found with ID: " + abandonedDogId));
 
         // 이미 해당 유저-강아지 조합으로 입양 신청이 있는지 확인
-        if (adoptionRepository.findByUserUserIdAndAbandonedDogId(userId, abandonedDogId).isPresent()) {
+        if (adoptionRepository.findByUserAndAbandonedDog(user, dog).isPresent()) {
             throw new IllegalArgumentException("이미 해당 유기견에 대한 입양 신청 프로세스가 존재합니다.");
         }
 
         Adoption adoption = new Adoption();
         adoption.setUser(user);
         adoption.setAbandonedDog(dog);
-        adoption.setProcessStatus(AdoptionProcessStatus.PENDING); // 초기 상태는 PENDING
+        adoption.setProcessStatus(AdoptionProcessStatus.IN_PROGRESS);
         adoptionRepository.save(adoption);
 
         // 모든 StepDef를 가져와 StepInstance 생성
@@ -102,7 +96,7 @@ public class AdoptionService {
                 .orElseThrow(() -> new IllegalArgumentException("Adoption not found with ID: " + adoptionId));
 
         if (adoption.getProcessStatus() == AdoptionProcessStatus.COMPLETED ||
-            adoption.getProcessStatus() == AdoptionProcessStatus.CANCELLED) {
+                adoption.getProcessStatus() == AdoptionProcessStatus.CANCELLED) {
             throw new IllegalStateException("이미 완료되었거나 취소된 입양 프로세스는 취소할 수 없습니다.");
         }
 
@@ -117,5 +111,24 @@ public class AdoptionService {
                 adoptionStepInstanceRepository.save(stepInstance);
             }
         }
+    }
+
+    /**
+     * 입양 상세 정보를 조회합니다.
+     *
+     * @param adoptionId 조회할 입양 프로세스 ID
+     * @return 입양 상세 정보 DTO
+     */
+    public AdoptionDetailResponse getAdoptionDetail(Long adoptionId) {
+        Adoption adoption = adoptionRepository.findById(adoptionId)
+                .orElseThrow(() -> new IllegalArgumentException("Adoption not found with ID: " + adoptionId));
+
+        return AdoptionDetailResponse.builder()
+                .id(adoption.getId())
+                .userId(adoption.getUser().getUserId())
+                .userName(adoption.getUser().getName())
+                .dogId(adoption.getAbandonedDog().getId())
+                .processStatus(adoption.getProcessStatus())
+                .build();
     }
 }

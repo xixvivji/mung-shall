@@ -22,14 +22,13 @@ import com.example.backend.domain.adoption.embed.EmergencyContactInfo;
 import com.example.backend.domain.adoption.embed.PastPetExperience;
 import com.example.backend.domain.adoption.step_data.application.AdoptionApplication;
 import com.example.backend.repository.adoption.application.AdoptionApplicationRepository;
-import com.example.backend.repository.AdoptionRepository;
+import com.example.backend.repository.adoption.AdoptionRepository;
 import com.example.backend.repository.adoption.step.AdoptionStepInstanceRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
-import java.util.List;
 import java.util.stream.Collectors;
 
 @Service
@@ -117,7 +116,7 @@ public class AdoptionApplicationService {
         if (applicationStep.getStatus() == AdoptionStepStatus.PENDING || applicationStep.getStatus() == AdoptionStepStatus.NOT_STARTED) {
             return; // 이미 비어있는 상태이므로 아무것도 하지 않음
         }
-        
+
         // 관리자에 의해 완료된 상태라면 사용자가 임의로 삭제할 수 없음
         if (applicationStep.getStatus() == AdoptionStepStatus.COMPLETED) {
             throw new IllegalStateException("이미 승인 완료된 신청서는 삭제할 수 없습니다.");
@@ -155,9 +154,9 @@ public class AdoptionApplicationService {
         if (request.getEmergencyContacts() != null) {
             application.getEmergencyContacts().clear();
             application.getEmergencyContacts().addAll(
-                request.getEmergencyContacts().stream()
-                       .map(AdoptionApplicationService::mapEmergencyContactRequestToEmbeddable)
-                       .collect(Collectors.toList())
+                    request.getEmergencyContacts().stream()
+                            .map(AdoptionApplicationService::mapEmergencyContactRequestToEmbeddable)
+                            .collect(Collectors.toList())
             );
         }
 
@@ -173,21 +172,21 @@ public class AdoptionApplicationService {
         if (request.getCohabitantDetails() != null) {
             application.getCohabitantDetails().clear();
             application.getCohabitantDetails().addAll(
-                request.getCohabitantDetails().stream()
-                       .map(AdoptionApplicationService::mapCohabitantDetailRequestToEmbeddable)
-                       .collect(Collectors.toList())
+                    request.getCohabitantDetails().stream()
+                            .map(AdoptionApplicationService::mapCohabitantDetailRequestToEmbeddable)
+                            .collect(Collectors.toList())
             );
         }
-        
+
 
         // Current Pets
         application.setHasCurrentPets(request.getHasCurrentPets());
         if (request.getCurrentPetDetails() != null) {
             application.getCurrentPetDetails().clear();
             application.getCurrentPetDetails().addAll(
-                request.getCurrentPetDetails().stream()
-                       .map(AdoptionApplicationService::mapCurrentPetDetailRequestToEmbeddable)
-                       .collect(Collectors.toList())
+                    request.getCurrentPetDetails().stream()
+                            .map(AdoptionApplicationService::mapCurrentPetDetailRequestToEmbeddable)
+                            .collect(Collectors.toList())
             );
         }
 
@@ -196,9 +195,9 @@ public class AdoptionApplicationService {
         if (request.getPastPetExperiences() != null) {
             application.getPastPetExperiences().clear();
             application.getPastPetExperiences().addAll(
-                request.getPastPetExperiences().stream()
-                       .map(AdoptionApplicationService::mapPastPetExperienceRequestToEmbeddable)
-                       .collect(Collectors.toList())
+                    request.getPastPetExperiences().stream()
+                            .map(AdoptionApplicationService::mapPastPetExperienceRequestToEmbeddable)
+                            .collect(Collectors.toList())
             );
         }
 
@@ -256,9 +255,9 @@ public class AdoptionApplicationService {
         // Family Contacts
         if (application.getEmergencyContacts() != null) {
             response.setEmergencyContacts(
-                application.getEmergencyContacts().stream()
-                           .map(AdoptionApplicationService::mapEmergencyContactEmbeddableToResponse)
-                           .collect(Collectors.toList())
+                    application.getEmergencyContacts().stream()
+                            .map(AdoptionApplicationService::mapEmergencyContactEmbeddableToResponse)
+                            .collect(Collectors.toList())
             );
         }
 
@@ -273,20 +272,20 @@ public class AdoptionApplicationService {
         }
         if (application.getCohabitantDetails() != null) {
             response.setCohabitantDetails(
-                application.getCohabitantDetails().stream()
-                           .map(AdoptionApplicationService::mapCohabitantDetailEmbeddableToResponse)
-                           .collect(Collectors.toList())
+                    application.getCohabitantDetails().stream()
+                            .map(AdoptionApplicationService::mapCohabitantDetailEmbeddableToResponse)
+                            .collect(Collectors.toList())
             );
         }
-        
+
 
         // Current Pets
         response.setHasCurrentPets(application.getHasCurrentPets());
         if (application.getCurrentPetDetails() != null) {
             response.setCurrentPetDetails(
-                application.getCurrentPetDetails().stream()
-                           .map(AdoptionApplicationService::mapCurrentPetDetailEmbeddableToResponse)
-                           .collect(Collectors.toList())
+                    application.getCurrentPetDetails().stream()
+                            .map(AdoptionApplicationService::mapCurrentPetDetailEmbeddableToResponse)
+                            .collect(Collectors.toList())
             );
         }
 
@@ -294,9 +293,9 @@ public class AdoptionApplicationService {
         response.setHasPastPetExperience(application.getHasPastPetExperience());
         if (application.getPastPetExperiences() != null) {
             response.setPastPetExperiences(
-                application.getPastPetExperiences().stream()
-                           .map(AdoptionApplicationService::mapPastPetExperienceEmbeddableToResponse)
-                           .collect(Collectors.toList())
+                    application.getPastPetExperiences().stream()
+                            .map(AdoptionApplicationService::mapPastPetExperienceEmbeddableToResponse)
+                            .collect(Collectors.toList())
             );
         }
 

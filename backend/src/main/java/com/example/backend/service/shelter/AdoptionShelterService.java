@@ -4,7 +4,7 @@ import com.example.backend.domain.adoption.Adoption;
 import com.example.backend.domain.adoption.AdoptionStepInstance;
 import com.example.backend.domain.adoption.enums.AdoptionProcessStatus;
 import com.example.backend.domain.adoption.enums.AdoptionStepStatus;
-import com.example.backend.repository.AdoptionRepository;
+import com.example.backend.repository.adoption.AdoptionRepository;
 import com.example.backend.repository.adoption.step.AdoptionStepInstanceRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -110,7 +110,7 @@ public class AdoptionShelterService {
                 step.setCompletedAt(LocalDateTime.now());
             }
         });
-        
+
         adoptionRepository.save(adoption);
     }
 }

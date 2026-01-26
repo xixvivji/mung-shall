@@ -41,7 +41,6 @@ public class SecurityConfig {
 
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers(
-                                "/h2-console/**",
                                 "/favicon.ico",
                                 "/swagger-ui.html",
                                 "/swagger-ui/**",

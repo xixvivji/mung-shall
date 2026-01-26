@@ -98,7 +98,7 @@ function Login() {
         className="absolute left-[905px] top-[306px] text-[40px] font-medium leading-[64px] text-[#3182f6]
                   font-['Noto_Sans_KR','Noto Sans KR',sans-serif] whitespace-nowrap break-keep"
       >
-        로그인
+        Login
       </p>
 
       <input

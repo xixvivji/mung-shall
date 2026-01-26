@@ -1,4 +1,4 @@
-import { NavLink } from "react-router-dom";
+import { NavLink, Link } from "react-router-dom";
 import logo from "@/assets/images/Logo.png";
 import { ROUTES } from "@/shared/constants/routes";
 
@@ -18,13 +18,13 @@ export default function Header() {
         {/* responsive container */}
         <div className="mx-auto flex h-[102px] w-full max-w-[1440px] items-center justify-between px-6">
           {/* Logo */}
-          <div className="flex items-center">
+          <Link to={ROUTES.home} className="flex items-center">
             <img
               alt="Mungshall logo"
               className="h-[46px] w-auto object-contain"
               src={logo}
             />
-          </div>
+          </Link>
 
           {/* Nav */}
           <nav aria-label="Primary" className="flex items-center gap-10">

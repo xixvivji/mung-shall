@@ -1,0 +1,15 @@
+package com.example.backend.api.adoption.dto;
+
+import com.example.backend.domain.adoption.enums.AdoptionProcessStatus;
+import lombok.Builder;
+import lombok.Getter;
+
+@Getter
+@Builder
+public class AdoptionDetailResponse {
+    private Long id;
+    private Long userId;
+    private String userName;
+    private Long dogId;
+    private AdoptionProcessStatus processStatus;
+}

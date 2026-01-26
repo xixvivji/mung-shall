@@ -7,7 +7,7 @@ import com.example.backend.domain.adoption.AdoptionStepInstance;
 import com.example.backend.domain.adoption.enums.AdoptionStepStatus;
 import com.example.backend.domain.adoption.step_data.educationcert.AdoptionEducationCert;
 import com.example.backend.repository.adoption.educationcert.AdoptionEducationCertRepository;
-import com.example.backend.repository.AdoptionRepository;
+import com.example.backend.repository.adoption.AdoptionRepository;
 import com.example.backend.repository.adoption.step.AdoptionStepInstanceRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;

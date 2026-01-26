@@ -44,7 +44,11 @@ services:
       - NAVER_CLIENT_ID=${NAVER_CLIENT_ID}
       - NAVER_CLIENT_SECRET=${NAVER_CLIENT_SECRET}
 
-      - FRONT_OAUTH_REDIRECT_URL=${FRONT_OAUTH_REDIRECT_URL}
+      - DOMAIN_URL=http://13.125.3.38:8080
+
+      - FRONT_OAUTH_REDIRECT_URL=http://13.125.3.38/oauth/callback
+      - FRONT_RESET_PASSWORD_URL=http://13.125.3.38/reset-password
+
       - COOKIE_SECURE=${COOKIE_SECURE}
       - COOKIE_SAMESITE=${COOKIE_SAMESITE}
 
@@ -83,7 +87,7 @@ services:
       MYSQL_ROOT_PASSWORD: ${DB_ROOT_PASSWORD}
       MYSQL_DATABASE: mydb
     volumes:
-      - ./db_data:/var/lib/mysql
+      - mysql_data:/var/lib/mysql
     networks:
       - app-network
     command: --character-set-server=utf8mb4 --collation-server=utf8mb4_unicode_ci
@@ -94,8 +98,15 @@ services:
     image: redis:alpine
     ports:
       - "6379:6379"
+    volumes:
+      - redis_data:/data
     networks:
       - app-network
+    command: redis-server --appendonly yes
+
+volumes:
+  mysql_data:
+  redis_data:
 
 networks:
   app-network:

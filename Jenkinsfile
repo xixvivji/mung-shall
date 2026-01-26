@@ -51,7 +51,7 @@ pipeline {
                     string(credentialsId: 'NAVER_CLIENT_SECRET', variable: 'NAVER_PW')
                 ]) {
                     script {
-                        // 1. .env 파일 생성 (서버 환경에 맞게 값 조정)
+                        // 1. .env 파일 생성
                         sh """
                         # --- OpenVidu 설정 ---
                         echo "OPENVIDU_SECRET=${OV_SECRET}" > .env
@@ -93,4 +93,19 @@ pipeline {
             }
         }
     }
+
+    post {
+   success {
+           mattermostSend (
+               color: 'good',
+               message: "✅ 배포 성공!: ${env.JOB_NAME} #${env.BUILD_NUMBER} (<${env.BUILD_URL}|상세보기>)"
+           )
+       }
+       failure {
+           mattermostSend (
+               color: 'danger',
+               message: "🚨 배포 실패(확인요망): ${env.JOB_NAME} #${env.BUILD_NUMBER} (<${env.BUILD_URL}|상세보기>)"
+           )
+       }
+        }
 }

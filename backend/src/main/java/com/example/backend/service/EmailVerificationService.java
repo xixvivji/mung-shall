@@ -18,6 +18,7 @@ public class EmailVerificationService {
 
     private final EmailVerificationRepository emailVerificationRepository;
     private final UserRepository userRepository;
+    private final MailService mailService;
 
     public LocalDateTime sendCode(String email, String purpose) {
 
@@ -39,7 +40,7 @@ public class EmailVerificationService {
 
         emailVerificationRepository.save(ev);
 
-        System.out.println("[EMAIL VERIFY] email=" + email + ", code=" + code + ", expiresAt=" + ev.getExpiresAt());
+        mailService.sendVerificationCode(email, code, ev.getExpiresAt());
 
         return ev.getExpiresAt();
     }

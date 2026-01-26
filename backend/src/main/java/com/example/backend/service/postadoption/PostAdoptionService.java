@@ -6,7 +6,7 @@ import com.example.backend.domain.postadoption.PostAdoptionStepDef;
 import com.example.backend.domain.postadoption.PostAdoptionStepInstance;
 import com.example.backend.domain.postadoption.enums.PostAdoptionProcessStatus;
 import com.example.backend.domain.postadoption.enums.PostAdoptionStepStatus;
-import com.example.backend.repository.AdoptionRepository;
+import com.example.backend.repository.adoption.AdoptionRepository;
 import com.example.backend.repository.postadoption.PostAdoptionRepository;
 import com.example.backend.repository.postadoption.PostAdoptionStepDefRepository;
 import com.example.backend.repository.postadoption.PostAdoptionStepInstanceRepository;
@@ -90,7 +90,7 @@ public class PostAdoptionService {
                 .orElseThrow(() -> new IllegalArgumentException("Post-adoption process not found with ID: " + postAdoptionId));
 
         if (postAdoption.getProcessStatus() == PostAdoptionProcessStatus.COMPLETED ||
-            postAdoption.getProcessStatus() == PostAdoptionProcessStatus.CANCELLED) {
+                postAdoption.getProcessStatus() == PostAdoptionProcessStatus.CANCELLED) {
             throw new IllegalStateException("이미 완료되었거나 취소된 입양 후 프로세스는 취소할 수 없습니다.");
         }
 

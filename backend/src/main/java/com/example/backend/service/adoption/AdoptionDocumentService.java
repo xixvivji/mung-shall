@@ -9,7 +9,7 @@ import com.example.backend.domain.adoption.enums.DocumentType;
 import com.example.backend.domain.adoption.step_data.document.UploadedDocument;
 import com.example.backend.domain.adoption.step_data.document.AdoptionDocument;
 import com.example.backend.repository.adoption.document.AdoptionDocumentRepository;
-import com.example.backend.repository.AdoptionRepository;
+import com.example.backend.repository.adoption.AdoptionRepository;
 import com.example.backend.repository.adoption.step.AdoptionStepInstanceRepository;
 import com.example.backend.repository.adoption.document.UploadedDocumentRepository;
 import lombok.RequiredArgsConstructor;
@@ -84,7 +84,7 @@ public class AdoptionDocumentService {
 
             try {
                 String storedFilePath = fileStorageService.storeFile(file, "adoption-documents"); // 'uploads/adoption-documents'에 저장
-                
+
                 UploadedDocument uploadedDocument = new UploadedDocument();
                 uploadedDocument.setAdoptionDocument(adoptionDocumentStep);
                 uploadedDocument.setDocumentType(docType);

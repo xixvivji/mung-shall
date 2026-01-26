@@ -4,7 +4,7 @@ import com.example.backend.domain.adoption.Adoption;
 import com.example.backend.domain.adoption.AdoptionStepInstance;
 import com.example.backend.domain.adoption.enums.AdoptionProcessStatus;
 import com.example.backend.domain.adoption.enums.AdoptionStepStatus;
-import com.example.backend.repository.AdoptionRepository;
+import com.example.backend.repository.adoption.AdoptionRepository;
 import com.example.backend.repository.adoption.step.AdoptionStepInstanceRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -47,8 +47,8 @@ public class AdoptionShelterService {
     }
 
     private void approveStep(AdoptionStepInstance currentStep) {
-        currentStep.setStatus(AdoptionStepStatus.COMPLETED);
-        currentStep.setCompletedAt(LocalDateTime.now());
+        currentStep.setStatus(AdoptionStepStatus.APPROVED);
+        currentStep.setApprovedAt(LocalDateTime.now());
         // TODO: Set approver from security context
         // currentStep.setApprover(loggedInUser);
         adoptionStepInstanceRepository.save(currentStep);
@@ -101,16 +101,24 @@ public class AdoptionShelterService {
 
         // TODO: 현재 로그인된 보호소 관리자가 이 입양 건을 처리할 권한이 있는지 확인하는 로직 추가 필요
 
+        // 모든 단계가 정확히 APPROVED 상태인지 확인 (COMPLETED 상태는 허용하지 않음)
+        boolean allStepsApproved = adoption.getSteps().stream()
+                .allMatch(step -> step.getStatus() == AdoptionStepStatus.APPROVED);
+
+        if (!allStepsApproved) {
+            throw new IllegalStateException("모든 입양 단계가 승인(APPROVED) 상태여야 최종 완료할 수 있습니다.");
+        }
+
         adoption.setProcessStatus(AdoptionProcessStatus.COMPLETED);
 
-        // 아직 완료되지 않은 모든 하위 단계들도 COMPLETED 처리
+        // 모든 APPROVED 상태의 단계들을 COMPLETED 처리
         adoption.getSteps().forEach(step -> {
-            if (step.getStatus() != AdoptionStepStatus.COMPLETED) {
-                step.setStatus(AdoptionStepStatus.COMPLETED);
-                step.setCompletedAt(LocalDateTime.now());
-            }
+            // 모든 단계가 APPROVED임을 위에서 확인했으므로, 다시 상태 확인은 필요 없음
+            step.setStatus(AdoptionStepStatus.COMPLETED);
+            step.setCompletedAt(LocalDateTime.now());
+            adoptionStepInstanceRepository.save(step); // 변경된 stepInstance 저장
         });
-        
+
         adoptionRepository.save(adoption);
     }
 }

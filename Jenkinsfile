@@ -51,7 +51,7 @@ pipeline {
                     string(credentialsId: 'NAVER_CLIENT_SECRET', variable: 'NAVER_PW')
                 ]) {
                     script {
-                        // 1. .env 파일 생성 (서버 환경에 맞게 값 조정)
+                        // 1. .env 파일 생성
                         sh """
                         # --- OpenVidu 설정 ---
                         echo "OPENVIDU_SECRET=${OV_SECRET}" > .env

@@ -41,6 +41,7 @@ pipeline {
             }
             steps {
                 withCredentials([
+                    string(credentialsId: 'DB_ROOT_PASSWORD', variable: 'DB_PW'),
                     string(credentialsId: 'OPENVIDU_SECRET_KEY', variable: 'OV_SECRET'),
                     string(credentialsId: 'JWT_SECRET', variable: 'JWT_SECRET'),
                     string(credentialsId: 'GOOGLE_CLIENT_ID', variable: 'GOOGLE_ID'),
@@ -59,7 +60,7 @@ pipeline {
                         echo "DOMAIN_OR_PUBLIC_IP=13.125.3.38" >> .env
 
                         # --- DB 설정 ---
-                        echo "DB_ROOT_PASSWORD=root" >> .env
+                        echo "DB_ROOT_PASSWORD=${DB_PW}" >> .env
 
                         # --- JWT 설정 ---
                         echo "JWT_SECRET=${JWT_SECRET}" >> .env
@@ -80,6 +81,9 @@ pipeline {
                         echo "REDIS_PASSWORD=" >> .env
 
                         echo "FRONT_OAUTH_REDIRECT_URL=http://13.125.3.38/oauth/callback" >> .env
+
+                        echo "DOMAIN_URL=http://13.125.3.38:8080" >> .env
+                        echo "FRONT_RESET_PASSWORD_URL=http://13.125.3.38/reset-password" >> .env
                         echo "COOKIE_SECURE=false" >> .env
                         echo "COOKIE_SAMESITE=Lax" >> .env
                         """

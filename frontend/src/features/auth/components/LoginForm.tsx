@@ -24,7 +24,7 @@ function Text() {
         </Link>
         <span>{`  |  `}</span>
         <Link className="underline" to="/auth/find-id">
-          아이디 찾기
+          아이디찾기
         </Link>
         <span>{`  |  `}</span>
         <Link className="underline" to="/auth/find-pw">
@@ -70,16 +70,20 @@ function Login() {
   const { login } = useAuth();
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
-  const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   const handleLogin = async () => {
+    if (!username.trim() || !password.trim()) {
+      setError("아이디와 비밀번호를 입력해주세요.");
+      return;
+    }
     setLoading(true);
     setError(null);
     try {
-      await login({ username, password });
+      await login({ username: username.trim(), password });
     } catch (err) {
-      const message = err instanceof Error ? err.message : "Login failed";
+      const message = err instanceof Error ? err.message : "로그인 실패";
       setError(message);
     } finally {
       setLoading(false);
@@ -99,25 +103,25 @@ function Login() {
 
       <input
         className="absolute left-[905px] top-[370px] h-[36px] w-[350px] rounded-[8px] border border-[#e5e5e5] px-[12px] text-[14px] shadow-[0px_1px_2px_0px_rgba(0,0,0,0.1)] outline-none"
-        placeholder="Username"
+        placeholder="아이디"
         value={username}
         onChange={(event) => setUsername(event.target.value)}
       />
       <input
         type="password"
         className="absolute left-[905px] top-[422px] h-[36px] w-[350px] rounded-[8px] border border-[#e5e5e5] px-[12px] text-[14px] shadow-[0px_1px_2px_0px_rgba(0,0,0,0.1)] outline-none"
-        placeholder="Password"
+        placeholder="비밀번호"
         value={password}
         onChange={(event) => setPassword(event.target.value)}
       />
 
       <button
-        className="absolute left-[905px] top-[472.5px] h-[36px] w-[350px] rounded-[10px] bg-[#3182f6] px-[16px] py-[8px] text-[14px] font-medium leading-[20px] text-[#fafafa] shadow-[0px_1px_2px_0px_rgba(0,0,0,0.1)]"
+        className="absolute left-[905px] top-[472.5px] h-[36px] w-[350px] rounded-[10px] bg-[#3182f6] px-[16px] py-[8px] text-[14px] font-medium leading-[20px] text-[#fafafa] shadow-[0px_1px_2px_0px_rgba(0,0,0,0.1)] disabled:bg-[#9ab8f6]"
         type="button"
-        disabled={loading}
         onClick={handleLogin}
+        disabled={loading}
       >
-        {loading ? "Logging in..." : "Log In"}
+        {loading ? "로그인 중..." : "Log In"}
       </button>
 
       {error ? (

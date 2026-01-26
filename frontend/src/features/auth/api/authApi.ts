@@ -1,9 +1,61 @@
-import type { AuthCredentials, AuthUser } from "../types";
+import { api, setAccessToken } from "@/shared/api/client";
+import type { AuthCredentials, AuthUser, SignUpRequest } from "../types";
+
+type LoginResponse = {
+  accessToken: string;
+};
 
 export async function login(credentials: AuthCredentials): Promise<AuthUser> {
-  return {
-    id: "user-1",
-    name: "Mung User",
-    email: credentials.email,
-  };
+  const { accessToken } = await api<LoginResponse>("/auth/login", {
+    method: "POST",
+    body: JSON.stringify(credentials),
+    skipAuth: true,
+  });
+
+  setAccessToken(accessToken);
+  return fetchMe();
+}
+
+export async function fetchMe(): Promise<AuthUser> {
+  return api<AuthUser>("/members/me");
+}
+
+export async function checkUsername(username: string) {
+  const params = new URLSearchParams({ username });
+  return api<{ isAvailable: boolean }>(`/auth/check-username?${params.toString()}`, {
+    method: "GET",
+    skipAuth: true,
+  });
+}
+
+export async function checkEmail(email: string) {
+  const params = new URLSearchParams({ email });
+  return api<{ isAvailable: boolean }>(`/auth/check-email?${params.toString()}`, {
+    method: "GET",
+    skipAuth: true,
+  });
+}
+
+export async function sendEmailCode(email: string) {
+  return api<{ expireTime: string }>("/auth/email/send", {
+    method: "POST",
+    body: JSON.stringify({ email, purpose: "signup" }),
+    skipAuth: true,
+  });
+}
+
+export async function verifyEmailCode(email: string, code: string) {
+  return api<{ isVerified: boolean }>("/auth/email/verify", {
+    method: "POST",
+    body: JSON.stringify({ email, purpose: "signup", code }),
+    skipAuth: true,
+  });
+}
+
+export async function signup(payload: SignUpRequest) {
+  return api<{ message: string }>("/auth/signup", {
+    method: "POST",
+    body: JSON.stringify(payload),
+    skipAuth: true,
+  });
 }

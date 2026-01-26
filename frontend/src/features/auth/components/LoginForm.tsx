@@ -2,11 +2,12 @@ import imgImage48 from "@/assets/images/social_login_kakao.png";
 import imgImage47 from "@/assets/images/sicial_login_naver.png";
 import imgImage46 from "@/assets/images/social_login_google.png";
 import imgMungshall2 from "@/assets/images/mung.png";
+import useAuth from "@/features/auth/hooks/useAuth";
+import { useState } from "react";
 import { Link } from "react-router-dom";
 
 function Back() {
   return (
-    // ✅ 여백 제거: top-[102px] / h-[800px] 고정값 대신, 패널을 위부터 끝까지 채움
     <div className="absolute left-[720px] top-0 h-full w-[720px] bg-white" data-name="back" />
   );
 }
@@ -66,36 +67,64 @@ function Divider() {
 }
 
 function Login() {
+  const { login } = useAuth();
+  const [username, setUsername] = useState("");
+  const [password, setPassword] = useState("");
+  const [error, setError] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
+
+  const handleLogin = async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      await login({ username, password });
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Login failed";
+      setError(message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
     <div className="absolute left-0 top-0" data-name="login">
       <Back />
 
-      {/* Title */}
       <p
         className="absolute left-[905px] top-[306px] text-[40px] font-medium leading-[64px] text-[#3182f6]
                   font-['Noto_Sans_KR','Noto Sans KR',sans-serif] whitespace-nowrap break-keep"
       >
-        로그인
+        Login
       </p>
 
-      {/* Inputs */}
       <input
         className="absolute left-[905px] top-[370px] h-[36px] w-[350px] rounded-[8px] border border-[#e5e5e5] px-[12px] text-[14px] shadow-[0px_1px_2px_0px_rgba(0,0,0,0.1)] outline-none"
-        placeholder="아이디"
+        placeholder="Username"
+        value={username}
+        onChange={(event) => setUsername(event.target.value)}
       />
       <input
         type="password"
         className="absolute left-[905px] top-[422px] h-[36px] w-[350px] rounded-[8px] border border-[#e5e5e5] px-[12px] text-[14px] shadow-[0px_1px_2px_0px_rgba(0,0,0,0.1)] outline-none"
-        placeholder="비밀번호"
+        placeholder="Password"
+        value={password}
+        onChange={(event) => setPassword(event.target.value)}
       />
 
-      {/* Login button */}
       <button
         className="absolute left-[905px] top-[472.5px] h-[36px] w-[350px] rounded-[10px] bg-[#3182f6] px-[16px] py-[8px] text-[14px] font-medium leading-[20px] text-[#fafafa] shadow-[0px_1px_2px_0px_rgba(0,0,0,0.1)]"
         type="button"
+        disabled={loading}
+        onClick={handleLogin}
       >
-        Log In
+        {loading ? "Logging in..." : "Log In"}
       </button>
+
+      {error ? (
+        <p className="absolute left-[905px] top-[512px] text-[12px] text-[#d14343]">
+          {error}
+        </p>
+      ) : null}
 
       <Divider />
 
@@ -110,13 +139,10 @@ function Login() {
 
 export default function Component051Login() {
   return (
-    // ✅ 데스크탑 전용 반응형 컨테이너
     <div className="min-h-screen bg-white overflow-x-auto">
-      {/* ✅ 1440 캔버스: 창이 커져도 중앙, 작으면 가로 스크롤 */}
       <div className="relative mx-auto h-[902px] w-[1440px]" data-name="05-1_Login">
         <Login />
 
-        {/* Left mascot */}
         <div className="absolute left-[96.5px] top-[142px] h-[720px] w-[527px]" data-name="mungshall 2">
           <div className="absolute inset-0 overflow-hidden pointer-events-none">
             <img

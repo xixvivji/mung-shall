@@ -3,10 +3,18 @@ import { ActionButtons, DogGallery, DogProfile, InfoTable, useAdoptionDetail } f
 
 export default function AdoptionDetailPage() {
   const { id = "" } = useParams();
-  const { detail, loading } = useAdoptionDetail(id);
+  const { detail, loading, error } = useAdoptionDetail(id);
 
-  if (loading || !detail) {
-    return <div className="px-6 py-16 text-sm text-[#777]">상세 정보를 불러오는 중...</div>;
+  if (loading) {
+    return <div className="px-6 py-16 text-sm text-[#777]">Loading detail...</div>;
+  }
+
+  if (error) {
+    return <div className="px-6 py-16 text-sm text-[#d14343]">{error}</div>;
+  }
+
+  if (!detail) {
+    return <div className="px-6 py-16 text-sm text-[#777]">No detail found.</div>;
   }
 
   return (
@@ -17,7 +25,7 @@ export default function AdoptionDetailPage() {
           <DogProfile detail={detail} />
           <InfoTable
             rows={[
-              { label: "품종", value: detail.breed },
+              { label: "Breed", value: detail.breed },
               { label: "ID", value: detail.id },
             ]}
           />

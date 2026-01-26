@@ -1,11 +1,23 @@
+import { api } from "@/shared/api/client";
 import type { AdoptionDetail } from "../types";
 
+type DogDetailResponse = {
+  id: number;
+  kindNm?: string;
+  careNm?: string;
+  specialMark?: string;
+  popfile1?: string;
+  popfile2?: string;
+};
+
 export async function fetchAdoptionDetail(id: string): Promise<AdoptionDetail> {
+  const data = await api<DogDetailResponse>(`/dogs/${id}`);
+
   return {
-    id,
-    name: "Coco",
-    breed: "Mixed",
-    description: "사람을 좋아하고 산책을 좋아하는 친구예요.",
-    images: [],
+    id: String(data.id ?? id),
+    name: data.kindNm ?? "Unknown",
+    breed: data.kindNm ?? data.careNm ?? "Unknown",
+    description: data.specialMark ?? "",
+    images: [data.popfile1, data.popfile2].filter(Boolean) as string[],
   };
 }

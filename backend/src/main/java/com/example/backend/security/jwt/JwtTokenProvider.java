@@ -1,5 +1,6 @@
 package com.example.backend.security.jwt;
 
+import com.example.backend.domain.user.UserType;
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.JwtException;
 import io.jsonwebtoken.Jwts;
@@ -29,12 +30,12 @@ public class JwtTokenProvider {
         this.refreshExpMs = refreshExpDays * 24L * 60L * 60L * 1000L;
     }
 
-    public String createAccessToken(Long userId, String username) {
-        return createToken(userId, username, accessExpMs);
+    public String createAccessToken(Long userId, String username, UserType userType) {
+        return createToken(userId, username, userType, accessExpMs);
     }
 
-    public String createRefreshToken(Long userId, String username) {
-        return createToken(userId, username, refreshExpMs);
+    public String createRefreshToken(Long userId, String username, UserType userType) {
+        return createToken(userId, username, userType, refreshExpMs);
     }
 
     public Duration getRefreshTtl() {
@@ -45,13 +46,14 @@ public class JwtTokenProvider {
         return Duration.ofMillis(accessExpMs);
     }
 
-    private String createToken(Long userId, String username, long expMs) {
+    private String createToken(Long userId, String username, UserType userType, long expMs) {
         Date now = new Date();
         Date exp = new Date(now.getTime() + expMs);
 
         return Jwts.builder()
                 .subject(String.valueOf(userId))
                 .claim("username", username)
+                .claim("userType", userType.name()) // Add userType as a claim
                 .issuedAt(now)
                 .expiration(exp)
                 .signWith(key)
@@ -71,6 +73,15 @@ public class JwtTokenProvider {
             throw new IllegalArgumentException("Token subject (userId) is missing");
         }
         return Long.parseLong(sub);
+    }
+
+    public UserType getUserType(String token) {
+        Claims claims = parseClaims(token);
+        Object userTypeClaim = claims.get("userType");
+        if (userTypeClaim == null || !(userTypeClaim instanceof String)) {
+            throw new IllegalArgumentException("User type claim is missing or invalid");
+        }
+        return UserType.valueOf((String) userTypeClaim);
     }
 
     public boolean validate(String token) {

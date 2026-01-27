@@ -92,8 +92,8 @@ public class AuthService {
             throw ApiException.unauthorized("비밀번호 불일치");
         }
 
-        String accessToken = jwtTokenProvider.createAccessToken(user.getUserId(), user.getUsername());
-        String refreshToken = jwtTokenProvider.createRefreshToken(user.getUserId(), user.getUsername());
+        String accessToken = jwtTokenProvider.createAccessToken(user.getUserId(), user.getUsername(), user.getUserType());
+        String refreshToken = jwtTokenProvider.createRefreshToken(user.getUserId(), user.getUsername(), user.getUserType());
 
         refreshTokenRedisService.save(user.getUserId(), refreshToken);
 
@@ -123,8 +123,10 @@ public class AuthService {
         if (username == null || username.isBlank()) {
             username = String.valueOf(userIdFromRedis);
         }
+        UserType userType = jwtTokenProvider.getUserType(refreshToken);
 
-        return jwtTokenProvider.createAccessToken(userIdFromRedis, username);
+
+        return jwtTokenProvider.createAccessToken(userIdFromRedis, username, userType);
     }
 
     public void logout(String refreshToken) {

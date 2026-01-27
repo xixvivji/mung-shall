@@ -1,6 +1,6 @@
 package com.example.backend.api.dog.dto;
 
-import com.fasterxml.jackson.annotation.JsonProperty;
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
@@ -50,12 +50,12 @@ public class PublicApiResponse {
     @Getter
     @Setter
     @NoArgsConstructor
+    @JsonIgnoreProperties(ignoreUnknown = true) // 응답에서 domain에 없는 필드 무시
     public static class Item {
         private String desertionNo;
         private String happenDt;
         private String happenPlace;
         private String kindCd;
-        @JsonProperty("kindCd") // API 필드와 엔티티 필드명이 다를 경우를 대비
         private String kindNm;
         private String colorCd;
         private String age;

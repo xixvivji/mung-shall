@@ -8,6 +8,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.client.RestTemplate;
 import org.springframework.web.util.UriComponentsBuilder;
 
@@ -38,6 +39,7 @@ public class AbandonedDogApiScheduler {
     private int numOfRows;
 
     @Scheduled(cron = "0 0 0 * * *") // 매일 00시에 실행
+    @Transactional
     public void fetchAndSaveAbandonedDogs() {
         log.info("유기견 데이터 동기화 작업을 시작합니다.");
         try {
@@ -107,6 +109,7 @@ public class AbandonedDogApiScheduler {
             PublicApiResponse response = callApi(pageNo);
             if (response != null && response.getResponse().getBody() != null && response.getResponse().getBody().getItems().getItem() != null) {
                 allItems.addAll(response.getResponse().getBody().getItems().getItem());
+                log.info("지금 페이지: {}", pageNo);
             }
         }
         return allItems;

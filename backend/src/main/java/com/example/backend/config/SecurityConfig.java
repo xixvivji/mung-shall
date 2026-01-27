@@ -2,9 +2,7 @@ package com.example.backend.config;
 
 import com.example.backend.security.jwt.JwtAuthenticationFilter;
 import com.example.backend.security.jwt.JwtTokenProvider;
-import com.example.backend.security.oauth.CustomOAuth2UserService;
-import com.example.backend.security.oauth.OAuth2AuthenticationFailureHandler;
-import com.example.backend.security.oauth.OAuth2AuthenticationSuccessHandler;
+import jakarta.servlet.http.HttpServletResponse;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
@@ -21,20 +19,9 @@ import java.util.Arrays;
 @Configuration
 public class SecurityConfig {
 
-    private final CustomOAuth2UserService customOAuth2UserService;
-    private final OAuth2AuthenticationSuccessHandler oAuth2AuthenticationSuccessHandler;
-    private final OAuth2AuthenticationFailureHandler oAuth2AuthenticationFailureHandler;
     private final JwtTokenProvider jwtTokenProvider;
 
-    public SecurityConfig(
-            CustomOAuth2UserService customOAuth2UserService,
-            OAuth2AuthenticationSuccessHandler successHandler,
-            OAuth2AuthenticationFailureHandler failureHandler,
-            JwtTokenProvider jwtTokenProvider
-    ) {
-        this.customOAuth2UserService = customOAuth2UserService;
-        this.oAuth2AuthenticationSuccessHandler = successHandler;
-        this.oAuth2AuthenticationFailureHandler = failureHandler;
+    public SecurityConfig (JwtTokenProvider jwtTokenProvider) {
         this.jwtTokenProvider = jwtTokenProvider;
     }
 
@@ -58,24 +45,25 @@ public class SecurityConfig {
                         ).authenticated()
                         .requestMatchers(
                                 "/api/auth/**",
-                                "api/dogs/**",
+                                "/api/dogs/**",
                                 "/api/openvidu/**",
 
                                 "/oauth2/**", "/login/**"
                         ).permitAll()
-                        .requestMatchers("/api/shelter/**").hasRole("shelter")
+                        .requestMatchers("/api/shelter/**").hasRole("SHELTER")
                         .anyRequest().authenticated()
                 )
-                .formLogin(f -> f.disable())
-                .httpBasic(b -> b.disable())
+                .exceptionHandling(e -> e
+                        .authenticationEntryPoint((request, response, authException) -> {
+                            response.setStatus(HttpServletResponse.SC_UNAUTHORIZED); // 401
+                        })
+                        .accessDeniedHandler((request, response, accessDeniedException) -> {
+                            response.setStatus(HttpServletResponse.SC_FORBIDDEN); // 403
+                        })
+                )
 
-                .oauth2Login(oauth -> oauth
-                        .authorizationEndpoint(a -> a.baseUri("/oauth2/authorization"))
-                        .redirectionEndpoint(r -> r.baseUri("/login/oauth2/code/*"))
-                        .userInfoEndpoint(u -> u.userService(customOAuth2UserService))
-                        .successHandler(oAuth2AuthenticationSuccessHandler)
-                        .failureHandler(oAuth2AuthenticationFailureHandler)
-                );
+                .formLogin(f -> f.disable())
+                .httpBasic(b -> b.disable());
 
         http.addFilterBefore(new JwtAuthenticationFilter(jwtTokenProvider), UsernamePasswordAuthenticationFilter.class);
 

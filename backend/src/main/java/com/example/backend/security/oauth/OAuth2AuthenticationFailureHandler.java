@@ -13,7 +13,8 @@ import java.nio.charset.StandardCharsets;
 @Component
 public class OAuth2AuthenticationFailureHandler implements AuthenticationFailureHandler {
 
-    private static final String DEFAULT_REDIRECT_URL = "http://localhost:3000/oauth/callback";
+    private static final String DEFAULT_REDIRECT_URL =
+            "https://i14c109.p.ssafy.io/auth/login";
 
     @Override
     public void onAuthenticationFailure(HttpServletRequest request, HttpServletResponse response,

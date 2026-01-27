@@ -59,3 +59,9 @@ export async function signup(payload: SignUpRequest) {
     skipAuth: true,
   });
 }
+
+export async function logout() {
+  return api<{ message: string }>("/auth/logout", {
+    method: "POST",
+  });
+}

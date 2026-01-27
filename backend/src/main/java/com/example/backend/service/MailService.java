@@ -1,6 +1,5 @@
 package com.example.backend.service;
 
-import jakarta.mail.internet.InternetAddress;
 import jakarta.mail.internet.MimeMessage;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
@@ -12,23 +11,17 @@ import java.nio.charset.StandardCharsets;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 
-
 @Service
 @RequiredArgsConstructor
 public class MailService {
 
     private final JavaMailSender mailSender;
 
-    @Value("${app.mail.from-name:멍쉘}")
-    private String fromName;
-
     @Value("${spring.mail.username}")
     private String fromEmail;
 
     public void sendVerificationCode(String to, String code, LocalDateTime expiresAt) {
-        DateTimeFormatter formatter =
-                DateTimeFormatter.ofPattern("yyyy년 M월 d일 HH시 mm분");
-
+        DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy년 M월 d일 HH시 mm분");
         String formattedExpireTime = expiresAt.format(formatter);
 
         String subject = "[멍쉘] 이메일 인증 코드입니다";
@@ -56,7 +49,7 @@ public class MailService {
             helper.setSubject(subject);
             helper.setText(html, true);
 
-            helper.setFrom(new InternetAddress(fromEmail, fromName, StandardCharsets.UTF_8.name()));
+            helper.setFrom(fromEmail);
 
             mailSender.send(message);
         } catch (Exception e) {

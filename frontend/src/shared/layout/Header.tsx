@@ -12,6 +12,8 @@ export default function Header() {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
   const displayName = user?.name?.trim() || user?.username?.trim();
+  const userType = user?.userType?.toLowerCase();
+  const myPageRoute = userType === "shelter" ? ROUTES.center : ROUTES.mypage;
 
   const handleLogout = async () => {
     await logout();
@@ -85,7 +87,7 @@ export default function Header() {
             {displayName ? (
               <div className="flex flex-col items-end gap-1">
                 <Link
-                  to={ROUTES.mypage}
+                  to={myPageRoute}
                   className="text-[14px] font-medium text-[#333] hover:text-black font-['Noto_Sans_KR','Noto Sans KR',sans-serif]"
                 >
                 {displayName}님

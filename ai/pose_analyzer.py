@@ -31,6 +31,7 @@ class DogPoseAnalyzer:
         if isinstance(name_list, str): name_list = [name_list]
         for name in name_list:
             idx = self.KEYPOINTS_MAP[name]
+            # 신뢰도가 일정 수치 미만이면 '판정 불가' 상태로 변경
             if self.kpts[idx][2] <= 0.5:
                 return False
         return True
@@ -56,8 +57,11 @@ class DogPoseAnalyzer:
         if scale == 0: 
             if self._is_valid(["L_EAR_BASE", "NOSE"]):
                 scale = self._dist("L_EAR_BASE", "NOSE") * 3.0
-            else:
-                scale = 100.0 
+        
+        # 스케일조차 계산 안되면(몸통 다리 전부 판정 불가) -> UNDETECTED
+        if scale == 0:
+            return self._create_result("undetected", 0, 0, 0, 0, 0)
+
 
         # ---------------------------------------------------------
         # [2] 높이 및 거리 측정
@@ -73,8 +77,13 @@ class DogPoseAnalyzer:
         if self._is_valid("R_F_ELBOW"): elbow_y_list.append(self._get_y("R_F_ELBOW"))
         if self._is_valid("L_F_ELBOW"): elbow_y_list.append(self._get_y("L_F_ELBOW"))
         avg_elbow_y = sum(elbow_y_list) / len(elbow_y_list) if elbow_y_list else 0
+
+        # 앞다리 관절이 하나도 없으면 UNDETECTED
+        # 앞다리 관절이 없으면 DOWN / SIT 구분 불가
+        if front_ground_y == 0 or avg_elbow_y == 0:
+            return self._create_result("undetected", scale, 0, 0, 0, 0)
         
-        elbow_dist = abs(front_ground_y - avg_elbow_y) if avg_elbow_y > 0 and front_ground_y > 0 else scale
+        elbow_dist = abs(front_ground_y - avg_elbow_y)
 
         # B. 뒷꿈치 접힘 (Hock Grounded Check)
         hock_diffs = []
@@ -85,7 +94,12 @@ class DogPoseAnalyzer:
             diff = abs(self._get_y("L_B_PAW") - self._get_y("L_B_HOCK"))
             hock_diffs.append(diff)
         
-        min_hock_dist = min(hock_diffs) if hock_diffs else scale
+        # 뒷다리 관절이 하나도 없으면 UNDETECTED
+        # 뒷다리 관절이 없으면 STAND / SIT 구분 불가
+        if not hock_diffs:
+            return self._create_result("undetected", scale, 0, elbow_dist, 0, 0)
+        
+        min_hock_dist = min(hock_diffs)
 
         # ---------------------------------------------------------
         # [3] 자세 판별 로직
@@ -119,13 +133,17 @@ class DogPoseAnalyzer:
                     action = "paw"
 
         # [필수] numpy float 에러 방지
+        return self._create_result(action, scale, min_hock_dist, elbow_dist, THRESHOLD_HOCK, THRESHOLD_ELBOW)
+
+    def _create_result(self, action, scale, hock_dist, elbow_dist, th_hock, th_elbow):
+        """결과 반환 헬퍼 함수"""
         return {
             "action": action,
             "debug": {
                 "scale": float(round(scale, 1)),
-                "hock_dist": float(round(min_hock_dist, 1)),
+                "hock_dist": float(round(hock_dist, 1)),
                 "elbow_dist": float(round(elbow_dist, 1)),
-                "threshold_hock": float(round(scale * 0.2, 1)),
-                "threshold_elbow": float(round(scale * 0.25, 1))
+                "threshold_hock": float(round(th_hock, 1)),
+                "threshold_elbow": float(round(th_elbow, 1))
             }
         }

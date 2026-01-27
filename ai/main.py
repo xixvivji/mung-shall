@@ -1,4 +1,5 @@
 from fastapi import FastAPI, UploadFile, File, Form
+from fastapi.responses import FileResponse
 from ultralytics import YOLO
 import cv2
 import numpy as np
@@ -7,12 +8,15 @@ import os
 import shutil
 import time
 
-# 1. 포즈 분석 클래스 (Logic Refactoring)
+# 모듈 임포트
+# 1. 포즈 분석 클래스
 from pose_analyzer import DogPoseAnalyzer
+# 2. 시각화 클래스
+from visualizer import DogVisualizer
 
 app = FastAPI()
 
-# 1. 모델 로드
+# 모델 로드
 MODEL_PATH = "model/best.pt"
 try:
     model = YOLO(MODEL_PATH)
@@ -21,7 +25,7 @@ except Exception as e:
     print(f"❌ 모델 로드 실패: {e}")
 
 # -----------------------------------------------------------------------------
-# 3. API 엔드포인트
+# API 엔드포인트
 # -----------------------------------------------------------------------------
 @app.post("/predict/dog")
 async def predict_dog(file: UploadFile = File(...)):
@@ -63,75 +67,110 @@ async def analyze_video(
 
     with tempfile.NamedTemporaryFile(delete=False, suffix=".mp4") as temp_file:
         shutil.copyfileobj(file.file, temp_file)
-        temp_file_path = temp_file.name
+        input_path = temp_file.name
 
-    cap = cv2.VideoCapture(temp_file_path)
+    output_path = input_path.replace(".mp4", "result.mp4")
+
+    cap = cv2.VideoCapture(input_path)
+    width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
+    height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
     fps = cap.get(cv2.CAP_PROP_FPS)
     if fps == 0: fps = 30.0
 
+    # 비디오 라이터 설정(결과 영상)
+    fourcc = cv2.VideoWriter_fourcc(*'mp4v')
+    out = cv2.VideoWriter(output_path, fourcc, fps, (width, height))
+
+    # 상태 관리 변수
     current_action_state = None
     state_start_time = 0.0
-    success_logs = []
     
     frame_index = 0
-    is_event_logged = False 
+
+    # 프레임 건너뛰기 시 이전 데이터를 그리기 위한 변수
+    last_valid_kpts = None
+    last_valid_analysis = {"action": "unknown", "debug": {}}
 
     while cap.isOpened():
         ret, frame = cap.read()
         if not ret:
             break
 
-        if frame_index % frame_step != 0:
-            frame_index += 1
-            continue
+        # ---------------------------------------------------------
+        # [A] AI 분석 (frame_step 간격으로만 수행)
+        # ---------------------------------------------------------
+        if frame_index % frame_step == 0:
+            results = model(frame, stream=True, verbose=False)
+            
+            # 이번 프레임에서 개를 찾았는지 확인
+            found_dog = False
+            for result in results:
+                if result.keypoints is not None and len(result.keypoints.data) > 0:
+                    # 데이터 추출
+                    kpts = result.keypoints.data[0].cpu().numpy()
+                    
+                    # 1. 자세 분석 실행
+                    analyzer = DogPoseAnalyzer(kpts)
+                    analysis = analyzer.analyze()
+                    
+                    # 2. 다음 프레임을 위해 저장 (Persistence)
+                    last_valid_kpts = kpts
+                    last_valid_analysis = analysis
+                    found_dog = True
+                    
+                    # 3. 성공/실패 로직 (State Machine)
+                    detected_action = analysis["action"]
+                    current_time = frame_index / fps
+
+                    if detected_action == current_action_state:
+                        duration = current_time - state_start_time
+                        # 화면에 표시하기 위해 duration 정보를 analysis에 추가해줄 수도 있음
+                        last_valid_analysis["duration"] = round(duration, 1)
+                        
+                        if detected_action == target_action and duration >= duration_threshold:
+                            last_valid_analysis["is_success"] = True # 시각화용 플래그
+                    else:
+                        current_action_state = detected_action
+                        state_start_time = current_time
+                        last_valid_analysis["duration"] = 0.0
+                        last_valid_analysis["is_success"] = False
+                    
+                    break # 한 마리만 처리
+            
+            # 개를 못 찾았으면 이전 데이터 초기화 혹은 유지 (여기서는 유지)
+            if not found_dog:
+                pass 
+
+        # ---------------------------------------------------------
+        # [B] 시각화 (모든 프레임 수행)
+        # ---------------------------------------------------------
+        # 분석을 건너뛴 프레임이어도, 가장 최근의 last_valid 데이터를 이용해 그립니다.
+        final_frame = frame.copy()
         
-        current_time = frame_index / fps
+        if last_valid_kpts is not None:
+            # Visualizer 생성 및 그리기
+            visualizer = DogVisualizer(last_valid_kpts)
+            final_frame = visualizer.draw(final_frame, last_valid_analysis)
 
-        results = model(frame, stream=True, verbose=False)
-        detected_action = "unknown"
-        
-        for result in results:
-            if result.keypoints is not None and len(result.keypoints.data) > 0:
-                kpts = result.keypoints.data[0].cpu().numpy()
-                analyzer = DogPoseAnalyzer(kpts)
-                detected_action = analyzer.analyze()["action"]
-                break 
-
-        if detected_action == current_action_state:
-            duration = current_time - state_start_time
-            if (detected_action == target_action and 
-                duration >= duration_threshold and 
-                not is_event_logged):
-                
-                success_logs.append({
-                    "action": detected_action,
-                    "timestamp": round(state_start_time, 2),
-                    "duration": round(duration, 2),
-                    "result": "SUCCESS"
-                })
-                is_event_logged = True
-                print(f"🎉 Success! {detected_action} maintained for {duration:.2f}s")
-
-        else:
-            current_action_state = detected_action
-            state_start_time = current_time
-            is_event_logged = False 
-
+        # ---------------------------------------------------------
+        # [C] 영상 저장
+        # ---------------------------------------------------------
+        out.write(final_frame)
         frame_index += 1
 
+    # 자원 해제
     cap.release()
-    if os.path.exists(temp_file_path):
-        os.unlink(temp_file_path)
+    out.release()
+    
+    # 원본 입력 파일 삭제 (청소)
+    if os.path.exists(input_path):
+        os.unlink(input_path)
 
-    elapsed_time = time.time() - start_time
+    print(f"🎥 영상 처리 완료: {time.time() - start_time:.2f}초 소요")
 
-    is_success = len(success_logs) > 0
-    return {
-        "is_success": is_success,
-        "processed_fps_interval": frame_step,
-        "target_action": target_action,
-        "required_duration": duration_threshold,
-        "total_analysis_time_sec": float(round(elapsed_time, 2)),
-        "logs": success_logs,
-        "message": "훈련 성공!" if is_success else "목표 동작 유지 실패"
-    }
+    # 결과 동영상 파일 반환
+    return FileResponse(
+        output_path, 
+        media_type="video/mp4", 
+        filename="analyzed_result.mp4"
+    )

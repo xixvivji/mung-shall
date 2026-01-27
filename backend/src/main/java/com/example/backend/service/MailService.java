@@ -1,5 +1,6 @@
 package com.example.backend.service;
 
+import jakarta.mail.internet.InternetAddress;
 import jakarta.mail.internet.MimeMessage;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
@@ -21,7 +22,8 @@ public class MailService {
     private String fromEmail;
 
     public void sendVerificationCode(String to, String code, LocalDateTime expiresAt) {
-        DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy년 M월 d일 HH시 mm분");
+        DateTimeFormatter formatter =
+                DateTimeFormatter.ofPattern("yyyy년 M월 d일 HH시 mm분");
         String formattedExpireTime = expiresAt.format(formatter);
 
         String subject = "[멍쉘] 이메일 인증 코드입니다";
@@ -43,13 +45,17 @@ public class MailService {
     private void sendHtml(String to, String subject, String html) {
         try {
             MimeMessage message = mailSender.createMimeMessage();
-            MimeMessageHelper helper = new MimeMessageHelper(message, true, StandardCharsets.UTF_8.name());
+
+            MimeMessageHelper helper =
+                    new MimeMessageHelper(message, true, StandardCharsets.UTF_8.name());
 
             helper.setTo(to);
             helper.setSubject(subject);
             helper.setText(html, true);
 
-            helper.setFrom(fromEmail);
+            message.setFrom(
+                    new InternetAddress(fromEmail, "멍쉘", StandardCharsets.UTF_8.name())
+            );
 
             mailSender.send(message);
         } catch (Exception e) {

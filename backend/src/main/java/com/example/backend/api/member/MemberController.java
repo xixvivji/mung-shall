@@ -5,6 +5,7 @@ import com.example.backend.api.member.dto.MemberWithdrawRequest;
 import com.example.backend.common.ApiException;
 import com.example.backend.domain.user.User;
 import com.example.backend.repository.UserRepository;
+import com.example.backend.security.principal.CustomUserPrincipal; // Added import
 import com.example.backend.service.MemberService;
 import jakarta.validation.Valid;
 import org.springframework.http.ResponseEntity;
@@ -30,11 +31,12 @@ public class MemberController {
 
     @GetMapping("/me")
     public ResponseEntity<?> me(Authentication authentication) {
-        if (authentication == null || authentication.getName() == null) {
+        if (authentication == null || authentication.getPrincipal() == null) {
             throw ApiException.unauthorized("Unauthorized");
         }
 
-        Long userId = Long.parseLong(authentication.getName());
+        CustomUserPrincipal principal = (CustomUserPrincipal) authentication.getPrincipal();
+        Long userId = principal.getUserId();
 
         User me = userRepository.findById(userId)
                 .orElseThrow(() -> ApiException.unauthorized("Unauthorized"));
@@ -57,11 +59,12 @@ public class MemberController {
             Authentication authentication,
             @RequestBody @Valid MemberUpdateRequest request
     ) {
-        if (authentication == null || authentication.getName() == null) {
+        if (authentication == null || authentication.getPrincipal() == null) {
             throw ApiException.unauthorized("Unauthorized");
         }
 
-        Long userId = Long.parseLong(authentication.getName());
+        CustomUserPrincipal principal = (CustomUserPrincipal) authentication.getPrincipal();
+        Long userId = principal.getUserId();
         memberService.updateMe(userId, request);
 
         return ResponseEntity.ok(Map.of("message", "Success"));
@@ -73,11 +76,12 @@ public class MemberController {
             Authentication authentication,
             @RequestBody(required = false) MemberWithdrawRequest request
     ) {
-        if (authentication == null || authentication.getName() == null) {
+        if (authentication == null || authentication.getPrincipal() == null) {
             throw ApiException.unauthorized("Unauthorized");
         }
 
-        Long userId = Long.parseLong(authentication.getName());
+        CustomUserPrincipal principal = (CustomUserPrincipal) authentication.getPrincipal();
+        Long userId = principal.getUserId();
 
         // request가 null로 들어오는 경우도 있어서 방어
         if (request == null) request = new MemberWithdrawRequest();

@@ -1,15 +1,16 @@
-import { useState } from "react";
+import { useCallback, useSyncExternalStore } from "react";
 import type { AuthCredentials, AuthUser } from "../types";
 import { login as loginApi } from "../api/authApi";
+import { authStore } from "../store/authStore";
 
 export default function useAuth() {
-  const [user, setUser] = useState<AuthUser | null>(null);
+  const user = useSyncExternalStore(authStore.subscribe, authStore.getSnapshot, authStore.getSnapshot);
 
-  const login = async (credentials: AuthCredentials) => {
+  const login = useCallback(async (credentials: AuthCredentials) => {
     const loggedInUser = await loginApi(credentials);
-    setUser(loggedInUser);
+    authStore.setUser(loggedInUser);
     return loggedInUser;
-  };
+  }, []);
 
   return { user, login };
 }

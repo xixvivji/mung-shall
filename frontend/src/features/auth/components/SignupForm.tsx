@@ -1,5 +1,7 @@
 import imgMungshall2 from "@/assets/images/mung.png";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { useNavigate } from "react-router-dom";
+import { ROUTES } from "@/shared/constants/routes";
 import { checkUsername, sendEmailCode, signup, verifyEmailCode } from "../api/authApi";
 
 type FieldProps = {
@@ -167,6 +169,9 @@ function TermsText() {
 }
 
 function Form() {
+  const navigate = useNavigate();
+  const redirectTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [passwordConfirm, setPasswordConfirm] = useState("");
@@ -189,6 +194,14 @@ function Form() {
   const [sendingCode, setSendingCode] = useState(false);
   const [verifyingCode, setVerifyingCode] = useState(false);
   const [signingUp, setSigningUp] = useState(false);
+
+  useEffect(() => {
+    return () => {
+      if (redirectTimerRef.current) {
+        clearTimeout(redirectTimerRef.current);
+      }
+    };
+  }, []);
 
   const handleUsernameChange = (value: string) => {
     setUsername(value);
@@ -303,6 +316,12 @@ function Form() {
         address: mergedAddress || undefined,
       });
       setSignupStatus({ type: "success", text: "회원가입이 완료되었습니다." });
+      if (redirectTimerRef.current) {
+        clearTimeout(redirectTimerRef.current);
+      }
+      redirectTimerRef.current = setTimeout(() => {
+        navigate(ROUTES.login);
+      }, 1200);
     } catch (err) {
       const message = err instanceof Error ? err.message : "회원가입 실패";
       setSignupStatus({ type: "error", text: message });
@@ -358,7 +377,9 @@ function Form() {
         disabled={checkingUsername}
       />
       {usernameStatus ? (
-        <p className={`absolute left-[863px] top-[333px] text-[12px] ${usernameStatusClass}`}>
+        <p
+          className={`absolute left-[863px] top-[333px] w-[350px] text-[12px] whitespace-nowrap ${usernameStatusClass}`}
+        >
           {usernameStatus.text}
         </p>
       ) : null}
@@ -433,7 +454,9 @@ function Form() {
         disabled={!emailSent || verifyingCode}
       />
       {emailStatus ? (
-        <p className={`absolute left-[863px] top-[658px] text-[12px] ${emailStatusClass}`}>
+        <p
+          className={`absolute left-[863px] top-[658px] w-[350px] text-[12px] whitespace-nowrap ${emailStatusClass}`}
+        >
           {emailStatus.text}
         </p>
       ) : null}
@@ -474,7 +497,9 @@ function Form() {
         disabled={!canSignup || signingUp}
       />
       {signupStatus ? (
-        <p className={`absolute left-[863px] top-[935px] text-[12px] ${signupStatusClass}`}>
+        <p
+          className={`absolute left-[863px] top-[935px] w-[350px] text-[12px] whitespace-nowrap ${signupStatusClass}`}
+        >
           {signupStatus.text}
         </p>
       ) : null}

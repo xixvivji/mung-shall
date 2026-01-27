@@ -4,7 +4,8 @@ import imgImage46 from "@/assets/images/social_login_google.png";
 import imgMungshall2 from "@/assets/images/mung.png";
 import useAuth from "@/features/auth/hooks/useAuth";
 import { useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
+import { ROUTES } from "@/shared/constants/routes";
 
 function Back() {
   return (
@@ -68,6 +69,7 @@ function Divider() {
 
 function Login() {
   const { login } = useAuth();
+  const navigate = useNavigate();
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
@@ -82,6 +84,7 @@ function Login() {
     setError(null);
     try {
       await login({ username: username.trim(), password });
+      navigate(ROUTES.mypage);
     } catch (err) {
       const message = err instanceof Error ? err.message : "로그인 실패";
       setError(message);

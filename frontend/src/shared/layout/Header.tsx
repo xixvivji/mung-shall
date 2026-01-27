@@ -1,6 +1,7 @@
 import { NavLink, Link } from "react-router-dom";
 import logo from "@/assets/images/Logo.png";
 import { ROUTES } from "@/shared/constants/routes";
+import useAuth from "@/features/auth/hooks/useAuth";
 
 const linkBase =
   "text-[12px] tracking-[2.4px] uppercase leading-[12px] font-['Roboto:Regular',sans-serif] font-normal";
@@ -8,6 +9,9 @@ const linkState =
   "text-[#333] hover:text-black data-[active=true]:text-[#3182f6]";
 
 export default function Header() {
+  const { user } = useAuth();
+  const displayName = user?.name?.trim() || user?.username?.trim();
+
   return (
     <header
       className="sticky top-0 z-50 w-full bg-white"
@@ -72,15 +76,24 @@ export default function Header() {
               )}
             </NavLink>
 
-            <NavLink
-              to={ROUTES.login}
-              className={({ isActive }) => `${linkBase} ${linkState}`}
-              style={{ fontVariationSettings: "'wdth' 100" }}
-            >
-              {({ isActive }) => (
-                <span data-active={isActive ? "true" : "false"}>login</span>
-              )}
-            </NavLink>
+            {displayName ? (
+              <Link
+                to={ROUTES.mypage}
+                className="text-[14px] font-medium text-[#333] hover:text-black font-['Noto_Sans_KR','Noto Sans KR',sans-serif]"
+              >
+                {displayName}님
+              </Link>
+            ) : (
+              <NavLink
+                to={ROUTES.login}
+                className={({ isActive }) => `${linkBase} ${linkState}`}
+                style={{ fontVariationSettings: "'wdth' 100" }}
+              >
+                {({ isActive }) => (
+                  <span data-active={isActive ? "true" : "false"}>login</span>
+                )}
+              </NavLink>
+            )}
           </nav>
         </div>
       </div>

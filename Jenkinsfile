@@ -59,6 +59,7 @@ pipeline {
                         sh """
                         # --- OpenVidu 설정 ---
                         echo "OPENVIDU_SECRET=${OV_SECRET}" > .env
+                        echo "OPENVIDU_URL=https://13.125.3.38:4443/" >> .env
                         echo "OPENVIDU_PUBLIC_URL=https://13.125.3.38:4443/" >> .env
                         echo "DOMAIN_OR_PUBLIC_IP=13.125.3.38" >> .env
 

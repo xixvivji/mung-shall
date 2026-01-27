@@ -2,6 +2,9 @@ package com.example.backend.config;
 
 import com.example.backend.security.jwt.JwtAuthenticationFilter;
 import com.example.backend.security.jwt.JwtTokenProvider;
+import com.example.backend.security.oauth.CustomOAuth2UserService;
+import com.example.backend.security.oauth.OAuth2AuthenticationFailureHandler;
+import com.example.backend.security.oauth.OAuth2AuthenticationSuccessHandler;
 import jakarta.servlet.http.HttpServletResponse;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -20,9 +23,18 @@ import java.util.Arrays;
 public class SecurityConfig {
 
     private final JwtTokenProvider jwtTokenProvider;
+    private final OAuth2AuthenticationSuccessHandler oAuth2AuthenticationSuccessHandler;
+    private final OAuth2AuthenticationFailureHandler oAuth2AuthenticationFailureHandler;
+    private final CustomOAuth2UserService customOAuth2UserService;
 
-    public SecurityConfig (JwtTokenProvider jwtTokenProvider) {
+    public SecurityConfig(JwtTokenProvider jwtTokenProvider,
+                          OAuth2AuthenticationSuccessHandler oAuth2AuthenticationSuccessHandler,
+                          OAuth2AuthenticationFailureHandler oAuth2AuthenticationFailureHandler,
+                          CustomOAuth2UserService customOAuth2UserService) {
         this.jwtTokenProvider = jwtTokenProvider;
+        this.oAuth2AuthenticationSuccessHandler = oAuth2AuthenticationSuccessHandler;
+        this.oAuth2AuthenticationFailureHandler = oAuth2AuthenticationFailureHandler;
+        this.customOAuth2UserService = customOAuth2UserService;
     }
 
     @Bean
@@ -47,19 +59,27 @@ public class SecurityConfig {
                                 "/api/auth/**",
                                 "/api/dogs/**",
                                 "/api/openvidu/**",
-
-                                "/oauth2/**", "/login/**"
+                                "/oauth2/**",
+                                "/login/**"
                         ).permitAll()
                         .requestMatchers("/api/shelter/**").hasRole("SHELTER")
                         .anyRequest().authenticated()
                 )
                 .exceptionHandling(e -> e
                         .authenticationEntryPoint((request, response, authException) -> {
-                            response.setStatus(HttpServletResponse.SC_UNAUTHORIZED); // 401
+                            response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
                         })
                         .accessDeniedHandler((request, response, accessDeniedException) -> {
-                            response.setStatus(HttpServletResponse.SC_FORBIDDEN); // 403
+                            response.setStatus(HttpServletResponse.SC_FORBIDDEN);
                         })
+                )
+
+                .oauth2Login(oauth2 -> oauth2
+                        .userInfoEndpoint(userInfo -> userInfo
+                                .userService(customOAuth2UserService)
+                        )
+                        .successHandler(oAuth2AuthenticationSuccessHandler)
+                        .failureHandler(oAuth2AuthenticationFailureHandler)
                 )
 
                 .formLogin(f -> f.disable())
@@ -69,13 +89,14 @@ public class SecurityConfig {
 
         return http.build();
     }
+
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration configuration = new CorsConfiguration();
 
         configuration.setAllowedOrigins(Arrays.asList(
-                "http://localhost:3000",        // 로컬 개발용
-                "http://13.125.3.38",           // IP 접속
+                "http://localhost:3000",
+                "http://13.125.3.38",
                 "https://13.125.3.38",
                 "https://i14c109.p.ssafy.io",
                 "http://i14c109.p.ssafy.io"
@@ -89,6 +110,7 @@ public class SecurityConfig {
         source.registerCorsConfiguration("/**", configuration);
         return source;
     }
+
     @Bean
     public PasswordEncoder passwordEncoder() {
         return new BCryptPasswordEncoder();

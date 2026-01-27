@@ -1,10 +1,14 @@
 package com.example.backend.security.jwt;
 
+import com.example.backend.domain.user.UserType;
+import com.example.backend.security.principal.CustomUserPrincipal;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.GrantedAuthority;
+import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.web.authentication.WebAuthenticationDetailsSource;
 import org.springframework.util.StringUtils;
@@ -12,6 +16,8 @@ import org.springframework.web.filter.OncePerRequestFilter;
 
 import java.io.IOException;
 import java.util.Collections;
+import java.util.List;
+import java.util.stream.Collectors;
 
 public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
@@ -32,12 +38,20 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
         if (token != null && jwtTokenProvider.validate(token)) {
             Long userId = jwtTokenProvider.getUserId(token);
+            String username = jwtTokenProvider.getUsername(token);
+            UserType userType = jwtTokenProvider.getUserType(token);
+
+            CustomUserPrincipal principal = new CustomUserPrincipal(userId, username, userType);
+
+            List<GrantedAuthority> authorities = Collections.singletonList(
+                    new SimpleGrantedAuthority("ROLE_" + userType.name().toUpperCase())
+            );
 
             UsernamePasswordAuthenticationToken authentication =
                     new UsernamePasswordAuthenticationToken(
-                            String.valueOf(userId),
+                            principal,
                             null,
-                            Collections.emptyList()
+                            authorities
                     );
 
             authentication.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));

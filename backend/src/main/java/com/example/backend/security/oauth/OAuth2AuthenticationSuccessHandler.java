@@ -117,8 +117,8 @@ public class OAuth2AuthenticationSuccessHandler implements AuthenticationSuccess
                 ? user.getUsername()
                 : user.getEmail();
 
-        String accessToken = jwtTokenProvider.createAccessToken(user.getUserId(), usernameForToken);
-        String refreshToken = jwtTokenProvider.createRefreshToken(user.getUserId(), usernameForToken);
+        String accessToken = jwtTokenProvider.createAccessToken(user.getUserId(), usernameForToken, user.getUserType());
+        String refreshToken = jwtTokenProvider.createRefreshToken(user.getUserId(), usernameForToken, user.getUserType());
 
         refreshTokenRedisService.save(user.getUserId(), refreshToken);
 

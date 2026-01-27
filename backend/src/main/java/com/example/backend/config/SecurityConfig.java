@@ -58,10 +58,12 @@ public class SecurityConfig {
                         ).authenticated()
                         .requestMatchers(
                                 "/api/auth/**",
+                                "api/dogs/**",
                                 "/api/openvidu/**",
 
                                 "/oauth2/**", "/login/**"
                         ).permitAll()
+                        .requestMatchers("/api/shelter/**").hasRole("shelter")
                         .anyRequest().authenticated()
                 )
                 .formLogin(f -> f.disable())

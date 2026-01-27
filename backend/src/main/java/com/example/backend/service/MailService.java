@@ -1,6 +1,6 @@
 package com.example.backend.service;
 
-import jakarta.mail.MessagingException;
+import jakarta.mail.internet.InternetAddress;
 import jakarta.mail.internet.MimeMessage;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
@@ -10,6 +10,8 @@ import org.springframework.stereotype.Service;
 
 import java.nio.charset.StandardCharsets;
 import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
+
 
 @Service
 @RequiredArgsConstructor
@@ -24,6 +26,11 @@ public class MailService {
     private String fromEmail;
 
     public void sendVerificationCode(String to, String code, LocalDateTime expiresAt) {
+        DateTimeFormatter formatter =
+                DateTimeFormatter.ofPattern("yyyy년 M월 d일 HH시 mm분");
+
+        String formattedExpireTime = expiresAt.format(formatter);
+
         String subject = "[멍쉘] 이메일 인증 코드입니다";
         String html = """
                 <div style="font-family: Arial, sans-serif; line-height:1.6">
@@ -32,29 +39,28 @@ public class MailService {
                   <div style="font-size:28px; font-weight:bold; letter-spacing:2px; margin:16px 0">
                     %s
                   </div>
-                  <p>유효시간: <b>%s</b></p>
+                  <p><b>%s</b> 까지 유효합니다.</p>
                   <p style="color:#888; font-size:12px">본 메일은 발신 전용입니다.</p>
                 </div>
-                """.formatted(code, expiresAt);
+                """.formatted(code, formattedExpireTime);
 
         sendHtml(to, subject, html);
     }
 
     private void sendHtml(String to, String subject, String html) {
-        MimeMessage message = mailSender.createMimeMessage();
         try {
+            MimeMessage message = mailSender.createMimeMessage();
             MimeMessageHelper helper = new MimeMessageHelper(message, true, StandardCharsets.UTF_8.name());
+
             helper.setTo(to);
             helper.setSubject(subject);
             helper.setText(html, true);
 
-            helper.setFrom(fromEmail, fromName);
+            helper.setFrom(new InternetAddress(fromEmail, fromName, StandardCharsets.UTF_8.name()));
 
             mailSender.send(message);
-        } catch (MessagingException e) {
-            throw new IllegalStateException("메일 발송에 실패했습니다.", e);
         } catch (Exception e) {
-            throw new IllegalStateException("메일 발송 설정(from) 처리 중 오류가 발생했습니다.", e);
+            throw new IllegalStateException("메일 발송에 실패했습니다.", e);
         }
     }
 }

@@ -33,7 +33,7 @@ services:
       - SPRING_DATA_REDIS_PASSWORD=${REDIS_PASSWORD}
 
       # OpenVidu 설정 환경변수 주입
-      - OPENVIDU_URL=http://openvidu-server:4443/
+      - OPENVIDU_URL=${OPENVIDU_URL}
       - OPENVIDU_SECRET=${OPENVIDU_SECRET}
 
       # JWT 및 OAuth 설정
@@ -54,7 +54,8 @@ services:
 
       - COOKIE_SECURE=${COOKIE_SECURE}
       - COOKIE_SAMESITE=${COOKIE_SAMESITE}
-
+      - MAIL_USERNAME=${MAIL_USERNAME}
+      - MAIL_PASSWORD=${MAIL_PASSWORD}
     networks:
       - app-network
     restart: on-failure

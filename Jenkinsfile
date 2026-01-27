@@ -49,7 +49,10 @@ pipeline {
                     string(credentialsId: 'KAKAO_CLIENT_ID', variable: 'KAKAO_ID'),
                     string(credentialsId: 'KAKAO_CLIENT_SECRET', variable: 'KAKAO_PW'),
                     string(credentialsId: 'NAVER_CLIENT_ID', variable: 'NAVER_ID'),
-                    string(credentialsId: 'NAVER_CLIENT_SECRET', variable: 'NAVER_PW')
+                    string(credentialsId: 'NAVER_CLIENT_SECRET', variable: 'NAVER_PW'),
+
+                    string(credentialsId: 'MAIL_USERNAME', variable: 'MAIL_USERNAME'),
+                    string(credentialsId: 'MAIL_PASSWORD', variable: 'MAIL_PASSWORD')
                 ]) {
                     script {
                         // 1. .env 파일 생성
@@ -75,13 +78,17 @@ pipeline {
                         echo "NAVER_CLIENT_ID=${NAVER_ID}" >> .env
                         echo "NAVER_CLIENT_SECRET=${NAVER_PW}" >> .env
 
-                        # ---  Redis 설정 ---
+                        # --- Redis 설정 ---
                         echo "REDIS_HOST=redis-container" >> .env
                         echo "REDIS_PORT=6379" >> .env
                         echo "REDIS_PASSWORD=" >> .env
 
-                        echo "FRONT_OAUTH_REDIRECT_URL=http://13.125.3.38/oauth/callback" >> .env
+                        # --- 이메일 설정 추가 ---
+                        echo "MAIL_USERNAME=${MAIL_USERNAME}" >> .env
+                        echo "MAIL_PASSWORD=${MAIL_PASSWORD}" >> .env
 
+                        # --- 기타 설정 ---
+                        echo "FRONT_OAUTH_REDIRECT_URL=http://13.125.3.38/oauth/callback" >> .env
                         echo "DOMAIN_URL=http://13.125.3.38:8080" >> .env
                         echo "FRONT_RESET_PASSWORD_URL=http://13.125.3.38/reset-password" >> .env
                         echo "COOKIE_SECURE=false" >> .env
@@ -99,7 +106,7 @@ pipeline {
     }
 
     post {
-   success {
+       success {
            mattermostSend (
                color: 'good',
                message: "✅ 배포 성공!: ${env.JOB_NAME} #${env.BUILD_NUMBER} (<${env.BUILD_URL}|상세보기>)"
@@ -111,5 +118,5 @@ pipeline {
                message: "🚨 배포 실패(확인요망): ${env.JOB_NAME} #${env.BUILD_NUMBER} (<${env.BUILD_URL}|상세보기>)"
            )
        }
-        }
+    }
 }

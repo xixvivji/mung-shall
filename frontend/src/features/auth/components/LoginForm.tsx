@@ -36,22 +36,30 @@ function Text() {
   );
 }
 
-function SocialBtn({ top, icon, label }: { top: string; icon: string; label: string }) {
+function SocialBtn({
+  top,
+  icon,
+  label,
+  onClick,
+}: {
+  top: string;
+  icon: string;
+  label: string;
+  onClick: () => void;
+}) {
   return (
-    <div
-      className={`absolute left-[905px] ${top} h-[36px] w-[350px] rounded-[8px] bg-white px-[12px] py-[8px] flex items-center justify-center`}
+    <button
+      type="button"
+      onClick={onClick}
+      className={`absolute left-[905px] ${top} h-[36px] w-[350px] rounded-[8px] bg-white px-[12px] py-[8px] flex items-center justify-center border border-[#e5e5e5] shadow-[0px_1px_2px_0px_rgba(0,0,0,0.1)]`}
     >
-      <div
-        aria-hidden="true"
-        className="absolute inset-0 rounded-[8px] border border-[#e5e5e5] shadow-[0px_1px_2px_0px_rgba(0,0,0,0.1)]"
-      />
       <div className="relative flex items-center">
         <span className="pr-2">
           <img src={icon} alt="" className="h-4 w-4" />
         </span>
         <span className="text-[14px] font-medium leading-[20px] text-[#0a0a0a]">{label}</span>
       </div>
-    </div>
+    </button>
   );
 }
 
@@ -66,6 +74,14 @@ function Divider() {
     </div>
   );
 }
+
+type SocialProvider = "google" | "naver" | "kakao";
+
+const getOAuthUrl = (provider: SocialProvider) => {
+  const apiBase = import.meta.env.VITE_API_BASE_URL ?? "/api";
+  const origin = apiBase.startsWith("http") ? new URL(apiBase).origin : "";
+  return `${origin}/oauth2/authorization/${provider}`;
+};
 
 function Login() {
   const { login } = useAuth();
@@ -91,6 +107,10 @@ function Login() {
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleSocialLogin = (provider: SocialProvider) => {
+    window.location.assign(getOAuthUrl(provider));
   };
 
   return (
@@ -135,9 +155,24 @@ function Login() {
 
       <Divider />
 
-      <SocialBtn top="top-[554.5px]" icon={imgImage46} label="Google" />
-      <SocialBtn top="top-[605.5px]" icon={imgImage47} label="NAVER" />
-      <SocialBtn top="top-[656.5px]" icon={imgImage48} label="Kakao" />
+      <SocialBtn
+        top="top-[554.5px]"
+        icon={imgImage46}
+        label="Google"
+        onClick={() => handleSocialLogin("google")}
+      />
+      <SocialBtn
+        top="top-[605.5px]"
+        icon={imgImage47}
+        label="NAVER"
+        onClick={() => handleSocialLogin("naver")}
+      />
+      <SocialBtn
+        top="top-[656.5px]"
+        icon={imgImage48}
+        label="Kakao"
+        onClick={() => handleSocialLogin("kakao")}
+      />
 
       <Text />
     </div>

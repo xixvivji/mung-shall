@@ -1,6 +1,7 @@
 import { useCallback, useSyncExternalStore } from "react";
-import type { AuthCredentials, AuthUser } from "../types";
-import { login as loginApi } from "../api/authApi";
+import type { AuthCredentials } from "../types";
+import { login as loginApi, logout as logoutApi } from "../api/authApi";
+import { clearAccessToken } from "@/shared/api/client";
 import { authStore } from "../store/authStore";
 
 export default function useAuth() {
@@ -12,5 +13,16 @@ export default function useAuth() {
     return loggedInUser;
   }, []);
 
-  return { user, login };
+  const logout = useCallback(async () => {
+    try {
+      await logoutApi();
+    } catch {
+      // Ignore logout errors to ensure local state is still cleared.
+    } finally {
+      clearAccessToken();
+      authStore.setUser(null);
+    }
+  }, []);
+
+  return { user, login, logout };
 }

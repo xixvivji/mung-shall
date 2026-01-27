@@ -1,4 +1,4 @@
-import { NavLink, Link } from "react-router-dom";
+import { NavLink, Link, useNavigate } from "react-router-dom";
 import logo from "@/assets/images/Logo.png";
 import { ROUTES } from "@/shared/constants/routes";
 import useAuth from "@/features/auth/hooks/useAuth";
@@ -9,8 +9,14 @@ const linkState =
   "text-[#333] hover:text-black data-[active=true]:text-[#3182f6]";
 
 export default function Header() {
-  const { user } = useAuth();
+  const { user, logout } = useAuth();
+  const navigate = useNavigate();
   const displayName = user?.name?.trim() || user?.username?.trim();
+
+  const handleLogout = async () => {
+    await logout();
+    navigate(ROUTES.home);
+  };
 
   return (
     <header
@@ -77,12 +83,21 @@ export default function Header() {
             </NavLink>
 
             {displayName ? (
-              <Link
-                to={ROUTES.mypage}
-                className="text-[14px] font-medium text-[#333] hover:text-black font-['Noto_Sans_KR','Noto Sans KR',sans-serif]"
-              >
+              <div className="flex flex-col items-end gap-1">
+                <Link
+                  to={ROUTES.mypage}
+                  className="text-[14px] font-medium text-[#333] hover:text-black font-['Noto_Sans_KR','Noto Sans KR',sans-serif]"
+                >
                 {displayName}님
-              </Link>
+                </Link>
+                <button
+                  type="button"
+                  onClick={handleLogout}
+                  className="text-[12px] font-medium text-[#737373] hover:text-black"
+                >
+                  로그아웃
+                </button>
+              </div>
             ) : (
               <NavLink
                 to={ROUTES.login}

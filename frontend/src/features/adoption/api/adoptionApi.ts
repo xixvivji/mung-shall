@@ -20,7 +20,7 @@ type DogsResponse = {
 
 export async function fetchAdoptionList(
   page = 0,
-  size = 1,
+  size = 12,
   sort = "happenDt",
 ): Promise<AdoptionDog[]> {
   const params = new URLSearchParams({

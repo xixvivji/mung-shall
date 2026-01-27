@@ -11,6 +11,7 @@ export type AuthUser = {
   phone?: string;
   address?: string;
   loginType?: string;
+  userType?: string;
 };
 
 export type SignUpRequest = {

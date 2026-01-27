@@ -18,8 +18,17 @@ type DogsResponse = {
   size: number;
 };
 
-export async function fetchAdoptionList(page = 0, size = 12): Promise<AdoptionDog[]> {
-  const data = await api<DogsResponse>(`/dogs?page=${page}&size=${size}`);
+export async function fetchAdoptionList(
+  page = 0,
+  size = 12,
+  sort = "happenDt",
+): Promise<AdoptionDog[]> {
+  const params = new URLSearchParams({
+    page: String(page),
+    size: String(size),
+    sort,
+  });
+  const data = await api<DogsResponse>(`/dogs?${params.toString()}`);
 
   return data.content.map((dog) => ({
     id: String(dog.dogId),

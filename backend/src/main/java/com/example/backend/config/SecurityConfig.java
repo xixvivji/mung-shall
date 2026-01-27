@@ -52,15 +52,16 @@ public class SecurityConfig {
                                 "/swagger-ui/**",
                                 "/v3/api-docs/**"
                         ).permitAll()
+                        .requestMatchers(
+                                "/api/auth/logout",
+                                "/api/auth/refresh"
+                        ).authenticated()
+                        .requestMatchers(
+                                "/api/auth/**",
+                                "/api/openvidu/**",
 
-                        .requestMatchers("/api/auth/**").permitAll()
-                        .requestMatchers("/oauth2/**", "/login/**").permitAll()
-
-                        .requestMatchers("/api/boards/**").permitAll()
-
-                        .requestMatchers("/api/openvidu/**").permitAll()
-                        .requestMatchers("/api/members/**").authenticated()
-
+                                "/oauth2/**", "/login/**"
+                        ).permitAll()
                         .anyRequest().authenticated()
                 )
                 .formLogin(f -> f.disable())

@@ -26,7 +26,7 @@ export default function OAuthCallbackPage() {
     }
 
     setAccessToken(accessToken);
-    fetchMe()
+    fetchMe(accessToken)
       .then((user) => {
         authStore.setUser(user);
         navigate(ROUTES.mypage, { replace: true });

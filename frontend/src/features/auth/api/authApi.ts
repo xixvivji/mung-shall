@@ -13,11 +13,14 @@ export async function login(credentials: AuthCredentials): Promise<AuthUser> {
   });
 
   setAccessToken(accessToken);
-  return fetchMe();
+  return fetchMe(accessToken);
 }
 
-export async function fetchMe(): Promise<AuthUser> {
-  return api<AuthUser>("/members/me");
+export async function fetchMe(accessToken?: string): Promise<AuthUser> {
+  const authHeader = accessToken?.startsWith("Bearer ") ? accessToken : accessToken ? `Bearer ${accessToken}` : undefined;
+  return api<AuthUser>("/members/me", {
+    headers: authHeader ? { Authorization: authHeader } : undefined,
+  });
 }
 
 export async function checkUsername(username: string) {

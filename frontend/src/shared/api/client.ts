@@ -18,7 +18,7 @@ type ApiOptions = RequestInit & {
 };
 
 export async function api<T>(path: string, options: ApiOptions = {}): Promise<T> {
-  const { skipAuth, ...init } = options;
+  const { skipAuth, credentials, ...init } = options;
   const headers = new Headers(init.headers);
   const hasBody = init.body !== undefined;
   const isFormData = typeof FormData !== "undefined" && init.body instanceof FormData;
@@ -34,10 +34,13 @@ export async function api<T>(path: string, options: ApiOptions = {}): Promise<T>
     }
   }
 
+  const shouldIncludeCredentials =
+    credentials ?? (path.startsWith("/auth/") ? "include" : "omit");
+
   const response = await fetch(`${API_BASE}${path}`, {
     ...init,
     headers,
-    credentials: "include",
+    credentials: shouldIncludeCredentials,
   });
 
   if (!response.ok) {

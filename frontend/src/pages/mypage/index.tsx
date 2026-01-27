@@ -1,6 +1,8 @@
 import { AdoptionTimeline, MyDogs, NextActions, PostAdoptionTools, ProfileSummary, useMyPage } from "@/features/mypage";
+import useAuth from "@/features/auth/hooks/useAuth";
+import CenterPage from "@/pages/center";
 
-export default function MyPage() {
+function AdopterMyPage() {
   const { summary, dogs, loading } = useMyPage();
 
   if (loading || !summary) {
@@ -17,4 +19,15 @@ export default function MyPage() {
       <PostAdoptionTools />
     </section>
   );
+}
+
+export default function MyPage() {
+  const { user } = useAuth();
+  const userType = user?.userType?.toLowerCase();
+
+  if (userType === "shelter") {
+    return <CenterPage />;
+  }
+
+  return <AdopterMyPage />;
 }

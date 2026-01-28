@@ -28,4 +28,6 @@ public interface BoardRepository extends JpaRepository<Board, Long> {
             Pageable pageable
     );
     Optional<Board> findByIdAndDeletedAtIsNull(Long id);
+    boolean existsByIdAndDeletedAtIsNull(Long id);
+
 }

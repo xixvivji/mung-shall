@@ -77,4 +77,11 @@ public class Board {
     public void increaseViewCount() {
         this.viewCount++;
     }
+
+    public void update(String title, String content, BoardCategory category) {
+        this.title = title;
+        this.content = content;
+        this.category = category;
+    }
+
 }

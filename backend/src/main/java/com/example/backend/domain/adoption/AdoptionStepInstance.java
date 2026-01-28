@@ -34,16 +34,9 @@ public class AdoptionStepInstance {
     @Column(nullable = false)
     private AdoptionStepStatus status;
 
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "approver_id") // Optional
-    private User approver;
-
     private LocalDateTime submittedAt;
     private LocalDateTime approvedAt;
     private LocalDateTime completedAt;
     @Column(columnDefinition = "TEXT")
     private String rejectionReason;
-
-    // One-to-one relationships to specific step data
-    // These will be mapped by their respective entities
 }

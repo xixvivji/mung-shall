@@ -1,4 +1,4 @@
-package com.example.backend.repository.adoption.step;
+package com.example.backend.repository.adoption;
 
 import com.example.backend.domain.adoption.AdoptionStepInstance;
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -10,5 +10,5 @@ import java.util.Optional;
 @Repository
 public interface AdoptionStepInstanceRepository extends JpaRepository<AdoptionStepInstance, Long> {
     List<AdoptionStepInstance> findByAdoptionIdOrderByStepDefStepOrderAsc(Long adoptionId);
-    Optional<AdoptionStepInstance> findByAdoptionIdAndStepDefStepName(Long adoptionId, String stepName);
+    Optional<AdoptionStepInstance> findByAdoptionIdAndStepDefStepOrder(Long adoptionId, Integer stepOrder);
 }

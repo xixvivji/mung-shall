@@ -1,6 +1,7 @@
-package com.example.backend.domain.adoption.step_data;
+package com.example.backend.domain.adoption.step;
 
 import com.example.backend.domain.adoption.AdoptionStepInstance;
+import com.example.backend.domain.adoption.enums.CounselingType;
 import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
@@ -9,11 +10,11 @@ import lombok.Setter;
 import java.time.LocalDateTime;
 
 @Entity
-@Table(name = "adoption_contract")
+@Table(name = "adoption_counseling")
 @Getter
 @Setter
 @NoArgsConstructor
-public class AdoptionContract {
+public class AdoptionCounseling {
 
     @Id
     private Long id;
@@ -23,14 +24,16 @@ public class AdoptionContract {
     @JoinColumn(name = "id")
     private AdoptionStepInstance stepInstance;
 
+    @Enumerated(EnumType.STRING)
     @Column(nullable = false)
-    private String contractContent; // Could be a text field or a URL to a stored document
+    private CounselingType counselingType; // e.g., VISIT, VIDEO
 
     @Column(nullable = false)
-    private LocalDateTime contractDate;
+    private LocalDateTime counselingDate;
 
     @Column(nullable = false)
-    private String signeeName; // Name of the adopter who signed
+    private String counselingLocation;
 
-    private String signatureImageUrl; // Optional: URL to an image of the signature
+    @Column(columnDefinition = "TEXT")
+    private String counselorNotes; // Notes from the shelter counselor
 }

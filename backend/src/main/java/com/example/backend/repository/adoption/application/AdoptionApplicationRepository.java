@@ -1,6 +1,6 @@
 package com.example.backend.repository.adoption.application;
 
-import com.example.backend.domain.adoption.step_data.application.AdoptionApplication;
+import com.example.backend.domain.adoption.step.application.AdoptionApplication;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 

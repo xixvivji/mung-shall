@@ -9,12 +9,11 @@ import com.example.backend.domain.adoption.AdoptionStepInstance;
 import com.example.backend.domain.adoption.enums.AdoptionProcessStatus;
 import com.example.backend.domain.adoption.enums.AdoptionStepStatus;
 import com.example.backend.domain.dog.AbandonedDog;
-import com.example.backend.domain.user.User;
-import com.example.backend.domain.user.UserType;
+import com.example.backend.domain.shelter.Shelter;
 import com.example.backend.repository.AbandonedDogRepository;
-import com.example.backend.repository.UserRepository;
 import com.example.backend.repository.adoption.AdoptionRepository;
-import com.example.backend.repository.adoption.step.AdoptionStepInstanceRepository;
+import com.example.backend.repository.adoption.AdoptionStepInstanceRepository;
+import com.example.backend.repository.shelter.ShelterRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -31,7 +30,7 @@ public class AdoptionShelterService {
 
     private final AdoptionStepInstanceRepository adoptionStepInstanceRepository;
     private final AdoptionRepository adoptionRepository;
-    private final UserRepository userRepository;
+    private final ShelterRepository shelterRepository;
     private final AbandonedDogRepository abandonedDogRepository;
 
     /**
@@ -138,20 +137,16 @@ public class AdoptionShelterService {
      * 보호소 사용자를 위한 입양 신청자 목록을 조회합니다.
      * 특정 보호소 소속의 강아지들에 대한 입양 신청자 정보를 반환합니다.
      *
-     * @param shelterUserId 보호소 사용자 ID
+     * @param shelterId 보호소 사용자 ID
      * @param status        조회할 입양 진행 상태 (IN_PROGRESS 또는 COMPLETED)
      * @return ShelterAdoptionUserResponse 리스트
      */
     @Transactional(readOnly = true)
-    public List<ShelterAdoptionUserResponse> getAdoptersForShelterDogs(Long shelterUserId, AdoptionProcessStatus status) {
-        User shelterUser = userRepository.findById(shelterUserId)
-                .orElseThrow(() -> new IllegalArgumentException("ID와 일치하는 보호소 유저를 찾을 수 없습니다: " + shelterUserId));
+    public List<ShelterAdoptionUserResponse> getAdoptersForShelterDogs(Long shelterId, AdoptionProcessStatus status) {
+        Shelter shelter = shelterRepository.findById(shelterId)
+                .orElseThrow(() -> new IllegalArgumentException("ID에 해당하는 보호소가 없습니다: " + shelterId));
 
-        if (shelterUser.getUserType() != UserType.shelter || shelterUser.getShelterRegNo() == null) {
-            throw new IllegalArgumentException("요청한 유저는 보호소 타입이 아니거나 등록 번호가 없습니다.");
-        }
-
-        String careRegNo = shelterUser.getShelterRegNo();
+        String careRegNo = shelter.getShelterRegNo();
         List<AbandonedDog> shelterDogs = abandonedDogRepository.findByCareRegNo(careRegNo);
 
         return shelterDogs.stream()
@@ -173,24 +168,24 @@ public class AdoptionShelterService {
      * 보호소 사용자를 위한 특정 입양 상세 정보를 조회합니다.
      * 요청한 입양 ID가 해당 보호소 소속의 강아지에 대한 것인지 검증합니다.
      *
-     * @param shelterUserId 보호소 사용자 ID
+     * @param shelterId 보호소 사용자 ID
      * @param adoptionId    조회할 입양 프로세스 ID
      * @return 입양 상세 정보 DTO
      */
     @Transactional(readOnly = true)
-    public AdoptionDetailResponse getShelterAdoptionDetail(Long shelterUserId, Long adoptionId) {
-        User shelterUser = userRepository.findById(shelterUserId)
-                .orElseThrow(() -> new IllegalArgumentException("ID와 일치하는 보호소 유저를 찾을 수 없습니다: " + shelterUserId));
+    public AdoptionDetailResponse getShelterAdoptionDetail(Long shelterId, Long adoptionId) {
+        Shelter shelter = shelterRepository.findById(shelterId)
+                .orElseThrow(() -> new IllegalArgumentException("ID에 해당하는 보호소가 없습니다: " + shelterId));
 
-        if (shelterUser.getUserType() != UserType.shelter || shelterUser.getShelterRegNo() == null) {
-            throw new IllegalArgumentException("요청한 유저는 보호소 타입이 아니거나 등록 번호가 없습니다.");
-        }
+//        if (shelterUser.getUserType() != UserType.shelter || shelterUser.getShelterRegNo() == null) {
+//            throw new IllegalArgumentException("요청한 유저는 보호소 타입이 아니거나 등록 번호가 없습니다.");
+//        }
 
         Adoption adoption = adoptionRepository.findById(adoptionId)
                 .orElseThrow(() -> new IllegalArgumentException("ID와 일치하는 입양이 없습니다: " + adoptionId));
 
         // 입양의 보호소 유저가 현재 요청한 보호소 유저와 일치하는지 확인
-        if (!adoption.getShelter().getUserId().equals(shelterUser.getUserId())) {
+        if (!adoption.getUser().getUserId().equals(shelter.getUser().getUserId())) {
             throw new SecurityException("해당 입양 정보에 접근할 권한이 없습니다.");
         }
 
@@ -204,8 +199,6 @@ public class AdoptionShelterService {
                                 .description(stepInstance.getStepDef().getDescription())
                                 .build())
                         .status(stepInstance.getStatus())
-                        .approverUserId(stepInstance.getApprover() != null ? stepInstance.getApprover().getUserId() : null)
-                        .approverUserName(stepInstance.getApprover() != null ? stepInstance.getApprover().getName() : null)
                         .submittedAt(stepInstance.getSubmittedAt())
                         .approvedAt(stepInstance.getApprovedAt())
                         .completedAt(stepInstance.getCompletedAt())

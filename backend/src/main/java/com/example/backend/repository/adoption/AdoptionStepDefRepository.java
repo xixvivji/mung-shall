@@ -1,4 +1,4 @@
-package com.example.backend.repository.adoption.step;
+package com.example.backend.repository.adoption;
 
 import com.example.backend.domain.adoption.AdoptionStepDef;
 import org.springframework.data.jpa.repository.JpaRepository;

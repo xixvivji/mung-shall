@@ -1,4 +1,4 @@
-package com.example.backend.domain.adoption.step_data.document;
+package com.example.backend.domain.adoption.step.document;
 
 import jakarta.persistence.*;
 import lombok.Getter;
@@ -6,7 +6,7 @@ import lombok.NoArgsConstructor;
 import lombok.Setter;
 
 import java.time.LocalDateTime;
-import com.example.backend.domain.adoption.step_data.document.AdoptionDocument; // Import AdoptionDocument
+
 import com.example.backend.domain.adoption.enums.DocumentType; // UPDATED IMPORT
 import com.example.backend.domain.adoption.enums.DocumentStatus; // UPDATED IMPORT
 

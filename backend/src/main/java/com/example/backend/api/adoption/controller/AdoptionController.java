@@ -2,7 +2,7 @@ package com.example.backend.api.adoption.controller;
 
 import com.example.backend.api.adoption.dto.AdoptionCreateRequest;
 import com.example.backend.api.adoption.dto.AdoptionDetailResponse;
-import com.example.backend.api.adoption.dto.AdoptionStepInstanceResponse; // NEW IMPORT
+import com.example.backend.api.adoption.dto.AdoptionStepInstanceResponse;
 import com.example.backend.service.adoption.AdoptionService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;

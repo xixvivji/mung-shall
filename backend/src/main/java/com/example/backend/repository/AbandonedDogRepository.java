@@ -47,4 +47,6 @@ public interface AbandonedDogRepository extends JpaRepository<AbandonedDog, Long
      * @return Page<AbandonedDog>
      */
     Page<AbandonedDog> findByHappenPlaceContaining(String region, Pageable pageable);
+
+    List<AbandonedDog> findByCareRegNo(String careRegNo);
 }

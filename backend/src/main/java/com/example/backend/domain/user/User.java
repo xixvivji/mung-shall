@@ -47,6 +47,9 @@ public class User {
     @Column(name = "user_type", nullable = false)
     private UserType userType; // admin / adopter / shelter
 
+    @Column(name = "shelter_reg_no", length = 20) // 보호소 등록번호
+    private String shelterRegNo;
+
     @Column(name = "is_email_verified")
     private Boolean isEmailVerified;
 

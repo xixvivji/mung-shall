@@ -4,6 +4,8 @@ import com.example.backend.domain.adoption.enums.AdoptionProcessStatus;
 import lombok.Builder;
 import lombok.Getter;
 
+import java.util.List;
+
 @Getter
 @Builder
 public class AdoptionDetailResponse {
@@ -12,4 +14,5 @@ public class AdoptionDetailResponse {
     private String userName;
     private Long dogId;
     private AdoptionProcessStatus processStatus;
+    private List<AdoptionStepInstanceResponse> steps;
 }

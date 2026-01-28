@@ -91,6 +91,8 @@ async def analyze_video(
     last_valid_kpts = None
     last_valid_analysis = {"action": "unknown", "debug": {}}
 
+    analyzer = DogPoseAnalyzer()
+
     while cap.isOpened():
         ret, frame = cap.read()
         if not ret:
@@ -110,7 +112,7 @@ async def analyze_video(
                     kpts = result.keypoints.data[0].cpu().numpy()
                     
                     # 1. 자세 분석 실행
-                    analyzer = DogPoseAnalyzer(kpts)
+                    analyzer.process_keypoints(kpts)
                     analysis = analyzer.analyze()
                     
                     # 2. 다음 프레임을 위해 저장 (Persistence)

@@ -2,7 +2,9 @@ package com.example.backend;
 
 import com.example.backend.api.dog.dto.PublicApiResponse;
 import com.example.backend.domain.dog.AbandonedDog;
+import com.example.backend.domain.shelter.Shelter;
 import com.example.backend.repository.AbandonedDogRepository;
+import com.example.backend.repository.shelter.ShelterRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
@@ -25,6 +27,7 @@ public class AbandonedDogApiScheduler {
 
     private final AbandonedDogRepository abandonedDogRepository;
     private final RestTemplate restTemplate;
+    private final ShelterRepository shelterRepository; // Added injection
 
     @Value("${api.abandoned-dog.url}")
     private String apiUrl;
@@ -148,12 +151,33 @@ public class AbandonedDogApiScheduler {
         dog.setSexCd(item.getSexCd());
         dog.setNeuterYn(item.getNeuterYn());
         dog.setSpecialMark(item.getSpecialMark());
+
+        // api 응답에 존재하지 않는 보호소 정보 있으면 db에 추가
+        String careNm = item.getCareNm();
+        String careAddr = item.getCareAddr();
+        String careTel = item.getCareTel();
+        String shelterRegNo = item.getCareRegNo();
+
+        Shelter shelter = shelterRepository.findByCareNmAndAddress(careNm, careAddr)
+                .orElseGet(() -> {
+                    Shelter newShelter = Shelter.builder()
+                            .careNm(careNm)
+                            .address(careAddr)
+                            .tel(careTel)
+                            .shelterRegNo(shelterRegNo)
+                            .user(null)
+                            .build();
+                    return shelterRepository.save(newShelter);
+                });
+        dog.setShelter(shelter);
+
         dog.setCareNm(item.getCareNm());
         dog.setCareTel(item.getCareTel());
         dog.setCareAddr(item.getCareAddr());
         dog.setOrgNm(item.getOrgNm());
         dog.setCareRegNo(item.getCareRegNo());
         dog.setCareOwnerNm(item.getCareOwnerNm());
+
         dog.setUpdTm(item.getUpdTm());
         return dog;
     }

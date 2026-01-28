@@ -12,9 +12,7 @@ import com.example.backend.domain.dog.AbandonedDog;
 import com.example.backend.domain.user.User;
 import com.example.backend.repository.AbandonedDogRepository;
 import com.example.backend.repository.adoption.AdoptionRepository;
-import com.example.backend.repository.adoption.step.AdoptionStepDefRepository;
-import com.example.backend.repository.adoption.step.AdoptionStepInstanceRepository;
-import com.example.backend.domain.user.UserType;
+import com.example.backend.repository.adoption.AdoptionStepDefRepository;
 import com.example.backend.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -30,7 +28,6 @@ public class AdoptionService {
 
     private final AdoptionRepository adoptionRepository;
     private final AdoptionStepDefRepository adoptionStepDefRepository;
-    private final AdoptionStepInstanceRepository adoptionStepInstanceRepository;
     private final UserRepository userRepository;
     private final AbandonedDogRepository abandonedDogRepository;
 
@@ -55,15 +52,10 @@ public class AdoptionService {
             throw new IllegalArgumentException("이미 해당 유기견에 대한 입양 절차가 진행 중입니다.");
         }
 
-        // 해당 유기견의 보호소 정보로 보호소 유저를 찾아서 설정
-        User shelterUser = userRepository.findByUserTypeAndShelterRegNo(UserType.shelter, dog.getCareRegNo())
-                .orElseThrow(() -> new IllegalStateException("해당 유기견의 보호소 정보와 일치하는 보호소 유저를 찾을 수 없습니다. (등록번호: " + dog.getCareRegNo() + ")"));
-
         // 입양 정보 생성
         Adoption adoption = new Adoption();
         adoption.setUser(user);
         adoption.setAbandonedDog(dog);
-        adoption.setShelter(shelterUser);
         adoption.setProcessStatus(AdoptionProcessStatus.IN_PROGRESS);
         adoptionRepository.save(adoption);
 
@@ -85,7 +77,7 @@ public class AdoptionService {
                 stepInstance.setStatus(AdoptionStepStatus.PENDING);
                 firstStepInstance = stepInstance;
             }
-            adoption.addStep(stepInstance); // Adoption 엔티티의 addStep 헬퍼 메서드 사용
+            adoption.addStep(stepInstance);
         }
         adoptionRepository.save(adoption); // cascade 때문에 모든 stepInstances가 함께 저장됨
 
@@ -103,8 +95,11 @@ public class AdoptionService {
      */
     public void cancelAdoptionProcess(Long adoptionId) {
         Adoption adoption = adoptionRepository.findById(adoptionId)
-                .orElseThrow(() -> new IllegalArgumentException("Adoption not found with ID: " + adoptionId));
+                .orElseThrow(() -> new IllegalArgumentException("ID에 해당하는 입양을 찾을 수 없습니다: " + adoptionId));
 
+        // 요청 사용자 ID와 Adoption의 userId가 일치하는지 확인
+
+        // 완료되거나 취소된 입양 프로세스 취소 불가
         if (adoption.getProcessStatus() == AdoptionProcessStatus.COMPLETED ||
                 adoption.getProcessStatus() == AdoptionProcessStatus.CANCELLED) {
             throw new IllegalStateException("이미 완료되었거나 취소된 입양 프로세스는 취소할 수 없습니다.");
@@ -123,43 +118,44 @@ public class AdoptionService {
 //        }
     }
 
-    /**
-     * 입양 상세 정보를 조회합니다.
-     *
-     * @param adoptionId 조회할 입양 프로세스 ID
-     * @return 입양 상세 정보 DTO
-     */
-    public AdoptionDetailResponse getAdoptionDetail(Long adoptionId) {
-        Adoption adoption = adoptionRepository.findById(adoptionId)
-                .orElseThrow(() -> new IllegalArgumentException("ID와 일치하는 입양이 없습니다: " + adoptionId));
+        /**
+         * 입양 상세 정보를 조회합니다.
+         *
+         * @param adoptionId 조회할 입양 프로세스 ID
+         * @return 입양 상세 정보 DTO
+         */
+        public AdoptionDetailResponse getAdoptionDetail(Long adoptionId) {
+            Adoption adoption = adoptionRepository.findById(adoptionId)
+                    .orElseThrow(() -> new IllegalArgumentException("ID와 일치하는 입양이 없습니다: " + adoptionId));
 
-        List<AdoptionStepInstanceResponse> stepResponses = adoption.getSteps().stream()
-                .map(stepInstance -> AdoptionStepInstanceResponse.builder()
-                        .id(stepInstance.getId())
-                        .stepDef(AdoptionStepDefResponse.builder()
-                                .id(stepInstance.getStepDef().getId())
-                                .stepOrder(stepInstance.getStepDef().getStepOrder())
-                                .stepName(stepInstance.getStepDef().getStepName())
-                                .description(stepInstance.getStepDef().getDescription())
-                                .build())
-                        .status(stepInstance.getStatus())
-                        .approverUserId(stepInstance.getApprover() != null ? stepInstance.getApprover().getUserId() : null)
-                        .approverUserName(stepInstance.getApprover() != null ? stepInstance.getApprover().getName() : null)
-                        .submittedAt(stepInstance.getSubmittedAt())
-                        .approvedAt(stepInstance.getApprovedAt())
-                        .completedAt(stepInstance.getCompletedAt())
-                        .rejectionReason(stepInstance.getRejectionReason())
-                        .build())
-                .collect(Collectors.toList());
+            List<AdoptionStepInstanceResponse> stepResponses = adoption.getSteps().stream()
+                    .map(stepInstance -> AdoptionStepInstanceResponse.builder()
+                            .id(stepInstance.getId())
+                            .stepDef(AdoptionStepDefResponse.builder()
+                                    .id(stepInstance.getStepDef().getId())
+                                    .stepOrder(stepInstance.getStepDef().getStepOrder())
+                                    .stepName(stepInstance.getStepDef().getStepName())
+                                    .description(stepInstance.getStepDef().getDescription())
+                                    .build())
+                            .status(stepInstance.getStatus())
+                            .submittedAt(stepInstance.getSubmittedAt())
+                            .approvedAt(stepInstance.getApprovedAt())
+                            .completedAt(stepInstance.getCompletedAt())
+                            .rejectionReason(stepInstance.getRejectionReason())
+                            .build())
+                    .collect(Collectors.toList());
+    
 
+            return AdoptionDetailResponse.builder()
+                    .id(adoption.getId())
+                    .userId(adoption.getUser().getUserId())
+                    .userName(adoption.getUser().getName())
+                    .dogId(adoption.getAbandonedDog().getId())
+                    .processStatus(adoption.getProcessStatus())
+                    .steps(stepResponses)
+                    .build();
+        }
 
-        return AdoptionDetailResponse.builder()
-                .id(adoption.getId())
-                .userId(adoption.getUser().getUserId())
-                .userName(adoption.getUser().getName())
-                .dogId(adoption.getAbandonedDog().getId())
-                .processStatus(adoption.getProcessStatus())
-                .steps(stepResponses)
-                .build();
     }
-}
+
+    

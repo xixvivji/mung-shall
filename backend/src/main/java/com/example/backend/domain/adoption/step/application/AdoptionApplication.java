@@ -1,4 +1,4 @@
-package com.example.backend.domain.adoption.step_data.application;
+package com.example.backend.domain.adoption.step.application;
 
 import com.example.backend.domain.adoption.enums.Gender; // UPDATED IMPORT
 import com.example.backend.domain.adoption.enums.MaritalStatus; // UPDATED IMPORT

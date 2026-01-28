@@ -6,11 +6,11 @@ import com.example.backend.domain.adoption.Adoption;
 import com.example.backend.domain.adoption.AdoptionStepInstance;
 import com.example.backend.domain.adoption.enums.AdoptionStepStatus;
 import com.example.backend.domain.adoption.enums.DocumentType;
-import com.example.backend.domain.adoption.step_data.document.UploadedDocument;
-import com.example.backend.domain.adoption.step_data.document.AdoptionDocument;
+import com.example.backend.domain.adoption.step.document.UploadedDocument;
+import com.example.backend.domain.adoption.step.document.AdoptionDocument;
 import com.example.backend.repository.adoption.document.AdoptionDocumentRepository;
 import com.example.backend.repository.adoption.AdoptionRepository;
-import com.example.backend.repository.adoption.step.AdoptionStepInstanceRepository;
+import com.example.backend.repository.adoption.AdoptionStepInstanceRepository;
 import com.example.backend.repository.adoption.document.UploadedDocumentRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -48,7 +48,7 @@ public class AdoptionDocumentService {
 
         // '문서 제출' 단계 인스턴스 찾기
         AdoptionStepInstance documentStepInstance = adoptionStepInstanceRepository
-                .findByAdoptionIdAndStepDefStepName(adoptionId, "문서 제출") // StepDef의 stepName과 일치해야 함
+                .findByAdoptionIdAndStepDefStepOrder(adoptionId, 1)
                 .orElseThrow(() -> new IllegalArgumentException("문서 제출 단계를 찾을 수 없습니다."));
 
         // 현재 단계가 PENDING, SUBMITTED, REJECTED 상태인지 확인
@@ -117,7 +117,7 @@ public class AdoptionDocumentService {
     public List<UploadedDocumentResponse> getUploadedDocuments(Long adoptionId) {
         // '문서 제출' 단계 인스턴스 찾기
         AdoptionStepInstance documentStepInstance = adoptionStepInstanceRepository
-                .findByAdoptionIdAndStepDefStepName(adoptionId, "문서 제출")
+                .findByAdoptionIdAndStepDefStepOrder(adoptionId, 4)
                 .orElseThrow(() -> new IllegalArgumentException("문서 제출 단계를 찾을 수 없습니다."));
 
         // AdoptionDocument (단계 데이터) 조회

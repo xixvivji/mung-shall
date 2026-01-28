@@ -5,10 +5,10 @@ import com.example.backend.common.file.FileStorageService;
 import com.example.backend.domain.adoption.Adoption;
 import com.example.backend.domain.adoption.AdoptionStepInstance;
 import com.example.backend.domain.adoption.enums.AdoptionStepStatus;
-import com.example.backend.domain.adoption.step_data.educationcert.AdoptionEducationCert;
+import com.example.backend.domain.adoption.step.educationcert.AdoptionEducationCert;
 import com.example.backend.repository.adoption.educationcert.AdoptionEducationCertRepository;
 import com.example.backend.repository.adoption.AdoptionRepository;
-import com.example.backend.repository.adoption.step.AdoptionStepInstanceRepository;
+import com.example.backend.repository.adoption.AdoptionStepInstanceRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -48,7 +48,7 @@ public class AdoptionEducationCertService {
                 .orElseThrow(() -> new IllegalArgumentException("Adoption not found with ID: " + adoptionId));
 
         AdoptionStepInstance educationCertStep = adoptionStepInstanceRepository
-                .findByAdoptionIdAndStepDefStepName(adoptionId, "교육 수료증 제출") // StepDef의 stepName과 일치해야 함
+                .findByAdoptionIdAndStepDefStepOrder(adoptionId, 2)
                 .orElseThrow(() -> new IllegalArgumentException("교육 수료증 제출 단계를 찾을 수 없습니다."));
 
         if (educationCertStep.getStatus() != AdoptionStepStatus.PENDING &&
@@ -95,7 +95,7 @@ public class AdoptionEducationCertService {
                 .orElseThrow(() -> new IllegalArgumentException("Adoption not found with ID: " + adoptionId));
 
         AdoptionStepInstance educationCertStep = adoptionStepInstanceRepository
-                .findByAdoptionIdAndStepDefStepName(adoptionId, "교육 수료증 제출")
+                .findByAdoptionIdAndStepDefStepOrder(adoptionId, 2)
                 .orElseThrow(() -> new IllegalArgumentException("교육 수료증 제출 단계를 찾을 수 없습니다."));
 
         AdoptionEducationCert educationCert = adoptionEducationCertRepository.findByStepInstanceId(educationCertStep.getId())
@@ -111,7 +111,7 @@ public class AdoptionEducationCertService {
      */
     public void deleteEducationCertificate(Long adoptionId) {
         AdoptionStepInstance educationCertStep = adoptionStepInstanceRepository
-                .findByAdoptionIdAndStepDefStepName(adoptionId, "교육 수료증 제출")
+                .findByAdoptionIdAndStepDefStepOrder(adoptionId, 2)
                 .orElseThrow(() -> new IllegalArgumentException("교육 수료증 제출 단계를 찾을 수 없습니다."));
 
         if (educationCertStep.getStatus() == AdoptionStepStatus.PENDING || educationCertStep.getStatus() == AdoptionStepStatus.NOT_STARTED) {

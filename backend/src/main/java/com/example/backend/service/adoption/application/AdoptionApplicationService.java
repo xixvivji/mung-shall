@@ -1,4 +1,4 @@
-package com.example.backend.service.adoption;
+package com.example.backend.service.adoption.application;
 
 import com.example.backend.api.adoption.dto.application.AdoptionApplicationRequest;
 import com.example.backend.api.adoption.dto.application.AdoptionApplicationRequest.CohabitantCompositionRequest;
@@ -14,16 +14,17 @@ import com.example.backend.api.adoption.dto.application.AdoptionApplicationRespo
 import com.example.backend.api.adoption.dto.application.AdoptionApplicationResponse.PastPetExperienceResponse;
 import com.example.backend.domain.adoption.Adoption;
 import com.example.backend.domain.adoption.AdoptionStepInstance;
+import com.example.backend.domain.adoption.enums.AdoptionProcessStatus;
 import com.example.backend.domain.adoption.enums.AdoptionStepStatus;
 import com.example.backend.domain.adoption.embed.CohabitantComposition;
 import com.example.backend.domain.adoption.embed.CohabitantDetail;
 import com.example.backend.domain.adoption.embed.CurrentPetDetail;
 import com.example.backend.domain.adoption.embed.EmergencyContactInfo;
 import com.example.backend.domain.adoption.embed.PastPetExperience;
-import com.example.backend.domain.adoption.step_data.application.AdoptionApplication;
+import com.example.backend.domain.adoption.step.application.AdoptionApplication;
 import com.example.backend.repository.adoption.application.AdoptionApplicationRepository;
 import com.example.backend.repository.adoption.AdoptionRepository;
-import com.example.backend.repository.adoption.step.AdoptionStepInstanceRepository;
+import com.example.backend.repository.adoption.AdoptionStepInstanceRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -50,18 +51,20 @@ public class AdoptionApplicationService {
      */
     public AdoptionApplicationResponse submitAdoptionApplication(Long adoptionId, AdoptionApplicationRequest request) {
         Adoption adoption = adoptionRepository.findById(adoptionId)
-                .orElseThrow(() -> new IllegalArgumentException("Adoption not found with ID: " + adoptionId));
+                .orElseThrow(() -> new IllegalArgumentException("해당 ID의 입양을 찾을 수 없습니다: " + adoptionId));
 
-        // '입양 신청서 제출' 단계 인스턴스 찾기
+        // 해당 입양의 1단계(입양 신청서 제출) 인스턴스 찾기
         AdoptionStepInstance applicationStep = adoptionStepInstanceRepository
-                .findByAdoptionIdAndStepDefStepName(adoptionId, "입양 신청서 제출") // StepDef의 stepName과 일치해야 함
+                .findByAdoptionIdAndStepDefStepOrder(adoptionId, 1)
                 .orElseThrow(() -> new IllegalArgumentException("입양 신청서 제출 단계를 찾을 수 없습니다."));
 
-        // 현재 단계가 PENDING 상태인지 확인 (SUBMITTED 상태에서는 수정 가능)
-        if (applicationStep.getStatus() != AdoptionStepStatus.PENDING &&
-                applicationStep.getStatus() != AdoptionStepStatus.SUBMITTED &&
-                applicationStep.getStatus() != AdoptionStepStatus.REJECTED) { // 반려되었을 경우 재제출 가능
-            throw new IllegalStateException("입양 신청서 제출 단계가 현재 '제출 대기' 또는 '반려' 상태가 아닙니다.");
+        // 1단계(입양 신청서 제출)이 가능 상태인지 확인
+        if (applicationStep.getStatus() != AdoptionStepStatus.PENDING && // 제출 대기
+                applicationStep.getStatus() != AdoptionStepStatus.SUBMITTED && // 제출시 수정 가능
+                applicationStep.getStatus() != AdoptionStepStatus.REJECTED && // 반려되었을 경우 재제출 가능
+                adoption.getProcessStatus() == AdoptionProcessStatus.IN_PROGRESS
+        ) {
+            throw new IllegalStateException("입양 신청서를 제출할 수 있는 상태가 아닙니다");
         }
 
         AdoptionApplication application = adoptionApplicationRepository.findByStepInstanceId(applicationStep.getId())
@@ -69,7 +72,7 @@ public class AdoptionApplicationService {
 
         // Request DTO -> Entity 매핑
         mapRequestToAdoptionApplication(request, application);
-        application.setStepInstance(applicationStep); // OneToOne 관계 설정
+        application.setStepInstance(applicationStep);
 
         adoptionApplicationRepository.save(application);
 
@@ -89,11 +92,8 @@ public class AdoptionApplicationService {
      */
     @Transactional(readOnly = true)
     public AdoptionApplicationResponse getAdoptionApplication(Long adoptionId) {
-        Adoption adoption = adoptionRepository.findById(adoptionId)
-                .orElseThrow(() -> new IllegalArgumentException("Adoption not found with ID: " + adoptionId));
-
         AdoptionStepInstance applicationStep = adoptionStepInstanceRepository
-                .findByAdoptionIdAndStepDefStepName(adoptionId, "입양 신청서 제출")
+                .findByAdoptionIdAndStepDefStepOrder(adoptionId, 1)
                 .orElseThrow(() -> new IllegalArgumentException("입양 신청서 제출 단계를 찾을 수 없습니다."));
 
         AdoptionApplication application = adoptionApplicationRepository.findByStepInstanceId(applicationStep.getId())
@@ -109,7 +109,7 @@ public class AdoptionApplicationService {
      */
     public void deleteAdoptionApplication(Long adoptionId) {
         AdoptionStepInstance applicationStep = adoptionStepInstanceRepository
-                .findByAdoptionIdAndStepDefStepName(adoptionId, "입양 신청서 제출")
+                .findByAdoptionIdAndStepDefStepOrder(adoptionId, 1)
                 .orElseThrow(() -> new IllegalArgumentException("입양 신청서 제출 단계를 찾을 수 없습니다."));
 
         // 제출된 상태가 아니면 삭제할 필요 없음
@@ -129,7 +129,7 @@ public class AdoptionApplicationService {
             adoptionApplicationRepository.delete(application);
         }
 
-        // 단계 상태를 다시 PENDING으로 리셋
+        // 단계 상태를 리셋
         applicationStep.setStatus(AdoptionStepStatus.PENDING);
         applicationStep.setSubmittedAt(null);
         applicationStep.setRejectionReason(null);

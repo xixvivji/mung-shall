@@ -2,7 +2,7 @@ package com.example.backend.api.adoption.controller.application;
 
 import com.example.backend.api.adoption.dto.application.AdoptionApplicationRequest;
 import com.example.backend.api.adoption.dto.application.AdoptionApplicationResponse;
-import com.example.backend.service.adoption.AdoptionApplicationService;
+import com.example.backend.service.adoption.application.AdoptionApplicationService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.media.Content;
@@ -17,7 +17,7 @@ import org.springframework.web.bind.annotation.*;
 
 import java.util.Map;
 
-@Tag(name = "입양 신청서 API", description = "입양 신청서 관련 API")
+@Tag(name = "입양 : 1. 입양 신청서 API", description = "입양 신청서 관련 API")
 @RestController
 @RequiredArgsConstructor
 @RequestMapping("/api/adoptions/{adoptionId}/application")

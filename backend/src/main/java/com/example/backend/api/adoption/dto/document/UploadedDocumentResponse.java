@@ -1,7 +1,7 @@
 package com.example.backend.api.adoption.dto.document;
 
 import com.example.backend.domain.adoption.enums.DocumentType;
-import com.example.backend.domain.adoption.step_data.document.UploadedDocument;
+import com.example.backend.domain.adoption.step.document.UploadedDocument;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
 import lombok.NoArgsConstructor;

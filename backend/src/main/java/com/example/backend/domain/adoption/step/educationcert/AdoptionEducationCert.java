@@ -1,4 +1,4 @@
-package com.example.backend.domain.adoption.step_data.educationcert;
+package com.example.backend.domain.adoption.step.educationcert;
 
 import com.example.backend.domain.adoption.AdoptionStepInstance; // UPDATED IMPORT
 import jakarta.persistence.*;

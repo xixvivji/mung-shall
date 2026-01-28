@@ -22,7 +22,7 @@ import java.util.List;
 @NoArgsConstructor
 public class AdoptionApplicationRequest {
 
-    // Personal Information
+    // 개인정보
     @NotBlank(message = "이름은 필수입니다.")
     private String name;
 
@@ -39,14 +39,14 @@ public class AdoptionApplicationRequest {
     @NotBlank(message = "이메일은 필수입니다.")
     private String email;
 
-    // Address
+    // 주소
     @NotBlank(message = "주소는 필수입니다.")
     private String address;
 
     @NotBlank(message = "상세 주소는 필수입니다.")
     private String detailAddress;
 
-    // Family Contacts
+    // 가족
     @Valid
     private List<EmergencyContactRequest> emergencyContacts;
 
@@ -54,7 +54,7 @@ public class AdoptionApplicationRequest {
     @NotNull(message = "입양 원하는 동물은 필수입니다.")
     private PetPreference petPreference;
 
-    // Cohabitant Information
+    // 동거인
     @NotNull(message = "동거인 모두의 입양 동의 여부는 필수입니다.")
     private Boolean cohabitantAgreement;
 
@@ -62,46 +62,46 @@ public class AdoptionApplicationRequest {
     private Boolean hasCohabitant;
 
     @Valid
-    private CohabitantCompositionRequest cohabitantComposition; // New: For counts of cohabitants
+    private CohabitantCompositionRequest cohabitantComposition; // 동거인 수
 
     @Valid
-    private List<CohabitantDetailRequest> cohabitantDetails; // New: For individual cohabitant details
+    private List<CohabitantDetailRequest> cohabitantDetails; // 동거인 정보 (0명 이상)
 
     
 
-    // Current Pets
+    // 현재 반려동물
     @NotNull(message = "현재 반려동물 유무는 필수입니다.")
     private Boolean hasCurrentPets;
 
     @Valid
     private List<CurrentPetDetailRequest> currentPetDetails;
 
-    // Past Pet Experience
+    // 이전 반려동물
     @NotNull(message = "이전 반려동물 양육 경험 유무는 필수입니다.")
     private Boolean hasPastPetExperience;
 
     @Valid
     private List<PastPetExperienceRequest> pastPetExperiences;
 
-    // Residency Information
+    // 주거 형태
     @NotNull(message = "주거 형태는 필수입니다.")
     private ResidenceType residenceType;
 
     @NotNull(message = "주거 공간 소유 여부는 필수입니다.")
     private Boolean isOwner;
 
-    // Education
+    // 교육
     @NotNull(message = "소유자 교육 이수 여부는 필수입니다.")
     private Boolean completedOwnerEducation;
 
-    // Commitment Agreement
+    // 책임감 동의
     @NotNull(message = "평생 함께할 반려동물 동의 여부는 필수입니다.")
     private Boolean agreesToLifetimeCommitment;
 
     @NotNull(message = "지자체 확인 동의 여부는 필수입니다.")
     private Boolean agreesToFollowUp;
 
-    // Work Information
+    // 근무 정보
     @NotBlank(message = "직업은 필수입니다.")
     private String job;
 
@@ -111,11 +111,11 @@ public class AdoptionApplicationRequest {
     @NotBlank(message = "아이가 집에 혼자 있는 시간 관리 방법은 필수입니다.")
     private String aloneTimeManagement;
 
-    // Marital Status
+    // 결혼 여부
     @NotNull(message = "결혼 여부는 필수입니다.")
     private MaritalStatus maritalStatus;
 
-    // Pet Living Space
+    // 반려동물 거주 공간
     @NotBlank(message = "반려동물이 거주할 공간 위치는 필수입니다.")
     private String petLivingSpaceLocation;
 

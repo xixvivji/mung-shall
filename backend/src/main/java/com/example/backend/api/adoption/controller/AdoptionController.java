@@ -2,6 +2,7 @@ package com.example.backend.api.adoption.controller;
 
 import com.example.backend.api.adoption.dto.AdoptionCreateRequest;
 import com.example.backend.api.adoption.dto.AdoptionDetailResponse;
+import com.example.backend.api.adoption.dto.AdoptionStepInstanceResponse;
 import com.example.backend.service.adoption.AdoptionService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
@@ -62,4 +63,5 @@ public class AdoptionController {
         adoptionService.cancelAdoptionProcess(adoptionId);
         return ResponseEntity.ok(Map.of("message", "입양 프로세스가 성공적으로 취소되었습니다."));
     }
+
 }

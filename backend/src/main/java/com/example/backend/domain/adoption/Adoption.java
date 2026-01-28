@@ -2,8 +2,7 @@ package com.example.backend.domain.adoption;
 
 import com.example.backend.domain.dog.AbandonedDog;
 import com.example.backend.domain.user.User;
-import com.example.backend.domain.adoption.enums.AdoptionProcessStatus; // UPDATED IMPORT
-import com.example.backend.domain.adoption.AdoptionStepInstance; // UPDATED IMPORT
+import com.example.backend.domain.adoption.enums.AdoptionProcessStatus;
 import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
@@ -32,13 +31,13 @@ public class Adoption {
     @JoinColumn(name = "user_id", nullable = false)
     private User user;
 
-    @ManyToOne(fetch = FetchType.LAZY)
+    @OneToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "abandoned_dog_id", nullable = false)
     private AbandonedDog abandonedDog;
 
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "shelter_id")
-    private User shelter;
+//    @ManyToOne(fetch = FetchType.LAZY)
+//    @JoinColumn(name = "shelter_id")
+//    private User shelter;
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
@@ -53,7 +52,7 @@ public class Adoption {
     @UpdateTimestamp
     private LocalDateTime updatedAt;
 
-    // Helper method to add steps
+    // 헬퍼 메서드
     public void addStep(AdoptionStepInstance stepInstance) {
         steps.add(stepInstance);
         stepInstance.setAdoption(this);

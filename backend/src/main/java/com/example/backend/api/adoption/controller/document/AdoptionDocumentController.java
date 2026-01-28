@@ -19,7 +19,7 @@ import org.springframework.web.multipart.MultipartFile;
 import java.util.List;
 import java.util.Map;
 
-@Tag(name = "입양 문서 API", description = "입양 프로세스 문서 관련 API")
+@Tag(name = "입양 : 4. 입양 문서 API", description = "입양 프로세스 문서 관련 API")
 @RestController
 @RequiredArgsConstructor
 @RequestMapping("/api/adoptions/{adoptionId}/documents")

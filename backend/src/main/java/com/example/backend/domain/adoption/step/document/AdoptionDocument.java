@@ -1,7 +1,6 @@
-package com.example.backend.domain.adoption.step_data.document;
+package com.example.backend.domain.adoption.step.document;
 
 import com.example.backend.domain.adoption.AdoptionStepInstance; // UPDATED IMPORT
-import com.example.backend.domain.adoption.step_data.document.UploadedDocument; // Import UploadedDocument
 import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.NoArgsConstructor;

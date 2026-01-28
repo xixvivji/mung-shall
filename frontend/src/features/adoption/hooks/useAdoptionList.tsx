@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { fetchAdoptionList } from "../api/adoptionApi";
 import DogGrid from "../components/DogGrid";
 import Filters from "../components/Filters";
@@ -38,11 +38,23 @@ export default function AdoptionList() {
     };
   }, []);
 
+  const breeds = useMemo(
+    () =>
+      Array.from(
+        new Set(
+          dogs
+            .map((dog) => dog.breed?.trim())
+            .filter((value): value is string => Boolean(value))
+        )
+      ),
+    [dogs]
+  );
+
   return (
     <section className="mx-auto max-w-[1200px] px-6 py-16">
       <div className="space-y-4">
         <h1 className="text-3xl font-semibold text-[#333]">Adoption</h1>
-        <Filters />
+        <Filters breeds={breeds} />
       </div>
 
       <div className="mt-8">

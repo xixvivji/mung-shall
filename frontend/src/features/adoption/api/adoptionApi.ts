@@ -19,7 +19,7 @@ type DogsResponse = {
 };
 
 export async function fetchAdoptionList(
-  page = 0,
+  page = 10,
   size = 12,
   sort = "happenDt",
 ): Promise<AdoptionDog[]> {

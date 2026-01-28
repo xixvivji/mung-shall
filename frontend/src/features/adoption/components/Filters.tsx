@@ -6,8 +6,6 @@ const DEFAULT_BREED = "모든 품종";
 const DEFAULT_PROVINCE = "전체지역";
 const DEFAULT_CITY = "전체도시";
 
-const BREEDS = ["말티즈", "푸들", "비숑", "믹스견"] as const;
-
 // ✅ 예시 데이터 (원하면 공공데이터/백엔드 응답 형태로 바꿔줄게)
 const PROVINCES = ["서울", "경기", "인천", "부산"] as const;
 const CITIES_BY_PROVINCE: Record<(typeof PROVINCES)[number], string[]> = {
@@ -208,16 +206,32 @@ function AccessibleSelect({
   );
 }
 
-export default function Filters() {
+type FiltersProps = {
+  breeds: string[];
+};
+
+export default function Filters({ breeds }: FiltersProps) {
   const [open, setOpen] = useState<DropdownKey>(null);
 
   const [breed, setBreed] = useState<string>(DEFAULT_BREED);
   const [province, setProvince] = useState<string>(DEFAULT_PROVINCE);
   const [city, setCity] = useState<string>(DEFAULT_CITY);
 
+  const normalizedBreeds = useMemo(
+    () =>
+      Array.from(
+        new Set(
+          breeds
+            .map((value) => value.trim())
+            .filter((value) => value.length > 0)
+        )
+      ),
+    [breeds]
+  );
+
   const breedOptions: SelectOption[] = useMemo(
-    () => [{ label: DEFAULT_BREED, value: DEFAULT_BREED }, ...BREEDS.map((b) => ({ label: b, value: b }))],
-    []
+    () => [{ label: DEFAULT_BREED, value: DEFAULT_BREED }, ...normalizedBreeds.map((b) => ({ label: b, value: b }))],
+    [normalizedBreeds]
   );
 
   const provinceOptions: SelectOption[] = useMemo(
@@ -245,6 +259,15 @@ export default function Filters() {
     if (!validCities.has(city)) setCity(DEFAULT_CITY);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [province]);
+
+  useEffect(() => {
+    const validBreeds = new Set(breedOptions.map((option) => option.value));
+    if (!validBreeds.has(breed)) {
+      setBreed(DEFAULT_BREED);
+      if (open === "breed") setOpen(null);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [breedOptions]);
 
   const close = () => setOpen(null);
 

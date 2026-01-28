@@ -2,7 +2,7 @@
 
 type ArrowButtonProps = {
   direction?: "left" | "right";
-  tone?: "light" | "muted";
+  disabled?: boolean;
 };
 
 function IcoShape() {
@@ -18,15 +18,17 @@ function IcoShape() {
   );
 }
 
-function ArrowButton({ direction = "right", tone = "light" }: ArrowButtonProps) {
+function ArrowButton({ direction = "right", disabled = false }: ArrowButtonProps) {
   const isLeft = direction === "left";
-  const backgroundClass = tone === "muted" ? "bg-[#f9f9f9]" : "bg-white";
+  const backgroundClass = disabled ? "bg-[#f2f2f2]" : "bg-white";
+  const interactionClass = disabled ? "cursor-not-allowed" : "cursor-pointer";
 
   return (
     <button
-      className={`relative size-[53px] cursor-pointer border border-[#f2f2f2] ${backgroundClass}`}
+      className={`relative size-[53px] border border-[#f2f2f2] ${backgroundClass} ${interactionClass}`}
       type="button"
       aria-label={isLeft ? "Previous page" : "Next page"}
+      disabled={disabled}
     >
       {isLeft ? (
         <div className="absolute flex items-center justify-center left-[15px] size-[24px] top-[15px]">
@@ -45,10 +47,12 @@ function ArrowButton({ direction = "right", tone = "light" }: ArrowButtonProps) 
   );
 }
 
-function SlideNumbers() {
+function SlideNumbers({ currentPage, totalPages }: { currentPage: number; totalPages: number }) {
+  const formatNumber = (value: number) => String(value).padStart(2, "0");
+
   return (
     <div className="flex items-center gap-[32px] text-[24px] text-[#bdbdbd]">
-      <span className="font-['Roboto:Regular',sans-serif] font-normal">01</span>
+      <span className="font-['Roboto:Regular',sans-serif] font-normal">{formatNumber(currentPage)}</span>
       <div className="flex h-[31px] items-center justify-center">
         <div className="flex-none rotate-[134.98deg] skew-x-[-0.05deg]">
           <svg className="block h-[2px] w-[44px]" fill="none" preserveAspectRatio="none" viewBox="0 0 43.8219 2">
@@ -56,18 +60,26 @@ function SlideNumbers() {
           </svg>
         </div>
       </div>
-      <span className="font-['Roboto:Regular',sans-serif] font-normal">02</span>
+      <span className="font-['Roboto:Regular',sans-serif] font-normal">{formatNumber(totalPages)}</span>
     </div>
   );
 }
 
-export default function Pagination() {
+type PaginationProps = {
+  currentPage?: number;
+  totalPages?: number;
+};
+
+export default function Pagination({ currentPage = 1, totalPages = 2 }: PaginationProps) {
+  const hasPrev = currentPage > 1;
+  const hasNext = currentPage < totalPages;
+
   return (
     <div className="flex flex-col items-center gap-6">
-      <SlideNumbers />
+      <SlideNumbers currentPage={currentPage} totalPages={totalPages} />
       <div className="flex items-center gap-5">
-        <ArrowButton direction="left" tone="light" />
-        <ArrowButton direction="right" tone="muted" />
+        <ArrowButton direction="left" disabled={!hasPrev} />
+        <ArrowButton direction="right" disabled={!hasNext} />
       </div>
     </div>
   );

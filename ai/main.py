@@ -75,7 +75,7 @@ async def analyze_video(
     width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
     height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
     fps = cap.get(cv2.CAP_PROP_FPS)
-    if fps == 0: fps = 30.0
+    if fps == 0: fps = 60.0
 
     # 비디오 라이터 설정(결과 영상)
     fourcc = cv2.VideoWriter_fourcc(*'mp4v')

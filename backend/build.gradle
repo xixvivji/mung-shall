@@ -59,11 +59,9 @@ dependencies {
 
     // AWS S3 연동 라이브러리 의존성
     implementation 'io.awspring.cloud:spring-cloud-starter-aws:2.4.4'
-    // OpenAI
-    implementation 'org.springframework.ai:spring-ai-openai-spring-boot-starter'
 
-    // Google Gemini
-    implementation 'org.springframework.ai:spring-ai-google-gemini-spring-boot-starter'
+    implementation "org.springframework.ai:spring-ai-openai-spring-boot-starter:${springAiVersion}"
+    implementation "org.springframework.ai:spring-ai-google-gemini-spring-boot-starter:${springAiVersion}"
 }
 
 tasks.named('test') {

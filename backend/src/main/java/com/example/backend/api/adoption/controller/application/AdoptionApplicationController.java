@@ -17,7 +17,7 @@ import org.springframework.web.bind.annotation.*;
 
 import java.util.Map;
 
-@Tag(name = "입양 신청서 API", description = "입양 신청서 관련 API")
+@Tag(name = "입양 : 1. 입양 신청서 API", description = "입양 신청서 관련 API")
 @RestController
 @RequiredArgsConstructor
 @RequestMapping("/api/adoptions/{adoptionId}/application")

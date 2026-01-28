@@ -35,7 +35,7 @@ public class AdoptionStepInstance {
     private AdoptionStepStatus status;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "approver_id") // Optional, only set when approved/rejected
+    @JoinColumn(name = "approver_id") // Optional
     private User approver;
 
     private LocalDateTime submittedAt;

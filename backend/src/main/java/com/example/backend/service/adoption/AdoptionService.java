@@ -123,43 +123,81 @@ public class AdoptionService {
 //        }
     }
 
-    /**
-     * 입양 상세 정보를 조회합니다.
-     *
-     * @param adoptionId 조회할 입양 프로세스 ID
-     * @return 입양 상세 정보 DTO
-     */
-    public AdoptionDetailResponse getAdoptionDetail(Long adoptionId) {
-        Adoption adoption = adoptionRepository.findById(adoptionId)
-                .orElseThrow(() -> new IllegalArgumentException("ID와 일치하는 입양이 없습니다: " + adoptionId));
+        /**
+         * 입양 상세 정보를 조회합니다.
+         *
+         * @param adoptionId 조회할 입양 프로세스 ID
+         * @return 입양 상세 정보 DTO
+         */
+        public AdoptionDetailResponse getAdoptionDetail(Long adoptionId) {
+            Adoption adoption = adoptionRepository.findById(adoptionId)
+                    .orElseThrow(() -> new IllegalArgumentException("ID와 일치하는 입양이 없습니다: " + adoptionId));
 
-        List<AdoptionStepInstanceResponse> stepResponses = adoption.getSteps().stream()
-                .map(stepInstance -> AdoptionStepInstanceResponse.builder()
-                        .id(stepInstance.getId())
-                        .stepDef(AdoptionStepDefResponse.builder()
-                                .id(stepInstance.getStepDef().getId())
-                                .stepOrder(stepInstance.getStepDef().getStepOrder())
-                                .stepName(stepInstance.getStepDef().getStepName())
-                                .description(stepInstance.getStepDef().getDescription())
-                                .build())
-                        .status(stepInstance.getStatus())
-                        .approverUserId(stepInstance.getApprover() != null ? stepInstance.getApprover().getUserId() : null)
-                        .approverUserName(stepInstance.getApprover() != null ? stepInstance.getApprover().getName() : null)
-                        .submittedAt(stepInstance.getSubmittedAt())
-                        .approvedAt(stepInstance.getApprovedAt())
-                        .completedAt(stepInstance.getCompletedAt())
-                        .rejectionReason(stepInstance.getRejectionReason())
-                        .build())
-                .collect(Collectors.toList());
+            List<AdoptionStepInstanceResponse> stepResponses = adoption.getSteps().stream()
+                    .map(stepInstance -> AdoptionStepInstanceResponse.builder()
+                            .id(stepInstance.getId())
+                            .stepDef(AdoptionStepDefResponse.builder()
+                                    .id(stepInstance.getStepDef().getId())
+                                    .stepOrder(stepInstance.getStepDef().getStepOrder())
+                                    .stepName(stepInstance.getStepDef().getStepName())
+                                    .description(stepInstance.getStepDef().getDescription())
+                                    .build())
+                            .status(stepInstance.getStatus())
+                            .approverUserId(stepInstance.getApprover() != null ? stepInstance.getApprover().getUserId() : null)
+                            .approverUserName(stepInstance.getApprover() != null ? stepInstance.getApprover().getName() : null)
+                            .submittedAt(stepInstance.getSubmittedAt())
+                            .approvedAt(stepInstance.getApprovedAt())
+                            .completedAt(stepInstance.getCompletedAt())
+                            .rejectionReason(stepInstance.getRejectionReason())
+                            .build())
+                    .collect(Collectors.toList());
+    
 
+            return AdoptionDetailResponse.builder()
+                    .id(adoption.getId())
+                    .userId(adoption.getUser().getUserId())
+                    .userName(adoption.getUser().getName())
+                    .dogId(adoption.getAbandonedDog().getId())
+                    .processStatus(adoption.getProcessStatus())
+                    .steps(stepResponses)
+                    .build();
+        }
 
-        return AdoptionDetailResponse.builder()
-                .id(adoption.getId())
-                .userId(adoption.getUser().getUserId())
-                .userName(adoption.getUser().getName())
-                .dogId(adoption.getAbandonedDog().getId())
-                .processStatus(adoption.getProcessStatus())
-                .steps(stepResponses)
-                .build();
+        /**
+         * 특정 입양의 상담(Step 3) 단계 정보를 조회합니다.
+         *
+         * @param adoptionId 조회할 입양 프로세스 ID
+         * @return 상담 단계의 상세 정보 DTO
+         */
+        @Transactional(readOnly = true)
+
+        public AdoptionStepInstanceResponse getAdoptionCounselingStep(Long adoptionId) {
+
+            Adoption adoption = adoptionRepository.findById(adoptionId)
+                    .orElseThrow(() -> new IllegalArgumentException("ID와 일치하는 입양이 없습니다: " + adoptionId));
+
+            AdoptionStepInstance counselingStep = adoption.getSteps().stream()
+                    .filter(step -> step.getStepDef().getStepOrder() == 3) // Filter for counseling step (Step 3)
+                    .findFirst()
+                    .orElseThrow(() -> new IllegalStateException("상담 단계 (Step 3)를 찾을 수 없습니다."));
+
+            return AdoptionStepInstanceResponse.builder()
+                    .id(counselingStep.getId())
+                    .stepDef(AdoptionStepDefResponse.builder()
+                            .id(counselingStep.getStepDef().getId())
+                            .stepOrder(counselingStep.getStepDef().getStepOrder())
+                            .stepName(counselingStep.getStepDef().getStepName())
+                            .description(counselingStep.getStepDef().getDescription())
+                            .build())
+                    .status(counselingStep.getStatus())
+                    .approverUserId(counselingStep.getApprover() != null ? counselingStep.getApprover().getUserId() : null)
+                    .approverUserName(counselingStep.getApprover() != null ? counselingStep.getApprover().getName() : null)
+                    .submittedAt(counselingStep.getSubmittedAt())
+                    .approvedAt(counselingStep.getApprovedAt())
+                    .completedAt(counselingStep.getCompletedAt())
+                    .rejectionReason(counselingStep.getRejectionReason())
+                    .build();
+        }
     }
-}
+
+    

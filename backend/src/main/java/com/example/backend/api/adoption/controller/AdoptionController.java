@@ -2,6 +2,7 @@ package com.example.backend.api.adoption.controller;
 
 import com.example.backend.api.adoption.dto.AdoptionCreateRequest;
 import com.example.backend.api.adoption.dto.AdoptionDetailResponse;
+import com.example.backend.api.adoption.dto.AdoptionStepInstanceResponse; // NEW IMPORT
 import com.example.backend.service.adoption.AdoptionService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
@@ -61,5 +62,18 @@ public class AdoptionController {
             @Parameter(description = "취소할 입양 프로세스 ID") @PathVariable Long adoptionId) {
         adoptionService.cancelAdoptionProcess(adoptionId);
         return ResponseEntity.ok(Map.of("message", "입양 프로세스가 성공적으로 취소되었습니다."));
+    }
+
+    @Operation(summary = "입양 상담 단계 정보 조회", description = "특정 입양 프로세스의 상담(Step 3) 단계 정보를 조회합니다.")
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "200", description = "상담 단계 정보 조회 성공",
+                    content = @Content(schema = @Schema(implementation = AdoptionStepInstanceResponse.class))),
+            @ApiResponse(responseCode = "404", description = "해당 입양 프로세스 또는 상담 단계를 찾을 수 없음")
+    })
+    @GetMapping("/{adoptionId}/counseling-step")
+    public ResponseEntity<AdoptionStepInstanceResponse> getAdoptionCounselingStep(
+            @Parameter(description = "조회할 입양 프로세스 ID") @PathVariable Long adoptionId) {
+        AdoptionStepInstanceResponse response = adoptionService.getAdoptionCounselingStep(adoptionId);
+        return ResponseEntity.ok(response);
     }
 }

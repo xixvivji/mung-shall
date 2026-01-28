@@ -27,7 +27,7 @@ repositories {
     maven { url 'https://repo.spring.io/snapshot' }
 }
 ext {
-    set('springAiVersion', "1.0.0-M5")
+    set('springAiVersion', "1.0.0-M1")
 }
 dependencies {
     implementation 'org.springframework.boot:spring-boot-starter-web'

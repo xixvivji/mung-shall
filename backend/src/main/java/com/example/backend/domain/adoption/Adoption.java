@@ -31,7 +31,7 @@ public class Adoption {
     @JoinColumn(name = "user_id", nullable = false)
     private User user;
 
-    @ManyToOne(fetch = FetchType.LAZY)
+    @OneToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "abandoned_dog_id", nullable = false)
     private AbandonedDog abandonedDog;
 

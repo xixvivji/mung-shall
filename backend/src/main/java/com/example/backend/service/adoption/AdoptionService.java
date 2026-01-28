@@ -63,7 +63,6 @@ public class AdoptionService {
         Adoption adoption = new Adoption();
         adoption.setUser(user);
         adoption.setAbandonedDog(dog);
-        adoption.setShelter(shelterUser);
         adoption.setProcessStatus(AdoptionProcessStatus.IN_PROGRESS);
         adoptionRepository.save(adoption);
 

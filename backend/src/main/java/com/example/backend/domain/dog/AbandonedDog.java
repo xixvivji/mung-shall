@@ -1,5 +1,6 @@
 package com.example.backend.domain.dog;
 
+import com.example.backend.domain.shelter.Shelter;
 import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
@@ -15,6 +16,10 @@ public class AbandonedDog {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "shelter_id", nullable = false)
+    private Shelter shelter;
 
     @Column(unique = true, nullable = false)
     private String desertionNo; // 유기번호 (고유키)

@@ -34,9 +34,9 @@ public class AbandonedDog {
     private String noticeEdt; // 공고종료일
 
     @Column(length = 1024)
-    private String popfile1; // 썸네일 이미지
+    private String popfile1; // 이미지1
     @Column(length = 1024)
-    private String popfile2; // 원본 이미지
+    private String popfile2; // 이미지2
 
     private String processState; // 상태
     private String sexCd; // 성별

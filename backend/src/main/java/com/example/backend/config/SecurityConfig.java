@@ -8,6 +8,7 @@ import com.example.backend.security.oauth.OAuth2AuthenticationSuccessHandler;
 import jakarta.servlet.http.HttpServletResponse;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.http.HttpMethod;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -51,10 +52,17 @@ public class SecurityConfig {
                                 "/swagger-ui/**",
                                 "/v3/api-docs/**"
                         ).permitAll()
+
+                        .requestMatchers(HttpMethod.GET, "/api/boards", "/api/boards/**").permitAll()
+                        .requestMatchers(HttpMethod.POST, "/api/boards", "/api/boards/**").authenticated()
+                        .requestMatchers(HttpMethod.PUT, "/api/boards/**").authenticated()
+                        .requestMatchers(HttpMethod.DELETE, "/api/boards/**").authenticated()
+
                         .requestMatchers(
                                 "/api/auth/logout",
                                 "/api/auth/refresh"
                         ).authenticated()
+
                         .requestMatchers(
                                 "/api/auth/**",
                                 "/api/dogs/**",
@@ -62,7 +70,9 @@ public class SecurityConfig {
                                 "/oauth2/**",
                                 "/login/**"
                         ).permitAll()
+
                         .requestMatchers("/api/shelter/**").hasRole("SHELTER")
+
                         .anyRequest().authenticated()
                 )
                 .exceptionHandling(e -> e

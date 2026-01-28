@@ -23,8 +23,12 @@ configurations {
 
 repositories {
     mavenCentral()
+    maven { url 'https://repo.spring.io/milestone' }
+    maven { url 'https://repo.spring.io/snapshot' }
 }
-
+ext {
+    set('springAiVersion', "1.0.0-M6")
+}
 dependencies {
     implementation 'org.springframework.boot:spring-boot-starter-web'
     implementation 'org.springframework.boot:spring-boot-starter-data-jpa'
@@ -55,16 +59,21 @@ dependencies {
 
     // AWS S3 연동 라이브러리 의존성
     implementation 'io.awspring.cloud:spring-cloud-starter-aws:2.4.4'
-    // OpenAI
-    implementation 'org.springframework.ai:spring-ai-openai-spring-boot-starter'
 
-    // Google Gemini
-    implementation 'org.springframework.ai:spring-ai-google-gemini-spring-boot-starter'
+    implementation 'com.google.protobuf:protobuf-java:3.25.3'
+
+    implementation "org.springframework.ai:spring-ai-openai-spring-boot-starter:${springAiVersion}"
+
+    implementation "org.springframework.ai:spring-ai-vertex-ai-gemini-spring-boot-starter:${springAiVersion}"
 }
 
 tasks.named('test') {
     useJUnitPlatform()
 }
 
-
+dependencyManagement {
+    imports {
+        mavenBom "org.springframework.ai:spring-ai-bom:${springAiVersion}"
+    }
+}
 

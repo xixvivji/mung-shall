@@ -1,7 +1,7 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { fetchAdoptionList } from "../api/adoptionApi";
 import DogGrid from "../components/DogGrid";
-import Filters from "../components/Filters";
+import Filters, { DEFAULT_BREED, DEFAULT_CITY, DEFAULT_PROVINCE } from "../components/Filters";
 import Pagination from "../components/Pagination";
 import type { AdoptionDog } from "../types";
 
@@ -9,16 +9,38 @@ export default function AdoptionList() {
   const [dogs, setDogs] = useState<AdoptionDog[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [page, setPage] = useState(0);
+  const [totalPages, setTotalPages] = useState(1);
+  const [filters, setFilters] = useState({
+    breed: DEFAULT_BREED,
+    province: DEFAULT_PROVINCE,
+    city: DEFAULT_CITY,
+  });
+
+  const region = useMemo(() => {
+    if (filters.city !== DEFAULT_CITY) return filters.city;
+    if (filters.province !== DEFAULT_PROVINCE) return filters.province;
+    return undefined;
+  }, [filters.city, filters.province]);
+
+  const breedParam = filters.breed !== DEFAULT_BREED ? filters.breed : undefined;
 
   useEffect(() => {
     let cancelled = false;
     setLoading(true);
     setError(null);
 
-    fetchAdoptionList()
-      .then((items) => {
+    fetchAdoptionList({
+      page,
+      size: 12,
+      sort: "happenDt",
+      region,
+      breed: breedParam,
+    })
+      .then((result) => {
         if (!cancelled) {
-          setDogs(items);
+          setDogs(result.items);
+          setTotalPages(result.totalPages || 1);
         }
       })
       .catch((err) => {
@@ -36,13 +58,31 @@ export default function AdoptionList() {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [page, region, breedParam]);
+
+  const breeds = useMemo(
+    () =>
+      Array.from(
+        new Set(
+          dogs
+            .map((dog) => dog.breed?.trim())
+            .filter((value): value is string => Boolean(value))
+        )
+      ),
+    [dogs]
+  );
 
   return (
     <section className="mx-auto max-w-[1200px] px-6 py-16">
       <div className="space-y-4">
         <h1 className="text-3xl font-semibold text-[#333]">Adoption</h1>
-        <Filters />
+        <Filters
+          breeds={breeds}
+          onChange={(next) => {
+            setFilters(next);
+            setPage(0);
+          }}
+        />
       </div>
 
       <div className="mt-8">
@@ -58,7 +98,12 @@ export default function AdoptionList() {
       </div>
 
       <div className="mt-10">
-        <Pagination />
+        <Pagination
+          currentPage={page + 1}
+          totalPages={totalPages}
+          onPrev={() => setPage((prev) => Math.max(prev - 1, 0))}
+          onNext={() => setPage((prev) => Math.min(prev + 1, totalPages - 1))}
+        />
       </div>
     </section>
   );

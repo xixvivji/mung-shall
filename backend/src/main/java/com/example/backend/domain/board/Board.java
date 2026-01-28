@@ -73,4 +73,8 @@ public class Board {
     public boolean isDeleted() {
         return this.deletedAt != null;
     }
+
+    public void increaseViewCount() {
+        this.viewCount++;
+    }
 }

@@ -3,6 +3,8 @@ import type { AdoptionDog } from "../types";
 
 type DogSummaryResponse = {
   dogId: number;
+  desertionNo?: string;
+  noticeNo?: string;
   imageUrl?: string;
   kindNm?: string;
   age?: string;
@@ -18,23 +20,56 @@ type DogsResponse = {
   size: number;
 };
 
-export async function fetchAdoptionList(
-  page = 0,
+type FetchAdoptionParams = {
+  page?: number;
+  size?: number;
+  sort?: string;
+  region?: string;
+  sexCd?: string;
+  processState?: string;
+  breed?: string;
+};
+
+type FetchAdoptionResult = {
+  items: AdoptionDog[];
+  totalPages: number;
+  totalElements: number;
+  page: number;
+  size: number;
+};
+
+export async function fetchAdoptionList({
+  page = 10,
   size = 12,
   sort = "happenDt",
-): Promise<AdoptionDog[]> {
-  const params = new URLSearchParams({
-    page: String(page),
-    size: String(size),
-    sort,
-  });
+  region,
+  sexCd,
+  processState,
+  breed,
+}: FetchAdoptionParams = {}): Promise<FetchAdoptionResult> {
+  const params = new URLSearchParams();
+  params.set("page", String(page));
+  params.set("size", String(size));
+  params.set("sort", sort);
+
+  if (region) params.set("region", region);
+  if (sexCd) params.set("sexCd", sexCd);
+  if (processState) params.set("processState", processState);
+  if (breed) params.set("breed", breed);
+
   const data = await api<DogsResponse>(`/dogs?${params.toString()}`);
 
-  return data.content.map((dog) => ({
-    id: String(dog.dogId),
-    name: dog.kindNm ?? "Unknown",
-    breed: dog.kindNm ?? dog.careNm ?? "Unknown",
-    age: dog.age ?? "",
-    imageUrl: dog.imageUrl,
-  }));
+  return {
+    items: data.content.map((dog) => ({
+      id: String(dog.dogId),
+      name: dog.noticeNo ?? dog.desertionNo ?? dog.kindNm ?? `Dog #${dog.dogId}`,
+      breed: dog.kindNm ?? "Unknown",
+      age: dog.age ?? "",
+      imageUrl: dog.imageUrl,
+    })),
+    totalPages: data.totalPages,
+    totalElements: data.totalElements,
+    page: data.number,
+    size: data.size,
+  };
 }

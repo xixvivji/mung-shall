@@ -52,7 +52,13 @@ pipeline {
                     string(credentialsId: 'NAVER_CLIENT_SECRET', variable: 'NAVER_PW'),
 
                     string(credentialsId: 'MAIL_USERNAME', variable: 'MAIL_USERNAME'),
-                    string(credentialsId: 'MAIL_PASSWORD', variable: 'MAIL_PASSWORD')
+                    string(credentialsId: 'MAIL_PASSWORD', variable: 'MAIL_PASSWORD'),
+
+                    // AWS S3 Credentials 가져오기
+                    string(credentialsId: 'AWS_ACCESS_KEY', variable: 'S3_ACCESS_KEY'),
+                    string(credentialsId: 'AWS_SECRET_KEY', variable: 'S3_SECRET_KEY'),
+                    string(credentialsId: 'S3_BUCKET_NAME', variable: 'S3_BUCKET_NAME'),
+                    string(credentialsId: 'GMS_KEY', variable: 'MyGmsKey')
                 ]) {
                     script {
                         // 1. .env 파일 생성
@@ -87,6 +93,14 @@ pipeline {
                         # --- 이메일 설정 추가 ---
                         echo "MAIL_USERNAME=${MAIL_USERNAME}" >> .env
                         echo "MAIL_PASSWORD=${MAIL_PASSWORD}" >> .env
+
+                        # --- AWS S3 설정 (.env에 기록) ---
+                        echo "S3_ACCESS_KEY=${S3_ACCESS_KEY}" >> .env
+                        echo "S3_SECRET_KEY=${S3_SECRET_KEY}" >> .env
+                        echo "S3_BUCKET_NAME=${S3_BUCKET_NAME}" >> .env
+
+                        # --- GMS키 설정 ---
+                        echo "GMS_KEY=${MyGmsKey}" >> .env
 
                         # --- 기타 설정 ---
                         echo "FRONT_OAUTH_REDIRECT_URL=http://13.125.3.38/oauth/callback" >> .env

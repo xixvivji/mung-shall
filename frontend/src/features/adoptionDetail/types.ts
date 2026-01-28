@@ -4,4 +4,18 @@ export type AdoptionDetail = {
   breed: string;
   description: string;
   images: string[];
+  noticeNo?: string;
+  desertionNo?: string;
+  careNm?: string;
+  careAddr?: string;
+  careTel?: string;
+  careOwnerNm?: string;
+  sexCd?: string;
+  colorCd?: string;
+  age?: string;
+  weight?: string;
+  happenPlace?: string;
+  noticeSdt?: string;
+  noticeEdt?: string;
+  processState?: string;
 };

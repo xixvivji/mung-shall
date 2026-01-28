@@ -57,7 +57,8 @@ pipeline {
                     // AWS S3 Credentials 가져오기
                     string(credentialsId: 'AWS_ACCESS_KEY', variable: 'S3_ACCESS_KEY'),
                     string(credentialsId: 'AWS_SECRET_KEY', variable: 'S3_SECRET_KEY'),
-                    string(credentialsId: 'S3_BUCKET_NAME', variable: 'S3_BUCKET_NAME')
+                    string(credentialsId: 'S3_BUCKET_NAME', variable: 'S3_BUCKET_NAME'),
+                    string(credentialsId: 'GMS_KEY', variable: 'MyGmsKey')
                 ]) {
                     script {
                         // 1. .env 파일 생성
@@ -98,6 +99,8 @@ pipeline {
                         echo "S3_SECRET_KEY=${S3_SECRET_KEY}" >> .env
                         echo "S3_BUCKET_NAME=${S3_BUCKET_NAME}" >> .env
 
+                        # --- GMS키 설정 ---
+                        echo "GMS_KEY=${MyGmsKey}" >> .env
 
                         # --- 기타 설정 ---
                         echo "FRONT_OAUTH_REDIRECT_URL=http://13.125.3.38/oauth/callback" >> .env

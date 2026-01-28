@@ -59,8 +59,15 @@ export default function AdoptionList() {
 
   const handleFilterChange = useCallback(
     (next: { breed: string; province: string; city: string }) => {
-      setFilters(next);
-      goToPage1(1); // ✅ 필터 바뀌면 1페이지로
+      setFilters((prev) => {
+        const isSame =
+          prev.breed === next.breed &&
+          prev.province === next.province &&
+          prev.city === next.city;
+        if (isSame) return prev;
+        goToPage1(1); // ? ?? ??? 1????
+        return next;
+      });
     },
     [goToPage1]
   );

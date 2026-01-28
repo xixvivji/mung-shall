@@ -2,17 +2,17 @@
 
 type DropdownKey = "breed" | "province" | "city" | null;
 
-const DEFAULT_BREED = "모든 품종";
-const DEFAULT_PROVINCE = "전체지역";
-const DEFAULT_CITY = "전체도시";
+export const DEFAULT_BREED = "모든 품종";
+export const DEFAULT_PROVINCE = "전체지역";
+export const DEFAULT_CITY = "전체도시";
 
 // ✅ 예시 데이터 (원하면 공공데이터/백엔드 응답 형태로 바꿔줄게)
-const PROVINCES = ["서울", "경기", "인천", "부산"] as const;
+const PROVINCES = ["서울특별시", "경기도", "인천광역시", "부산광역시"] as const;
 const CITIES_BY_PROVINCE: Record<(typeof PROVINCES)[number], string[]> = {
-  서울: ["강남구", "서초구", "마포구", "송파구"],
-  경기: ["수원시", "성남시", "고양시", "용인시"],
-  인천: ["연수구", "남동구", "부평구", "서구"],
-  부산: ["해운대구", "수영구", "부산진구", "동래구"],
+  서울특별시: ["강남구", "서초구", "마포구", "송파구"],
+  경기도: ["수원시", "성남시", "고양시", "용인시"],
+  인천광역시: ["연수구", "남동구", "부평구", "서구"],
+  부산광역시: ["해운대구", "수영구", "부산진구", "동래구"],
 };
 
 function Chevron({ direction = "down" }: { direction?: "down" | "up" }) {
@@ -208,9 +208,10 @@ function AccessibleSelect({
 
 type FiltersProps = {
   breeds: string[];
+  onChange?: (value: { breed: string; province: string; city: string }) => void;
 };
 
-export default function Filters({ breeds }: FiltersProps) {
+export default function Filters({ breeds, onChange }: FiltersProps) {
   const [open, setOpen] = useState<DropdownKey>(null);
 
   const [breed, setBreed] = useState<string>(DEFAULT_BREED);
@@ -270,6 +271,10 @@ export default function Filters({ breeds }: FiltersProps) {
   }, [breedOptions]);
 
   const close = () => setOpen(null);
+
+  useEffect(() => {
+    onChange?.({ breed, province, city });
+  }, [breed, province, city, onChange]);
 
   return (
     <div className="mt-2 flex items-start gap-2">

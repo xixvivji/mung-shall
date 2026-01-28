@@ -3,6 +3,7 @@
 type ArrowButtonProps = {
   direction?: "left" | "right";
   disabled?: boolean;
+  onClick?: () => void;
 };
 
 function IcoShape() {
@@ -18,7 +19,7 @@ function IcoShape() {
   );
 }
 
-function ArrowButton({ direction = "right", disabled = false }: ArrowButtonProps) {
+function ArrowButton({ direction = "right", disabled = false, onClick }: ArrowButtonProps) {
   const isLeft = direction === "left";
   const backgroundClass = disabled ? "bg-[#f2f2f2]" : "bg-white";
   const interactionClass = disabled ? "cursor-not-allowed" : "cursor-pointer";
@@ -29,6 +30,7 @@ function ArrowButton({ direction = "right", disabled = false }: ArrowButtonProps
       type="button"
       aria-label={isLeft ? "Previous page" : "Next page"}
       disabled={disabled}
+      onClick={onClick}
     >
       {isLeft ? (
         <div className="absolute flex items-center justify-center left-[15px] size-[24px] top-[15px]">
@@ -68,9 +70,16 @@ function SlideNumbers({ currentPage, totalPages }: { currentPage: number; totalP
 type PaginationProps = {
   currentPage?: number;
   totalPages?: number;
+  onPrev?: () => void;
+  onNext?: () => void;
 };
 
-export default function Pagination({ currentPage = 1, totalPages = 2 }: PaginationProps) {
+export default function Pagination({
+  currentPage = 1,
+  totalPages = 2,
+  onPrev,
+  onNext,
+}: PaginationProps) {
   const hasPrev = currentPage > 1;
   const hasNext = currentPage < totalPages;
 
@@ -78,8 +87,8 @@ export default function Pagination({ currentPage = 1, totalPages = 2 }: Paginati
     <div className="flex flex-col items-center gap-6">
       <SlideNumbers currentPage={currentPage} totalPages={totalPages} />
       <div className="flex items-center gap-5">
-        <ArrowButton direction="left" disabled={!hasPrev} />
-        <ArrowButton direction="right" disabled={!hasNext} />
+        <ArrowButton direction="left" disabled={!hasPrev} onClick={hasPrev ? onPrev : undefined} />
+        <ArrowButton direction="right" disabled={!hasNext} onClick={hasNext ? onNext : undefined} />
       </div>
     </div>
   );

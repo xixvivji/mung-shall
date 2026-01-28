@@ -12,6 +12,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.*;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import com.example.backend.api.board.dto.BoardDetailResponse;
 
 @Service
 @RequiredArgsConstructor
@@ -101,4 +102,14 @@ public class BoardService {
                 board.getViewCount()
         );
     }
+
+    @Transactional
+    public BoardDetailResponse getBoardDetail(Long boardId) {
+        Board board = boardRepository.findByIdAndDeletedAtIsNull(boardId)
+                .orElseThrow(() -> ApiException.notFound("삭제되었거나 존재하지 않는 게시글입니다."));
+
+        board.increaseViewCount();   // 조회수 +1
+        return BoardDetailResponse.from(board);
+    }
+
 }

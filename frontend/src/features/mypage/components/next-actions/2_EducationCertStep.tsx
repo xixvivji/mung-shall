@@ -2,20 +2,16 @@ import { useMemo, useRef, useState } from "react";
 import { Button } from "@/shared/ui/button";
 
 type Props = {
-  isEditable: boolean; // ✅ 이제 "제출 가능 여부"로만 사용
+  isEditable: boolean;
+  onSubmitSuccess: () => void;
 };
 
-export function EducationCertStep({ isEditable }: Props) {
+export function EducationCertStep({ isEditable, onSubmitSuccess }: Props) {
   const [file, setFile] = useState<File | null>(null);
-
-  // 모달 상태
   const [isModalOpen, setIsModalOpen] = useState(false);
-
-  // 모달 안에서 "임시 선택" (확인 눌렀을 때만 반영)
   const [tempFile, setTempFile] = useState<File | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
-  // ✅ 첨부는 항상 가능, 제출만 제한
   const canAttach = true;
   const canSubmit = isEditable;
 
@@ -39,17 +35,13 @@ export function EducationCertStep({ isEditable }: Props) {
 
   const openModal = () => {
     if (!canAttach) return;
-    setTempFile(file); // 기존 선택 파일이 있으면 미리 채워두기
+    setTempFile(file);
     setIsModalOpen(true);
   };
 
-  const closeModal = () => {
-    setIsModalOpen(false);
-  };
+  const closeModal = () => setIsModalOpen(false);
 
-  const onPickFile = (f: File | null) => {
-    setTempFile(f);
-  };
+  const onPickFile = (f: File | null) => setTempFile(f);
 
   const onConfirm = () => {
     setFile(tempFile ?? null);
@@ -57,7 +49,6 @@ export function EducationCertStep({ isEditable }: Props) {
   };
 
   const onCancel = () => {
-    // 모달에서 취소하면 실제 file은 건드리지 않음
     setTempFile(null);
     closeModal();
   };
@@ -66,7 +57,6 @@ export function EducationCertStep({ isEditable }: Props) {
     e.preventDefault();
     e.stopPropagation();
     if (!canAttach) return;
-
     const dropped = e.dataTransfer.files?.[0] ?? null;
     if (dropped) onPickFile(dropped);
   };
@@ -74,6 +64,11 @@ export function EducationCertStep({ isEditable }: Props) {
   const handleDragOver: React.DragEventHandler<HTMLDivElement> = (e) => {
     e.preventDefault();
     e.stopPropagation();
+  };
+
+  const handleSubmit = () => {
+    if (!canSubmit || !file) return;
+    onSubmitSuccess();
   };
 
   return (
@@ -157,7 +152,11 @@ export function EducationCertStep({ isEditable }: Props) {
           )}
 
           <div className="flex gap-3">
-            <Button className="rounded-lg" disabled={!canSubmit || !file}>
+            <Button
+              className="rounded-lg"
+              disabled={!canSubmit || !file}
+              onClick={handleSubmit}   // ✅ 이거 필수
+            >
               업로드 제출
             </Button>
           </div>

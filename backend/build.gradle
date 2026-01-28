@@ -53,6 +53,9 @@ dependencies {
     implementation 'io.openvidu:openvidu-java-client:2.29.0'
     implementation "org.jetbrains.kotlin:kotlin-stdlib-jdk8"
 
+    // AWS S3 연동 라이브러리 의존성
+    implementation 'io.awspring.cloud:spring-cloud-starter-aws:2.4.4'
+
 }
 
 tasks.named('test') {

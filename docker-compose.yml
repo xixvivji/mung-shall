@@ -56,6 +56,11 @@ services:
       - COOKIE_SAMESITE=${COOKIE_SAMESITE}
       - MAIL_USERNAME=${MAIL_USERNAME}
       - MAIL_PASSWORD=${MAIL_PASSWORD}
+
+      #  S3 접속 정보 추가
+      - S3_ACCESS_KEY=${S3_ACCESS_KEY}
+      - S3_SECRET_KEY=${S3_SECRET_KEY}
+      - S3_BUCKET_NAME=${S3_BUCKET_NAME}
     networks:
       - app-network
     restart: on-failure

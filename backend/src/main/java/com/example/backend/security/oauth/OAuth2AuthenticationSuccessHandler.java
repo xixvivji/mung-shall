@@ -11,6 +11,7 @@ import com.example.backend.security.jwt.RefreshTokenRedisService;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.oauth2.core.user.OAuth2User;
 import org.springframework.security.web.authentication.AuthenticationSuccessHandler;
@@ -28,9 +29,14 @@ public class OAuth2AuthenticationSuccessHandler implements AuthenticationSuccess
 
     private static final String REFRESH_COOKIE_NAME = "refreshToken";
 
-    private static final String FRONT_REDIRECT_URL = "https://i14c109.p.ssafy.io/auth/login";
-    private static final boolean COOKIE_SECURE = true;
-    private static final String COOKIE_SAMESITE = "None";
+    @Value("${app.front-oauth-redirect-url}")
+    private String frontRedirectUrl;
+
+    @Value("${app.cookie.secure:false}")
+    private boolean cookieSecure;
+
+    @Value("${app.cookie.samesite:Lax}")
+    private String cookieSameSite;
 
     private final UserRepository userRepository;
     private final AuthUserRepository authUserRepository;
@@ -118,7 +124,7 @@ public class OAuth2AuthenticationSuccessHandler implements AuthenticationSuccess
 
         setRefreshCookie(response, refreshToken);
 
-        String redirectUrl = FRONT_REDIRECT_URL
+        String redirectUrl = frontRedirectUrl
                 + "?accessToken=" + URLEncoder.encode(accessToken, StandardCharsets.UTF_8)
                 + "&provider=" + URLEncoder.encode(providerStr, StandardCharsets.UTF_8);
 
@@ -130,12 +136,14 @@ public class OAuth2AuthenticationSuccessHandler implements AuthenticationSuccess
         long maxAgeSecLong = ttl.getSeconds();
         int maxAgeSec = (maxAgeSecLong > Integer.MAX_VALUE) ? Integer.MAX_VALUE : (int) maxAgeSecLong;
 
+        String sameSite = (cookieSameSite == null || cookieSameSite.isBlank()) ? "Lax" : cookieSameSite;
+
         String header = REFRESH_COOKIE_NAME + "=" + refreshToken
                 + "; Path=/"
                 + "; Max-Age=" + maxAgeSec
                 + "; HttpOnly"
-                + (COOKIE_SECURE ? "; Secure" : "")
-                + "; SameSite=" + COOKIE_SAMESITE;
+                + (cookieSecure ? "; Secure" : "")
+                + "; SameSite=" + sameSite;
 
         response.setHeader("Set-Cookie", header);
     }
@@ -151,7 +159,7 @@ public class OAuth2AuthenticationSuccessHandler implements AuthenticationSuccess
     }
 
     private void redirectError(HttpServletResponse response, String code, String message) throws IOException {
-        String url = FRONT_REDIRECT_URL
+        String url = frontRedirectUrl
                 + "?error=" + URLEncoder.encode(code, StandardCharsets.UTF_8)
                 + "&message=" + URLEncoder.encode(message, StandardCharsets.UTF_8);
         response.sendRedirect(url);

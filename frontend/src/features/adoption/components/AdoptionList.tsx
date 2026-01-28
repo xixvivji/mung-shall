@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { fetchAdoptionList } from "../api/adoptionApi";
 import type { AdoptionDog } from "../types";
@@ -31,6 +31,7 @@ export default function AdoptionList() {
     province: DEFAULT_PROVINCE,
     city: DEFAULT_CITY,
   });
+  const filtersRef = useRef(filters);
 
   const region = useMemo(() => {
     if (filters.city !== DEFAULT_CITY) return filters.city;

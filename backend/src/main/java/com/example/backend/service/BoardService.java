@@ -1,13 +1,12 @@
 package com.example.backend.service;
 
 import com.example.backend.api.board.dto.BoardListItemDto;
+import com.example.backend.common.ApiException;
 import com.example.backend.domain.board.Board;
+import com.example.backend.domain.board.BoardCategory;
 import com.example.backend.repository.BoardRepository;
 import lombok.RequiredArgsConstructor;
-import org.springframework.data.domain.Page;
-import org.springframework.data.domain.PageRequest;
-import org.springframework.data.domain.Pageable;
-import org.springframework.data.domain.Sort;
+import org.springframework.data.domain.*;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -18,7 +17,7 @@ public class BoardService {
 
     private final BoardRepository boardRepository;
 
-    public Page<BoardListItemDto> getBoardList(int page, int size) {
+    public Page<BoardListItemDto> getBoardList(int page, int size, String keyword, String category) {
         int safePage = Math.max(page, 0);
         int safeSize = (size <= 0) ? 20 : Math.min(size, 50);
 
@@ -28,8 +27,37 @@ public class BoardService {
                 Sort.by(Sort.Direction.DESC, "createdAt")
         );
 
-        return boardRepository.findByDeletedAtIsNull(pageable)
-                .map(this::toListItemDto);
+        String kw = (keyword == null || keyword.isBlank()) ? null : keyword.trim();
+
+        BoardCategory cat = null;
+        if (category != null && !category.isBlank()) {
+            try {
+                cat = BoardCategory.valueOf(category.trim().toUpperCase());
+            } catch (Exception e) {
+                throw ApiException.badRequest("잘못된 파라미터");
+            }
+        }
+
+        Page<Board> pageResult;
+
+        if (cat == null && kw == null) {
+            pageResult = boardRepository.findByDeletedAtIsNull(pageable);
+
+        } else if (cat != null && kw == null) {
+            pageResult = boardRepository.findByDeletedAtIsNullAndCategory(cat, pageable);
+
+        } else if (cat == null) {
+            pageResult = boardRepository.findByDeletedAtIsNullAndTitleContainingOrDeletedAtIsNullAndContentContaining(
+                    kw, kw, pageable
+            );
+
+        } else {
+            pageResult = boardRepository.findByDeletedAtIsNullAndCategoryAndTitleContainingOrDeletedAtIsNullAndCategoryAndContentContaining(
+                    cat, kw, cat, kw, pageable
+            );
+        }
+
+        return pageResult.map(this::toListItemDto);
     }
 
     private BoardListItemDto toListItemDto(Board board) {

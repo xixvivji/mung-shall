@@ -2,6 +2,7 @@ package com.example.backend.api.s3;
 
 import com.example.backend.service.S3Service;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.MediaType; // 👈 이거 import 필수!
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -19,18 +20,15 @@ public class ImageController {
 
     private final S3Service s3Service;
 
-    // 테스트용 업로드 API
-    @PostMapping("/upload")
+    @PostMapping(value = "/upload", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ResponseEntity<?> uploadTest(@RequestParam("file") MultipartFile file) {
         try {
             if (file.isEmpty()) {
                 return ResponseEntity.badRequest().body("파일이 비어있습니다.");
             }
 
-            // S3에 업로드하고 URL 받아오기
             String imageUrl = s3Service.uploadFile(file);
 
-            // 결과 리턴 (JSON 형식)
             Map<String, String> response = new HashMap<>();
             response.put("message", "업로드 성공!");
             response.put("url", imageUrl);

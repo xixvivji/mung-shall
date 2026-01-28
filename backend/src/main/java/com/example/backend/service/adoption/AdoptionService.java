@@ -156,39 +156,6 @@ public class AdoptionService {
                     .build();
         }
 
-        /**
-         * 특정 입양의 상담(Step 3) 단계 정보를 조회합니다.
-         *
-         * @param adoptionId 조회할 입양 프로세스 ID
-         * @return 상담 단계의 상세 정보 DTO
-         */
-        @Transactional(readOnly = true)
-
-        public AdoptionStepInstanceResponse getAdoptionCounselingStep(Long adoptionId) {
-
-            Adoption adoption = adoptionRepository.findById(adoptionId)
-                    .orElseThrow(() -> new IllegalArgumentException("ID와 일치하는 입양이 없습니다: " + adoptionId));
-
-            AdoptionStepInstance counselingStep = adoption.getSteps().stream()
-                    .filter(step -> step.getStepDef().getStepOrder() == 3) // Filter for counseling step (Step 3)
-                    .findFirst()
-                    .orElseThrow(() -> new IllegalStateException("상담 단계 (Step 3)를 찾을 수 없습니다."));
-
-            return AdoptionStepInstanceResponse.builder()
-                    .id(counselingStep.getId())
-                    .stepDef(AdoptionStepDefResponse.builder()
-                            .id(counselingStep.getStepDef().getId())
-                            .stepOrder(counselingStep.getStepDef().getStepOrder())
-                            .stepName(counselingStep.getStepDef().getStepName())
-                            .description(counselingStep.getStepDef().getDescription())
-                            .build())
-                    .status(counselingStep.getStatus())
-                    .submittedAt(counselingStep.getSubmittedAt())
-                    .approvedAt(counselingStep.getApprovedAt())
-                    .completedAt(counselingStep.getCompletedAt())
-                    .rejectionReason(counselingStep.getRejectionReason())
-                    .build();
-        }
     }
 
     

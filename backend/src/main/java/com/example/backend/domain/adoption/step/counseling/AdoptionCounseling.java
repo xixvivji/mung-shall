@@ -1,4 +1,4 @@
-package com.example.backend.domain.adoption.step;
+package com.example.backend.domain.adoption.step.counseling;
 
 import com.example.backend.domain.adoption.AdoptionStepInstance;
 import com.example.backend.domain.adoption.enums.CounselingType;
@@ -26,7 +26,7 @@ public class AdoptionCounseling {
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
-    private CounselingType counselingType; // e.g., VISIT, VIDEO
+    private CounselingType counselingType;
 
     @Column(nullable = false)
     private LocalDateTime counselingDate;
@@ -35,5 +35,5 @@ public class AdoptionCounseling {
     private String counselingLocation;
 
     @Column(columnDefinition = "TEXT")
-    private String counselorNotes; // Notes from the shelter counselor
+    private String counselorNotes;
 }

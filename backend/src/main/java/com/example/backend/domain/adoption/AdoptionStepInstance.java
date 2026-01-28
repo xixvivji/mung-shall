@@ -34,7 +34,7 @@ public class AdoptionStepInstance {
     @Column(nullable = false)
     private AdoptionStepStatus status;
 
-    private LocalDateTime submittedAt;
+    private LocalDateTime submittedAt; // 입양 상담 단계는 상담 신청 시간
     private LocalDateTime approvedAt;
     private LocalDateTime completedAt;
     @Column(columnDefinition = "TEXT")

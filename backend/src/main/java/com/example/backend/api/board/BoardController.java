@@ -10,6 +10,8 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
+import com.example.backend.api.board.dto.BoardDetailResponse;
+
 
 @RestController
 @RequiredArgsConstructor
@@ -41,4 +43,10 @@ public class BoardController {
         Long boardId = boardService.createBoard(principal.getUserId(), request);
         return ResponseEntity.ok(BoardCreateResponse.of(boardId));
     }
+
+    @GetMapping("/{id}")
+    public ResponseEntity<BoardDetailResponse> getBoardDetail(@PathVariable Long id) {
+        return ResponseEntity.ok(boardService.getBoardDetail(id));
+    }
+
 }

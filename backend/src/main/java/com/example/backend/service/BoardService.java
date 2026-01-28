@@ -13,6 +13,8 @@ import org.springframework.data.domain.*;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import com.example.backend.api.board.dto.BoardDetailResponse;
+import com.example.backend.api.board.dto.BoardUpdateRequest;
+import com.example.backend.api.board.dto.BoardUpdateResponse;
 
 @Service
 @RequiredArgsConstructor
@@ -110,6 +112,48 @@ public class BoardService {
 
         board.increaseViewCount();   // 조회수 +1
         return BoardDetailResponse.from(board);
+    }
+
+    @Transactional
+    public Long updateBoard(Long userId, Long boardId, BoardUpdateRequest request) {
+        if (request == null) throw ApiException.badRequest("요청이 비어있습니다.");
+
+        Board board = boardRepository.findByIdAndDeletedAtIsNull(boardId)
+                .orElseThrow(() -> ApiException.notFound("삭제되었거나 존재하지 않는 게시글입니다."));
+
+        if (!board.getWriter().getUserId().equals(userId)) {
+            throw ApiException.forbidden("작성자만 수정할 수 있습니다.");
+        }
+
+        String title = (request.title() == null) ? null : request.title().trim();
+        String content = (request.content() == null) ? null : request.content().trim();
+        String categoryRaw = (request.category() == null) ? null : request.category().trim();
+
+        if (title == null || title.isBlank()) throw ApiException.badRequest("제목은 필수입니다.");
+        if (content == null || content.isBlank()) throw ApiException.badRequest("내용은 필수입니다.");
+        if (categoryRaw == null || categoryRaw.isBlank()) throw ApiException.badRequest("카테고리는 필수입니다.");
+
+        BoardCategory category;
+        try {
+            category = BoardCategory.valueOf(categoryRaw.toUpperCase());
+        } catch (Exception e) {
+            throw ApiException.badRequest("카테고리가 올바르지 않습니다.");
+        }
+
+        board.update(title, content, category);
+        return board.getId();
+    }
+
+    @Transactional
+    public void deleteBoard(Long userId, Long boardId) {
+        Board board = boardRepository.findByIdAndDeletedAtIsNull(boardId)
+                .orElseThrow(() -> ApiException.notFound("삭제되었거나 존재하지 않는 게시글입니다."));
+
+        if (!board.getWriter().getUserId().equals(userId)) {
+            throw ApiException.forbidden("작성자만 삭제할 수 있습니다.");
+        }
+
+        board.softDelete();
     }
 
 }

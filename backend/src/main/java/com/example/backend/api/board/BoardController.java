@@ -10,7 +10,10 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
+
 import com.example.backend.api.board.dto.BoardDetailResponse;
+import com.example.backend.api.board.dto.BoardUpdateRequest;
+import com.example.backend.api.board.dto.BoardUpdateResponse;
 
 
 @RestController
@@ -48,5 +51,35 @@ public class BoardController {
     public ResponseEntity<BoardDetailResponse> getBoardDetail(@PathVariable Long id) {
         return ResponseEntity.ok(boardService.getBoardDetail(id));
     }
+
+    @PutMapping("/{id}")
+    public ResponseEntity<BoardUpdateResponse> updateBoard(
+            @PathVariable Long id,
+            @RequestBody BoardUpdateRequest request
+    ) {
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        Object principalObj = (authentication == null) ? null : authentication.getPrincipal();
+
+        if (!(principalObj instanceof CustomUserPrincipal principal)) {
+            return ResponseEntity.status(401).build();
+        }
+
+        Long updatedId = boardService.updateBoard(principal.getUserId(), id, request);
+        return ResponseEntity.ok(BoardUpdateResponse.of(updatedId));
+    }
+
+    @DeleteMapping("/{id}")
+    public ResponseEntity<Void> deleteBoard(@PathVariable Long id) {
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        Object principalObj = (authentication == null) ? null : authentication.getPrincipal();
+
+        if (!(principalObj instanceof CustomUserPrincipal principal)) {
+            return ResponseEntity.status(401).build();
+        }
+
+        boardService.deleteBoard(principal.getUserId(), id);
+        return ResponseEntity.noContent().build();
+    }
+
 
 }

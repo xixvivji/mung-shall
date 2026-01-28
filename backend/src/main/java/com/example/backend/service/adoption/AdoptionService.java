@@ -1,6 +1,8 @@
 package com.example.backend.service.adoption;
 
 import com.example.backend.api.adoption.dto.AdoptionDetailResponse;
+import com.example.backend.api.adoption.dto.AdoptionStepDefResponse;
+import com.example.backend.api.adoption.dto.AdoptionStepInstanceResponse;
 import com.example.backend.domain.adoption.Adoption;
 import com.example.backend.domain.adoption.enums.AdoptionProcessStatus;
 import com.example.backend.domain.adoption.AdoptionStepDef;
@@ -19,6 +21,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -130,12 +133,33 @@ public class AdoptionService {
         Adoption adoption = adoptionRepository.findById(adoptionId)
                 .orElseThrow(() -> new IllegalArgumentException("ID와 일치하는 입양이 없습니다: " + adoptionId));
 
+        List<AdoptionStepInstanceResponse> stepResponses = adoption.getSteps().stream()
+                .map(stepInstance -> AdoptionStepInstanceResponse.builder()
+                        .id(stepInstance.getId())
+                        .stepDef(AdoptionStepDefResponse.builder()
+                                .id(stepInstance.getStepDef().getId())
+                                .stepOrder(stepInstance.getStepDef().getStepOrder())
+                                .stepName(stepInstance.getStepDef().getStepName())
+                                .description(stepInstance.getStepDef().getDescription())
+                                .build())
+                        .status(stepInstance.getStatus())
+                        .approverUserId(stepInstance.getApprover() != null ? stepInstance.getApprover().getUserId() : null)
+                        .approverUserName(stepInstance.getApprover() != null ? stepInstance.getApprover().getName() : null)
+                        .submittedAt(stepInstance.getSubmittedAt())
+                        .approvedAt(stepInstance.getApprovedAt())
+                        .completedAt(stepInstance.getCompletedAt())
+                        .rejectionReason(stepInstance.getRejectionReason())
+                        .build())
+                .collect(Collectors.toList());
+
+
         return AdoptionDetailResponse.builder()
                 .id(adoption.getId())
                 .userId(adoption.getUser().getUserId())
                 .userName(adoption.getUser().getName())
                 .dogId(adoption.getAbandonedDog().getId())
                 .processStatus(adoption.getProcessStatus())
+                .steps(stepResponses)
                 .build();
     }
 }

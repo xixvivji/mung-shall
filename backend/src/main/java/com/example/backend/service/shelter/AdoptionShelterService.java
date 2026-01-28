@@ -1,9 +1,18 @@
 package com.example.backend.service.shelter;
 
+import com.example.backend.api.adoption.dto.AdoptionDetailResponse;
+import com.example.backend.api.adoption.dto.AdoptionStepDefResponse;
+import com.example.backend.api.adoption.dto.AdoptionStepInstanceResponse;
+import com.example.backend.api.adoption.dto.shelter.ShelterAdoptionUserResponse;
 import com.example.backend.domain.adoption.Adoption;
 import com.example.backend.domain.adoption.AdoptionStepInstance;
 import com.example.backend.domain.adoption.enums.AdoptionProcessStatus;
 import com.example.backend.domain.adoption.enums.AdoptionStepStatus;
+import com.example.backend.domain.dog.AbandonedDog;
+import com.example.backend.domain.user.User;
+import com.example.backend.domain.user.UserType;
+import com.example.backend.repository.AbandonedDogRepository;
+import com.example.backend.repository.UserRepository;
 import com.example.backend.repository.adoption.AdoptionRepository;
 import com.example.backend.repository.adoption.step.AdoptionStepInstanceRepository;
 import lombok.RequiredArgsConstructor;
@@ -13,6 +22,7 @@ import org.springframework.util.StringUtils;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -20,7 +30,9 @@ import java.util.List;
 public class AdoptionShelterService {
 
     private final AdoptionStepInstanceRepository adoptionStepInstanceRepository;
-    private final AdoptionRepository adoptionRepository; // Added this dependency
+    private final AdoptionRepository adoptionRepository;
+    private final UserRepository userRepository;
+    private final AbandonedDogRepository abandonedDogRepository;
 
     /**
      * 보호소 관리자가 입양 단계를 승인하거나 반려합니다.
@@ -120,5 +132,95 @@ public class AdoptionShelterService {
         });
 
         adoptionRepository.save(adoption);
+    }
+
+    /**
+     * 보호소 사용자를 위한 입양 신청자 목록을 조회합니다.
+     * 특정 보호소 소속의 강아지들에 대한 입양 신청자 정보를 반환합니다.
+     *
+     * @param shelterUserId 보호소 사용자 ID
+     * @param status        조회할 입양 진행 상태 (IN_PROGRESS 또는 COMPLETED)
+     * @return ShelterAdoptionUserResponse 리스트
+     */
+    @Transactional(readOnly = true)
+    public List<ShelterAdoptionUserResponse> getAdoptersForShelterDogs(Long shelterUserId, AdoptionProcessStatus status) {
+        User shelterUser = userRepository.findById(shelterUserId)
+                .orElseThrow(() -> new IllegalArgumentException("ID와 일치하는 보호소 유저를 찾을 수 없습니다: " + shelterUserId));
+
+        if (shelterUser.getUserType() != UserType.shelter || shelterUser.getShelterRegNo() == null) {
+            throw new IllegalArgumentException("요청한 유저는 보호소 타입이 아니거나 등록 번호가 없습니다.");
+        }
+
+        String careRegNo = shelterUser.getShelterRegNo();
+        List<AbandonedDog> shelterDogs = abandonedDogRepository.findByCareRegNo(careRegNo);
+
+        return shelterDogs.stream()
+                .flatMap(dog -> adoptionRepository.findByAbandonedDogAndProcessStatus(dog, status).stream())
+                .map(adoption -> ShelterAdoptionUserResponse.builder()
+                        .adoptionId(adoption.getId())
+                        .userId(adoption.getUser().getUserId())
+                        .userName(adoption.getUser().getName())
+                        .userEmail(adoption.getUser().getEmail())
+                        .userPhone(adoption.getUser().getPhone())
+                        .abandonedDogId(adoption.getAbandonedDog().getId())
+                        .abandonedDogKindNm(adoption.getAbandonedDog().getKindNm())
+                        .abandonedDogDesertionNo(adoption.getAbandonedDog().getDesertionNo())
+                        .build())
+                .collect(Collectors.toList());
+    }
+
+    /**
+     * 보호소 사용자를 위한 특정 입양 상세 정보를 조회합니다.
+     * 요청한 입양 ID가 해당 보호소 소속의 강아지에 대한 것인지 검증합니다.
+     *
+     * @param shelterUserId 보호소 사용자 ID
+     * @param adoptionId    조회할 입양 프로세스 ID
+     * @return 입양 상세 정보 DTO
+     */
+    @Transactional(readOnly = true)
+    public AdoptionDetailResponse getShelterAdoptionDetail(Long shelterUserId, Long adoptionId) {
+        User shelterUser = userRepository.findById(shelterUserId)
+                .orElseThrow(() -> new IllegalArgumentException("ID와 일치하는 보호소 유저를 찾을 수 없습니다: " + shelterUserId));
+
+        if (shelterUser.getUserType() != UserType.shelter || shelterUser.getShelterRegNo() == null) {
+            throw new IllegalArgumentException("요청한 유저는 보호소 타입이 아니거나 등록 번호가 없습니다.");
+        }
+
+        Adoption adoption = adoptionRepository.findById(adoptionId)
+                .orElseThrow(() -> new IllegalArgumentException("ID와 일치하는 입양이 없습니다: " + adoptionId));
+
+        // 입양의 보호소 유저가 현재 요청한 보호소 유저와 일치하는지 확인
+        if (!adoption.getShelter().getUserId().equals(shelterUser.getUserId())) {
+            throw new SecurityException("해당 입양 정보에 접근할 권한이 없습니다.");
+        }
+
+        List<AdoptionStepInstanceResponse> stepResponses = adoption.getSteps().stream()
+                .map(stepInstance -> AdoptionStepInstanceResponse.builder()
+                        .id(stepInstance.getId())
+                        .stepDef(AdoptionStepDefResponse.builder()
+                                .id(stepInstance.getStepDef().getId())
+                                .stepOrder(stepInstance.getStepDef().getStepOrder())
+                                .stepName(stepInstance.getStepDef().getStepName())
+                                .description(stepInstance.getStepDef().getDescription())
+                                .build())
+                        .status(stepInstance.getStatus())
+                        .approverUserId(stepInstance.getApprover() != null ? stepInstance.getApprover().getUserId() : null)
+                        .approverUserName(stepInstance.getApprover() != null ? stepInstance.getApprover().getName() : null)
+                        .submittedAt(stepInstance.getSubmittedAt())
+                        .approvedAt(stepInstance.getApprovedAt())
+                        .completedAt(stepInstance.getCompletedAt())
+                        .rejectionReason(stepInstance.getRejectionReason())
+                        .build())
+                .collect(Collectors.toList());
+
+        // 입양 instance 정보도 같이 제공
+        return AdoptionDetailResponse.builder()
+                .id(adoption.getId())
+                .userId(adoption.getUser().getUserId())
+                .userName(adoption.getUser().getName())
+                .dogId(adoption.getAbandonedDog().getId())
+                .processStatus(adoption.getProcessStatus())
+                .steps(stepResponses) // Add the steps here
+                .build();
     }
 }

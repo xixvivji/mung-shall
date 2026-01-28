@@ -15,8 +15,11 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
-import com.example.backend.api.auth.dto.FindUsernameRequest;
 
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpStatus;
+
+import com.example.backend.api.auth.dto.FindUsernameRequest;
 import com.example.backend.api.auth.dto.PasswordResetRequest;
 import com.example.backend.api.auth.dto.PasswordResetConfirmRequest;
 
@@ -78,6 +81,20 @@ public class AuthController {
         setRefreshCookie(response, result.getRefreshToken());
 
         return ResponseEntity.ok(Map.of("accessToken", result.getAccessToken()));
+    }
+
+    @GetMapping("/oauth/{provider}")
+    public ResponseEntity<Void> oauthStart(@PathVariable String provider) {
+
+        if (!("google".equals(provider) || "naver".equals(provider) || "kakao".equals(provider))) {
+            return ResponseEntity.badRequest().build();
+        }
+
+        String target = "/oauth2/authorization/" + provider;
+
+        return ResponseEntity.status(HttpStatus.FOUND)
+                .header(HttpHeaders.LOCATION, target)
+                .build();
     }
 
     @PostMapping("/refresh")

@@ -3,6 +3,8 @@ import type { AdoptionDog } from "../types";
 
 type DogSummaryResponse = {
   dogId: number;
+  desertionNo?: string;
+  noticeNo?: string;
   imageUrl?: string;
   kindNm?: string;
   age?: string;
@@ -37,7 +39,7 @@ type FetchAdoptionResult = {
 };
 
 export async function fetchAdoptionList({
-  page = 0,
+  page = 10,
   size = 12,
   sort = "happenDt",
   region,
@@ -60,7 +62,7 @@ export async function fetchAdoptionList({
   return {
     items: data.content.map((dog) => ({
       id: String(dog.dogId),
-      name: dog.careNm ?? `Dog #${dog.dogId}`,
+      name: dog.noticeNo ?? dog.desertionNo ?? dog.kindNm ?? `Dog #${dog.dogId}`,
       breed: dog.kindNm ?? "Unknown",
       age: dog.age ?? "",
       imageUrl: dog.imageUrl,

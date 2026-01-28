@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { fetchAdoptionList } from "../api/adoptionApi";
 import type { AdoptionDog } from "../types";
 import DogGrid from "./DogGrid";
@@ -24,6 +24,13 @@ export default function AdoptionList() {
   }, [filters.city, filters.province]);
 
   const breedParam = filters.breed !== DEFAULT_BREED ? filters.breed : undefined;
+  const handleFilterChange = useCallback(
+    (next: { breed: string; province: string; city: string }) => {
+      setFilters(next);
+      setPage(0);
+    },
+    []
+  );
 
   useEffect(() => {
     let cancelled = false;
@@ -78,10 +85,7 @@ export default function AdoptionList() {
         <h1 className="text-3xl font-semibold text-[#333]">Adoption</h1>
         <Filters
           breeds={breeds}
-          onChange={(next) => {
-            setFilters(next);
-            setPage(0);
-          }}
+          onChange={handleFilterChange}
         />
       </div>
 

@@ -16,9 +16,11 @@ public class BoardController {
     @GetMapping
     public ResponseEntity<BoardListResponse> getBoards(
             @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "20") int size
+            @RequestParam(defaultValue = "20") int size,
+            @RequestParam(required = false) String keyword,
+            @RequestParam(required = false) String category
     ) {
-        var pageResult = boardService.getBoardList(page, size);
+        var pageResult = boardService.getBoardList(page, size, keyword, category);
         return ResponseEntity.ok(BoardListResponse.from(pageResult));
     }
 }

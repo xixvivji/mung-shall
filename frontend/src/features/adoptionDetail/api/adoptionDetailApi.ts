@@ -15,8 +15,8 @@ export async function fetchAdoptionDetail(id: string): Promise<AdoptionDetail> {
 
   return {
     id: String(data.id ?? id),
-    name: data.kindNm ?? "Unknown",
-    breed: data.kindNm ?? data.careNm ?? "Unknown",
+    name: data.careNm ?? `Dog #${data.id ?? id}`,
+    breed: data.kindNm ?? "Unknown",
     description: data.specialMark ?? "",
     images: [data.popfile1, data.popfile2].filter(Boolean) as string[],
   };

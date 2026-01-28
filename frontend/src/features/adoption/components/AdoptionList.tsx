@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { fetchAdoptionList } from "../api/adoptionApi";
 import type { AdoptionDog } from "../types";
@@ -31,7 +31,6 @@ export default function AdoptionList() {
     province: DEFAULT_PROVINCE,
     city: DEFAULT_CITY,
   });
-  const filtersRef = useRef(filters);
 
   const region = useMemo(() => {
     if (filters.city !== DEFAULT_CITY) return filters.city;
@@ -46,11 +45,16 @@ export default function AdoptionList() {
 
   const goToPage1 = useCallback(
     (nextPage1: number) => {
-      const next = new URLSearchParams(searchParams);
-      next.set("page", String(nextPage1));
-      setSearchParams(next, { replace: true });
+      setSearchParams(
+        (prev) => {
+          const next = new URLSearchParams(prev);
+          next.set("page", String(nextPage1));
+          return next;
+        },
+        { replace: true }
+      );
     },
-    [searchParams, setSearchParams]
+    [setSearchParams]
   );
 
   const handleFilterChange = useCallback(

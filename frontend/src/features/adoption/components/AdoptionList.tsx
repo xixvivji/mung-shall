@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import { fetchAdoptionList } from "../api/adoptionApi";
 import type { AdoptionDog } from "../types";
 import DogGrid from "./DogGrid";
@@ -9,7 +10,14 @@ export default function AdoptionList() {
   const [dogs, setDogs] = useState<AdoptionDog[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [page, setPage] = useState(0);
+  const [searchParams, setSearchParams] = useSearchParams();
+  const parsePageParam = useCallback((params: URLSearchParams) => {
+    const raw = params.get("page");
+    const value = Number(raw);
+    if (!raw || Number.isNaN(value) || value < 1) return 1;
+    return Math.floor(value);
+  }, []);
+  const [page, setPage] = useState(() => Math.max(parsePageParam(searchParams) - 1, 0));
   const [totalPages, setTotalPages] = useState(1);
   const [filters, setFilters] = useState({
     breed: DEFAULT_BREED,
@@ -31,6 +39,23 @@ export default function AdoptionList() {
     },
     []
   );
+
+  useEffect(() => {
+    const nextPage = Math.max(parsePageParam(searchParams) - 1, 0);
+    if (nextPage !== page) {
+      setPage(nextPage);
+    }
+  }, [page, parsePageParam, searchParams]);
+
+  useEffect(() => {
+    const currentParam = parsePageParam(searchParams);
+    const desiredParam = page + 1;
+    if (currentParam === desiredParam) return;
+
+    const next = new URLSearchParams(searchParams);
+    next.set("page", String(desiredParam));
+    setSearchParams(next, { replace: true });
+  }, [page, parsePageParam, searchParams, setSearchParams]);
 
   useEffect(() => {
     let cancelled = false;

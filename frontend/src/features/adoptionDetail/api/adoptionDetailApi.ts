@@ -6,7 +6,18 @@ type DogDetailResponse = {
   desertionNo?: string;
   noticeNo?: string;
   kindNm?: string;
+  happenPlace?: string;
+  colorCd?: string;
   careNm?: string;
+  careAddr?: string;
+  careTel?: string;
+  careOwnerNm?: string;
+  sexCd?: string;
+  age?: string;
+  weight?: string;
+  noticeSdt?: string;
+  noticeEdt?: string;
+  processState?: string;
   specialMark?: string;
   popfile1?: string;
   popfile2?: string;
@@ -21,5 +32,19 @@ export async function fetchAdoptionDetail(id: string): Promise<AdoptionDetail> {
     breed: data.kindNm ?? "Unknown",
     description: data.specialMark ?? "",
     images: [data.popfile1, data.popfile2].filter(Boolean) as string[],
+    noticeNo: data.noticeNo,
+    desertionNo: data.desertionNo,
+    careNm: data.careNm,
+    careAddr: data.careAddr,
+    careTel: data.careTel,
+    careOwnerNm: data.careOwnerNm,
+    sexCd: data.sexCd,
+    colorCd: data.colorCd,
+    age: data.age,
+    weight: data.weight,
+    happenPlace: data.happenPlace,
+    noticeSdt: data.noticeSdt,
+    noticeEdt: data.noticeEdt,
+    processState: data.processState,
   };
 }

@@ -39,7 +39,7 @@ type FetchAdoptionResult = {
 };
 
 export async function fetchAdoptionList({
-  page = 10,
+  page = 0,
   size = 12,
   sort = "happenDt",
   region,

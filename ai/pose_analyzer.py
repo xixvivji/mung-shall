@@ -156,3 +156,26 @@ class DogPoseAnalyzer:
             "action": action,
             "debug": { "scale": round(self.avg_scale, 1) }
         }
+    
+    def analyze_snapshot(self):
+        """
+        [사진 분석용 메서드]
+        관성(Inertia), 버퍼(Buffer), 상태 잠금(Lock)을 모두 무시하고
+        오직 '현재 프레임의 기하학적 정보'만으로 즉시 결과를 반환합니다.
+        """
+        if self.kpts is None: return self._result("undetected")
+        
+        # 스케일이 아직 0이라면(첫 프레임), 현재 프레임 기준으로 즉시 계산
+        if self.avg_scale == 0:
+            self._update_scale(self.kpts) # 현재 데이터로 강제 업데이트
+            
+        scale = self.avg_scale if self.avg_scale > 0 else 100
+        ground_y = self._get_ground_y()
+        
+        if ground_y == 0: return self._result("undetected")
+
+        # [핵심] 상태 관리자(_apply_state_inertia)를 거치지 않고
+        # 기하학적 분석기(_get_raw_action)의 결과를 바로 리턴합니다.
+        raw_action = self._get_raw_action(ground_y, scale)
+        
+        return self._result(raw_action)

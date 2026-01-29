@@ -1,178 +1,248 @@
-from fastapi import FastAPI, UploadFile, File, Form
-from fastapi.responses import FileResponse
-from ultralytics import YOLO
+from fastapi import FastAPI, UploadFile, File, Form, BackgroundTasks
+from fastapi.responses import FileResponse, JSONResponse
+import uvicorn
 import cv2
 import numpy as np
 import tempfile
 import os
-import shutil
+import json
 import time
+from ultralytics import YOLO
+from collections import defaultdict
 
 # 모듈 임포트
-# 1. 포즈 분석 클래스
 from pose_analyzer import DogPoseAnalyzer
-# 2. 시각화 클래스
 from visualizer import DogVisualizer
 
 app = FastAPI()
 
-# 모델 로드
-MODEL_PATH = "model/best.pt"
+# ---------------------------------------------------------
+# 1. 모델 로드
+# ---------------------------------------------------------
+print("⏳ Loading YOLO model...")
 try:
-    model = YOLO(MODEL_PATH)
-    print(f"✅ 모델 로드 성공: {MODEL_PATH}")
+    model = YOLO('model/best.pt') 
+    print("✅ Model loaded successfully! Ready to analyze.")
 except Exception as e:
-    print(f"❌ 모델 로드 실패: {e}")
+    print(f"❌ Failed to load model: {e}")
+    model = None 
 
-# -----------------------------------------------------------------------------
-# API 엔드포인트
-# -----------------------------------------------------------------------------
-@app.post("/predict/dog")
-async def predict_dog(file: UploadFile = File(...)):
-    contents = await file.read()
-    nparr = np.frombuffer(contents, np.uint8)
-    img = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
+# ---------------------------------------------------------
+# 2. 파일 삭제 유틸리티
+# ---------------------------------------------------------
+def remove_file(path: str):
+    try:
+        if os.path.exists(path):
+            os.remove(path)
+    except Exception as e:
+        print(f"⚠️ Error removing file {path}: {e}")
 
-    results = model(img)
-    detection_result = {"detected": False, "action": "stand"}
-    
-    for result in results:
-        if result.keypoints is not None and len(result.keypoints.data) > 0:
-            kpts = result.keypoints.data[0].cpu().numpy()
-            analyzer = DogPoseAnalyzer(kpts)
-            analysis = analyzer.analyze()
-            
-            detection_result["detected"] = True
-            detection_result["action"] = analysis["action"]
-            detection_result["analysis"] = analysis
-            
-            # [수정됨] 디버그 로그 키값 업데이트 (hip -> hock)
-            print(f"🐶 Result: {analysis['action'].upper()}")
-            print(f"   📏 Scale: {analysis['debug']['scale']}")
-            print(f"   🦶 Hock Dist: {analysis['debug']['hock_dist']} (Ref: < {analysis['debug']['threshold_hock']})")
-            print(f"   💪 Elbow Dist: {analysis['debug']['elbow_dist']} (Ref: < {analysis['debug']['threshold_elbow']})")
-            break
+# ---------------------------------------------------------
+# 3. 비디오 처리 로직 (미션 판독 기능 추가)
+# ---------------------------------------------------------
+def process_video(input_path, output_path, target_action: str, target_duration: float):
+    """
+    영상 분석 + 챌린지 성공 여부 판단
+    """
+    if model is None:
+        raise RuntimeError("YOLO Model is not loaded.")
 
-    return detection_result
-
-@app.post("/analyze/video")
-async def analyze_video(
-    file: UploadFile = File(...), 
-    target_action: str = Form("sit"),
-    duration_threshold: float = Form(2.0), 
-    frame_step: int = Form(5)
-):
-    # 분석 시작 시간 기록
-    start_time = time.time()
-
-    with tempfile.NamedTemporaryFile(delete=False, suffix=".mp4") as temp_file:
-        shutil.copyfileobj(file.file, temp_file)
-        input_path = temp_file.name
-
-    output_path = input_path.replace(".mp4", "result.mp4")
-
+    process_start_time = time.time()
     cap = cv2.VideoCapture(input_path)
+    
+    # 영상 정보
     width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
     height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
     fps = cap.get(cv2.CAP_PROP_FPS)
-    if fps == 0: fps = 60.0
+    if fps == 0: fps = 30.0
+    
+    print(f"\n▶ Start Mission Challenge: '{target_action}' for {target_duration}s")
+    print(f"  - Video Info: {width}x{height} @ {fps:.1f} FPS")
 
-    # 비디오 라이터 설정(결과 영상)
-    fourcc = cv2.VideoWriter_fourcc(*'mp4v')
+    fourcc = cv2.VideoWriter_fourcc(*'mp4v') 
     out = cv2.VideoWriter(output_path, fourcc, fps, (width, height))
 
-    # 상태 관리 변수
-    current_action_state = None
-    state_start_time = 0.0
-    
-    frame_index = 0
+    analyzer = DogPoseAnalyzer() 
+    action_counts = defaultdict(int)
+    total_frames = 0
 
-    # 프레임 건너뛰기 시 이전 데이터를 그리기 위한 변수
-    last_valid_kpts = None
-    last_valid_analysis = {"action": "unknown", "debug": {}}
-
-    analyzer = DogPoseAnalyzer()
+    # [NEW] 미션 추적 변수
+    target_action = target_action.lower() # 소문자 통일
+    current_stream_frames = 0     # 목표 동작 연속 프레임 수
+    mission_success = False       # 미션 성공 여부
+    max_duration_achieved = 0.0   # 해당 동작 최대 유지 시간 (기록용)
 
     while cap.isOpened():
         ret, frame = cap.read()
         if not ret:
             break
-
-        # ---------------------------------------------------------
-        # [A] AI 분석 (frame_step 간격으로만 수행)
-        # ---------------------------------------------------------
-        if frame_index % frame_step == 0:
-            results = model(frame, stream=True, verbose=False)
-            
-            # 이번 프레임에서 개를 찾았는지 확인
-            found_dog = False
-            for result in results:
-                if result.keypoints is not None and len(result.keypoints.data) > 0:
-                    # 데이터 추출
-                    kpts = result.keypoints.data[0].cpu().numpy()
-                    
-                    # 1. 자세 분석 실행
-                    analyzer.process_keypoints(kpts)
-                    analysis = analyzer.analyze()
-                    
-                    # 2. 다음 프레임을 위해 저장 (Persistence)
-                    last_valid_kpts = kpts
-                    last_valid_analysis = analysis
-                    found_dog = True
-                    
-                    # 3. 성공/실패 로직 (State Machine)
-                    detected_action = analysis["action"]
-                    current_time = frame_index / fps
-
-                    if detected_action == current_action_state:
-                        duration = current_time - state_start_time
-                        # 화면에 표시하기 위해 duration 정보를 analysis에 추가해줄 수도 있음
-                        last_valid_analysis["duration"] = round(duration, 1)
-                        
-                        if detected_action == target_action and duration >= duration_threshold:
-                            last_valid_analysis["is_success"] = True # 시각화용 플래그
-                    else:
-                        current_action_state = detected_action
-                        state_start_time = current_time
-                        last_valid_analysis["duration"] = 0.0
-                        last_valid_analysis["is_success"] = False
-                    
-                    break # 한 마리만 처리
-            
-            # 개를 못 찾았으면 이전 데이터 초기화 혹은 유지 (여기서는 유지)
-            if not found_dog:
-                pass 
-
-        # ---------------------------------------------------------
-        # [B] 시각화 (모든 프레임 수행)
-        # ---------------------------------------------------------
-        # 분석을 건너뛴 프레임이어도, 가장 최근의 last_valid 데이터를 이용해 그립니다.
-        final_frame = frame.copy()
         
-        if last_valid_kpts is not None:
-            # Visualizer 생성 및 그리기
-            visualizer = DogVisualizer(last_valid_kpts)
-            final_frame = visualizer.draw(final_frame, last_valid_analysis)
+        total_frames += 1
 
-        # ---------------------------------------------------------
-        # [C] 영상 저장
-        # ---------------------------------------------------------
-        out.write(final_frame)
-        frame_index += 1
+        # 1. YOLO 추론
+        results = model(frame, verbose=False, conf=0.3)[0] 
+        raw_kpts = []
+        if results.keypoints is not None and len(results.keypoints.data) > 0:
+            raw_kpts = results.keypoints.data[0].cpu().numpy()
 
-    # 자원 해제
+        # 2. 포즈 분석 (안정화 로직 적용됨)
+        if len(raw_kpts) > 0:
+            analyzer.process_keypoints(raw_kpts)
+        
+        analysis_result = analyzer.analyze()
+        current_action = analysis_result.get("action", "undetected")
+
+        # 3. 통계 및 미션 판독
+        action_counts[current_action] += 1
+
+        # [미션 로직] 현재 동작이 목표 동작과 일치하는가?
+        if current_action == target_action:
+            current_stream_frames += 1
+        else:
+            # 동작이 끊기면 카운터 리셋
+            # (DogPoseAnalyzer 내부의 관성/버퍼링 덕분에 1~2프레임 튀는 건 이미 보정되어 넘어옴)
+            current_stream_frames = 0
+        
+        # 현재 유지 시간 계산
+        current_duration = current_stream_frames / fps
+        
+        # 최대 기록 갱신 (로그용)
+        if current_duration > max_duration_achieved:
+            max_duration_achieved = current_duration
+
+        # 목표 시간 달성 체크 (한 번이라도 달성하면 성공)
+        if not mission_success and current_duration >= target_duration:
+            print(f"  ✨ [SUCCESS] Target '{target_action}' maintained for {target_duration}s!")
+            mission_success = True
+            # 시각화 객체에 성공 메시지 전달 (선택 사항)
+            analysis_result["mission_cleared"] = True 
+
+        # 4. 시각화
+        if analyzer.kpts is not None:
+            visualizer = DogVisualizer(analyzer.kpts)
+            processed_frame = visualizer.draw(frame, analysis_result)
+        else:
+            processed_frame = frame
+        
+        # (옵션) 미션 성공 시 화면에 텍스트 추가
+        if mission_success:
+            cv2.putText(processed_frame, "MISSION SUCCESS!", (width//2 - 100, 50), 
+                        cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 3)
+
+        out.write(processed_frame)
+
     cap.release()
     out.release()
+
+    total_process_time = time.time() - process_start_time
     
-    # 원본 입력 파일 삭제 (청소)
-    if os.path.exists(input_path):
-        os.unlink(input_path)
+    # 요약 정보 생성
+    summary = {action: round(count / fps, 2) for action, count in action_counts.items()}
+    
+    # 대표 동작 찾기
+    valid_actions = {k: v for k, v in summary.items() if k != "undetected"}
+    main_action = max(valid_actions, key=valid_actions.get) if valid_actions else "undetected"
 
-    print(f"🎥 영상 처리 완료: {time.time() - start_time:.2f}초 소요")
+    print(f"✅ Analysis Completed in {total_process_time:.2f}s")
+    print(f"  - Mission Result: {'SUCCESS' if mission_success else 'FAIL'}")
+    print(f"  - Max Duration ({target_action}): {max_duration_achieved:.2f}s")
+    print("-" * 50 + "\n")
 
-    # 결과 동영상 파일 반환
-    return FileResponse(
-        output_path, 
-        media_type="video/mp4", 
-        filename="analyzed_result.mp4"
-    )
+    return summary, main_action, mission_success
+
+# ---------------------------------------------------------
+# 4. 영상 분석 API 엔드포인트
+# ---------------------------------------------------------
+@app.post("/analyze/video")
+async def analyze_video_endpoint(
+    background_tasks: BackgroundTasks, 
+    file: UploadFile = File(...),
+    target_action: str = Form(...),    # [NEW] 목표 행동 (예: sit)
+    target_duration: float = Form(...) # [NEW] 목표 시간 (예: 3.0)
+):
+    """
+    [Spring Boot -> FastAPI]
+    - Multipart Form Data로 영상과 목표값을 함께 받음
+    - 분석 후 미션 성공 여부를 헤더에 담아 반환
+    """
+    with tempfile.NamedTemporaryFile(delete=False, suffix=".mp4") as input_tmp:
+        input_tmp.write(await file.read())
+        input_path = input_tmp.name
+
+    output_path = input_path.replace(".mp4", "_processed.mp4")
+
+    try:
+        # process_video에 목표값 전달
+        summary, main_action, is_success = process_video(
+            input_path, output_path, target_action, target_duration
+        )
+        
+        # 헤더 결과 JSON 구성
+        result_data = {
+            "mission_success": is_success,     # [핵심] 미션 성공 여부
+            "target_action": target_action,    # 요청받은 목표
+            "target_duration": target_duration,# 요청받은 시간
+            "main_action": main_action,        # 영상 전체 대표 동작
+            "details": summary,                # 전체 동작별 시간 요약
+        }
+        json_header = json.dumps(result_data, ensure_ascii=True)
+
+        background_tasks.add_task(remove_file, output_path)
+
+        return FileResponse(
+            path=output_path,
+            media_type="video/mp4",
+            filename=f"analyzed_{file.filename}",
+            headers={"X-Analysis-Result": json_header}
+        )
+
+    except Exception as e:
+        print(f"❌ Error processing video: {str(e)}")
+        return JSONResponse(
+            status_code=500,
+            content={"error": str(e), "success": False}
+        )
+
+    finally:
+        remove_file(input_path)
+
+# ---------------------------------------------------------
+# 5. 사진 분석 API (유지)
+# ---------------------------------------------------------
+@app.post("/predict/dog")
+async def predict_dog_snapshot(file: UploadFile = File(...)):
+    # (기존 코드와 동일)
+    try:
+        contents = await file.read()
+        nparr = np.frombuffer(contents, np.uint8)
+        frame = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
+
+        if frame is None:
+            return JSONResponse(status_code=400, content={"error": "Invalid image file"})
+
+        results = model(frame, verbose=False, conf=0.3)[0]
+
+        raw_kpts = []
+        if results.keypoints is not None and len(results.keypoints.data) > 0:
+            raw_kpts = results.keypoints.data[0].cpu().numpy()
+
+        analyzer = DogPoseAnalyzer()
+        
+        if len(raw_kpts) > 0:
+            analyzer.process_keypoints(raw_kpts) 
+            result = analyzer.analyze_snapshot() 
+        else:
+            result = {"action": "undetected", "debug": {}}
+
+        return {
+            "success": True,
+            "filename": file.filename,
+            "result": result
+        }
+
+    except Exception as e:
+        print(f"❌ Error predicting image: {e}")
+        return JSONResponse(status_code=500, content={"error": str(e), "success": False})
+
+if __name__ == "__main__":
+    uvicorn.run(app, host="0.0.0.0", port=8000)

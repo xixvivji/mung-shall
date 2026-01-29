@@ -1,7 +1,8 @@
 ﻿import { api, getAccessToken } from "@/shared/api/client";
 import type { DocumentType } from "@/features/adoptionApplication/types";
 
-const RAW_API_BASE = import.meta.env.VITE_API_BASE_URL ?? "/api";
+// const RAW_API_BASE = import.meta.env.VITE_API_BASE_URL ?? "/api";
+const RAW_API_BASE = "/api";
 const API_BASE = RAW_API_BASE.endsWith("/") ? RAW_API_BASE.slice(0, -1) : RAW_API_BASE;
 
 export type ApplicationStatusFilter = "ALL" | "WAITING" | "APPROVED" | "REJECTED";
@@ -32,7 +33,7 @@ export type VerifyAdoptionStepPayload = {
 
 export async function fetchShelterApplications(status: ApplicationStatusFilter) {
   const params = new URLSearchParams({ status });
-  return api<ShelterApplicationSummary[]>(`/shelter/adoptions/applications?${params.toString()}`);
+  return api<ShelterApplicationSummary[]>(`/shelter/adoptions?${params.toString()}`);
 }
 
 export async function fetchShelterApplicationDocuments(applicationId: number) {

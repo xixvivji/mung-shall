@@ -17,20 +17,16 @@ export default function AdoptionList() {
   const [filters, setFilters] = useState({
     breed: DEFAULT_BREED,
     province: DEFAULT_PROVINCE,
+    provinceLabel: DEFAULT_PROVINCE,
     city: DEFAULT_CITY,
+    cityLabel: DEFAULT_CITY,
   });
 
   const region = useMemo(() => {
-    if (filters.city !== DEFAULT_CITY) {
-      const selectedCity = sigunguOptions.find((option) => option.value === filters.city);
-      return selectedCity?.label;
-    }
-    if (filters.province !== DEFAULT_PROVINCE) {
-      const selectedProvince = sidoOptions.find((option) => option.value === filters.province);
-      return selectedProvince?.label;
-    }
+    if (filters.city !== DEFAULT_CITY) return filters.cityLabel;
+    if (filters.province !== DEFAULT_PROVINCE) return filters.provinceLabel;
     return undefined;
-  }, [filters.city, filters.province, sigunguOptions, sidoOptions]);
+  }, [filters.city, filters.province, filters.cityLabel, filters.provinceLabel]);
 
   const breedParam = filters.breed !== DEFAULT_BREED ? filters.breed : undefined;
 

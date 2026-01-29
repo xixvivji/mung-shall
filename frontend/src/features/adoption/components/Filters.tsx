@@ -203,7 +203,13 @@ type FiltersProps = {
   breeds: string[];
   provinces: SelectOption[];
   cities: SelectOption[];
-  onChange?: (value: { breed: string; province: string; city: string }) => void;
+  onChange?: (value: {
+    breed: string;
+    province: string;
+    city: string;
+    provinceLabel: string;
+    cityLabel: string;
+  }) => void;
 };
 
 export default function Filters({ breeds, provinces, cities, onChange }: FiltersProps) {
@@ -298,8 +304,23 @@ export default function Filters({ breeds, provinces, cities, onChange }: Filters
   const close = () => setOpen(null);
 
   useEffect(() => {
-    onChange?.({ breed, province, city });
-  }, [breed, province, city, onChange]);
+    const currentProvinceLabel =
+      province === DEFAULT_PROVINCE
+        ? DEFAULT_PROVINCE
+        : provinceOptions.find((option) => option.value === province)?.label ?? province;
+    const currentCityLabel =
+      city === DEFAULT_CITY
+        ? DEFAULT_CITY
+        : cityOptions.find((option) => option.value === city)?.label ?? city;
+
+    onChange?.({
+      breed,
+      province,
+      city,
+      provinceLabel: currentProvinceLabel,
+      cityLabel: currentCityLabel,
+    });
+  }, [breed, province, city, onChange, provinceOptions, cityOptions]);
 
   return (
     <div className="mt-2 flex items-start gap-2">

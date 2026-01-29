@@ -49,7 +49,7 @@ export default function MyPage() {
   const { user } = useAuth();
   const userType = user?.userType?.toLowerCase();
 
-  if (userType === "shelter") {
+  if (userType === "shelter" || userType === "center") {
     return <CenterPage />;
   }
 

@@ -13,7 +13,7 @@ export default function Header() {
   const navigate = useNavigate();
   const displayName = user?.name?.trim() || user?.username?.trim();
   const userType = user?.userType?.toLowerCase();
-  const myPageRoute = userType === "shelter" ? ROUTES.center : ROUTES.mypage;
+  const myPageRoute = userType === "shelter" || userType === "center" ? ROUTES.center : ROUTES.mypage;
 
   const handleLogout = async () => {
     await logout();

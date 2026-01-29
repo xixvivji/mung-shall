@@ -98,7 +98,7 @@ export async function fetchSigunguList(sidoOrgCd: string): Promise<RegionItem[]>
 }
 
 export async function fetchAdoptionList({
-  page = 10,
+  page = 0,
   size = 12,
   sort = "happenDt",
   region,
@@ -109,14 +109,22 @@ export async function fetchAdoptionList({
   const params = new URLSearchParams();
   params.set("page", String(page));
   params.set("size", String(size));
-  params.set("sort", sort);
+  const normalizedSort = normalizeSort(sort);
+  if (normalizedSort) {
+    params.set("sort", normalizedSort);
+  }
 
   if (region) params.set("region", region);
   if (sexCd) params.set("sexCd", sexCd);
   if (processState) params.set("processState", processState);
   if (breed) params.set("breed", breed);
 
-  const data = await api<DogsResponse>(`/dogs?${params.toString()}`);
+  const requestPath = `/dogs?${params.toString()}`;
+  if (import.meta.env.DEV) {
+    const debugParams = Object.fromEntries(params.entries());
+    console.debug("[adoption] fetchAdoptionList", { requestPath, params: debugParams });
+  }
+  const data = await api<DogsResponse>(requestPath);
 
   return {
     items: data.content.map((dog) => ({
@@ -131,4 +139,20 @@ export async function fetchAdoptionList({
     page: data.number,
     size: data.size,
   };
+}
+
+function normalizeSort(value?: string) {
+  const raw = value?.trim();
+  if (!raw) return null;
+  if (raw.includes(",")) {
+    const [field, direction] = raw.split(",");
+    const safeField = field?.trim();
+    const safeDirection = direction?.trim().toLowerCase();
+    if (!safeField) return null;
+    if (safeDirection === "asc" || safeDirection === "desc") {
+      return `${safeField},${safeDirection}`;
+    }
+    return null;
+  }
+  return `${raw},desc`;
 }

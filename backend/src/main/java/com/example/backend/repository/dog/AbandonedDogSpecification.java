@@ -10,16 +10,12 @@ import java.util.List;
 
 public class AbandonedDogSpecification {
 
-    public static Specification<AbandonedDog> createSpecification(String region, String sexCd, String processState, Long shelterId) {
+    public static Specification<AbandonedDog> createSpecification(String region, String sexCd, String processState) {
         return (root, query, criteriaBuilder) -> {
             List<Predicate> predicates = new ArrayList<>();
 
             if (StringUtils.hasText(region)) {
                 predicates.add(criteriaBuilder.like(root.get("happenPlace"), "%" + region + "%"));
-            }
-
-            if (shelterId != null) {
-                predicates.add(criteriaBuilder.equal(root.get("shelter").get("id"), shelterId));
             }
 
             if (StringUtils.hasText(sexCd)) {
@@ -34,4 +30,3 @@ public class AbandonedDogSpecification {
         };
     }
 }
-

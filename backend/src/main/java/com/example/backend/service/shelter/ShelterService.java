@@ -8,14 +8,17 @@ import com.example.backend.api.shelter.dto.ShelterUpdateRequest;
 import com.example.backend.domain.dog.AbandonedDog;
 import com.example.backend.domain.shelter.Shelter;
 import com.example.backend.repository.dog.AbandonedDogRepository;
-import com.example.backend.repository.dog.AbandonedDogSpecification;
 import com.example.backend.repository.shelter.ShelterRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.Pageable;
-import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.util.StringUtils;
+
+import java.util.List;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -37,14 +40,21 @@ public class ShelterService {
         // 1. 요청한 shelterId에 대한 권한이 있는지 확인
         shelterPermissionEvaluator.checkShelterOwnership(shelterId);
 
-        // 2. Specification을 사용하여 동적 쿼리 생성
-        Specification<AbandonedDog> spec = AbandonedDogSpecification.createSpecification(null, null, processState, shelterId);
+        List<AbandonedDog> dogs;
+        if (StringUtils.hasText(processState)) {
+            dogs = abandonedDogRepository.findByShelter_IdAndProcessState(shelterId, processState);
+        } else {
+            dogs = abandonedDogRepository.findByShelter_Id(shelterId);
+        }
 
-        // 3. 동적 쿼리와 페이지 정보를 사용하여 DB에서 데이터 조회
-        Page<AbandonedDog> dogPage = abandonedDogRepository.findAll(spec, pageable);
+        // List를 Page로 변환
+        int start = (int) pageable.getOffset();
+        int end = Math.min((start + pageable.getPageSize()), dogs.size());
+        List<DogSummaryResponse> dtoList = dogs.subList(start, end).stream()
+                .map(DogSummaryResponse::fromEntity)
+                .collect(Collectors.toList());
 
-        // 4. 조회된 AbandonedDog 페이지를 DogSummaryResponse DTO 페이지로 변환
-        return dogPage.map(DogSummaryResponse::fromEntity);
+        return new PageImpl<>(dtoList, pageable, dogs.size());
     }
 
     /**

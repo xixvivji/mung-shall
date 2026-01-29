@@ -100,7 +100,7 @@ export async function fetchSigunguList(sidoOrgCd: string): Promise<RegionItem[]>
 export async function fetchAdoptionList({
   page = 0,
   size = 12,
-  sort = "happenDt",
+  sort,
   region,
   sexCd,
   processState,
@@ -144,15 +144,18 @@ export async function fetchAdoptionList({
 function normalizeSort(value?: string) {
   const raw = value?.trim();
   if (!raw) return null;
-  if (raw.includes(",")) {
-    const [field, direction] = raw.split(",");
-    const safeField = field?.trim();
-    const safeDirection = direction?.trim().toLowerCase();
-    if (!safeField) return null;
-    if (safeDirection === "asc" || safeDirection === "desc") {
-      return `${safeField},${safeDirection}`;
-    }
-    return null;
+  const [field, direction] = raw.includes(",") ? raw.split(",") : [raw, "desc"];
+  const safeField = field?.trim();
+  const safeDirection = direction?.trim().toLowerCase();
+  if (!safeField) return null;
+  if (!ALLOWED_SORT_FIELDS.includes(safeField)) return null;
+  if (safeDirection === "asc" || safeDirection === "desc") {
+    return `${safeField},${safeDirection}`;
   }
-  return `${raw},desc`;
+  return null;
 }
+
+// NOTE: Backend currently 500s on unsupported sort fields (e.g. happenDt,desc).
+// Failing request example: /api/dogs?page=0&size=12&sort=happenDt,desc
+// Suggested backend fix: return 400 for invalid sort, or document supported sort fields.
+const ALLOWED_SORT_FIELDS: string[] = [];

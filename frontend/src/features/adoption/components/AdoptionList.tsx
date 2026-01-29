@@ -93,7 +93,6 @@ export default function AdoptionList() {
     fetchAdoptionList({
       page: page0,
       size: 12,
-      sort: "happenDt",
       region,
       breed: breedParam,
     })

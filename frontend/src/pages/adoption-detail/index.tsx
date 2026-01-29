@@ -15,6 +15,16 @@ export default function AdoptionDetailPage() {
   const { id = "" } = useParams();
   const { detail, loading, error } = useAdoptionDetail(id);
 
+  const descriptionItems = useMemo(() => {
+    const raw = detail?.description ?? "";
+    const items = raw
+      .split(/[\n/.;]/g)
+      .map((item) => item.trim())
+      .filter((item) => item.length > 0);
+    return items.length > 0 ? items : ["특이사항 정보가 없습니다."];
+  }, [detail?.description]);
+
+
   if (loading) {
     return <div className="px-6 py-16 text-sm text-[#777]">Loading detail...</div>;
   }
@@ -29,15 +39,6 @@ export default function AdoptionDetailPage() {
 
   const title = detail.careNm ? `${detail.careNm} 강아지 입양 상세 정보` : "강아지 입양 상세 정보";
   const idLabel = detail.noticeNo ?? detail.desertionNo ?? detail.id;
-
-  const descriptionItems = useMemo(() => {
-    const raw = detail.description ?? "";
-    const items = raw
-      .split(/[\n/.;]/g)
-      .map((item) => item.trim())
-      .filter((item) => item.length > 0);
-    return items.length > 0 ? items : ["특이사항 정보가 없습니다."];
-  }, [detail.description]);
 
   return (
     <section className="mx-auto max-w-[1200px] px-6 py-16">

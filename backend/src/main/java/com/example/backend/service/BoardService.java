@@ -116,7 +116,7 @@ public class BoardService {
                 );
 
         if (!hasCompletedAdoption) {
-            throw ApiException.forbidden("입양 완료자만 후기 작성이 가능합니다.");
+            throw ApiException.forbidden("입양 완료자만 후기(Review) 작성이 가능합니다.");
         }
     }
 
@@ -194,7 +194,6 @@ public class BoardService {
         if (!board.getWriter().getUserId().equals(userId)) {
             throw ApiException.forbidden("작성자만 삭제할 수 있습니다.");
         }
-
         board.softDelete();
     }
 }

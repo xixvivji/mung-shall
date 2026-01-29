@@ -6,6 +6,9 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 
 import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.stream.Collectors;
 
 import static lombok.AccessLevel.PROTECTED;
 
@@ -46,6 +49,9 @@ public class Board {
 
     private LocalDateTime deletedAt;
 
+    @OneToMany(mappedBy = "board", cascade = CascadeType.ALL, orphanRemoval = true)
+    private List<BoardMedia> medias = new ArrayList<>();
+
     @PrePersist
     private void onCreate() {
         this.createdAt = LocalDateTime.now();
@@ -84,4 +90,21 @@ public class Board {
         this.category = category;
     }
 
+    public void replaceMedias(List<String> urls) {
+        this.medias.clear();
+        if (urls == null) return;
+
+        int i = 0;
+        for (String url : urls) {
+            if (url == null || url.isBlank()) continue;
+            this.medias.add(BoardMedia.of(this, url.trim(), i++));
+        }
+    }
+
+    public List<String> getMediaUrls() {
+        if (this.medias == null) return List.of();
+        return this.medias.stream()
+                .map(BoardMedia::getUrl)
+                .collect(Collectors.toList());
+    }
 }

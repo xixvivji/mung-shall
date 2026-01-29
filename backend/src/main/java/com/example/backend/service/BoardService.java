@@ -5,17 +5,17 @@ import com.example.backend.api.board.dto.BoardDetailResponse;
 import com.example.backend.api.board.dto.BoardListItemDto;
 import com.example.backend.api.board.dto.BoardUpdateRequest;
 import com.example.backend.common.ApiException;
+import com.example.backend.domain.adoption.enums.AdoptionProcessStatus;
 import com.example.backend.domain.board.Board;
 import com.example.backend.domain.board.BoardCategory;
 import com.example.backend.domain.user.User;
 import com.example.backend.repository.BoardRepository;
 import com.example.backend.repository.UserRepository;
+import com.example.backend.repository.adoption.AdoptionRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.*;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import com.example.backend.repository.adoption.AdoptionRepository;
-import com.example.backend.domain.adoption.enums.AdoptionProcessStatus;
 
 @Service
 @RequiredArgsConstructor
@@ -39,11 +39,7 @@ public class BoardService {
             default -> throw ApiException.badRequest("잘못된 파라미터");
         }
 
-        Pageable pageable = PageRequest.of(
-                safePage,
-                safeSize,
-                s
-        );
+        Pageable pageable = PageRequest.of(safePage, safeSize, s);
 
         String kw = (keyword == null || keyword.isBlank()) ? null : keyword.trim();
 
@@ -100,21 +96,28 @@ public class BoardService {
         User writer = userRepository.findById(userId)
                 .orElseThrow(() -> ApiException.unauthorized("로그인이 필요합니다."));
 
-        if (category == BoardCategory.REVIEW) {
-            boolean hasCompletedAdoption =
-                    adoptionRepository.existsByUser_UserIdAndProcessStatus(
-                            userId,
-                            AdoptionProcessStatus.COMPLETED
-                    );
-
-            if (!hasCompletedAdoption) {
-                throw ApiException.forbidden("입양 완료자만 후기 작성이 가능합니다.");
-            }
-        }
+        validateReviewPermission(userId, category);
 
         Board board = Board.create(writer, title, content, category);
+
+        board.replaceMedias(request.mediaUrls());
+
         Board saved = boardRepository.save(board);
         return saved.getId();
+    }
+
+    private void validateReviewPermission(Long userId, BoardCategory category) {
+        if (category != BoardCategory.REVIEW) return;
+
+        boolean hasCompletedAdoption =
+                adoptionRepository.existsByUser_UserIdAndProcessStatus(
+                        userId,
+                        AdoptionProcessStatus.COMPLETED
+                );
+
+        if (!hasCompletedAdoption) {
+            throw ApiException.forbidden("입양 완료자만 후기 작성이 가능합니다.");
+        }
     }
 
     private BoardListItemDto toListItemDto(Board board) {
@@ -163,7 +166,12 @@ public class BoardService {
             throw ApiException.badRequest("카테고리가 올바르지 않습니다.");
         }
 
+        validateReviewPermission(userId, category);
+
         board.update(title, content, category);
+
+        board.replaceMedias(request.mediaUrls());
+
         return board.getId();
     }
 

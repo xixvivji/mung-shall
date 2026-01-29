@@ -16,6 +16,8 @@ import org.springframework.data.web.PageableDefault;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.List;
+
 @Tag(name = "유기견 API", description = "유기견 정보 조회 API")
 @RestController
 @RequestMapping("/api/dogs")
@@ -54,5 +56,15 @@ public class DogController {
     ) {
         DogDetailResponse dogDetail = dogService.getDogDetail(id);
         return ResponseEntity.ok(dogDetail);
+    }
+
+    @Operation(summary = "유기견 품종 목록 조회", description = "관리되는 모든 유기견 품종 목록을 조회합니다.")
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "조회 성공"),
+    })
+    @GetMapping("/kinds")
+    public ResponseEntity<List<String>> getDogKinds() {
+        List<String> dogKinds = dogService.getAllDogKinds();
+        return ResponseEntity.ok(dogKinds);
     }
 }

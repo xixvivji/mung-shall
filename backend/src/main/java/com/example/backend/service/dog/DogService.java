@@ -3,8 +3,10 @@ package com.example.backend.service.dog;
 import com.example.backend.api.dog.dto.DogDetailResponse;
 import com.example.backend.api.dog.dto.DogSummaryResponse;
 import com.example.backend.domain.dog.AbandonedDog;
+import com.example.backend.domain.dog.DogKind;
 import com.example.backend.repository.dog.AbandonedDogRepository;
 import com.example.backend.repository.dog.AbandonedDogSpecification;
+import com.example.backend.repository.dog.DogKindRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -12,12 +14,16 @@ import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.List;
+import java.util.stream.Collectors;
+
 @Service
 @RequiredArgsConstructor
 @Transactional(readOnly = true)
 public class DogService {
 
     private final AbandonedDogRepository abandonedDogRepository;
+    private final DogKindRepository dogKindRepository;
 
     /**
      * 유기견 목록을 페이지네이션과 동적 필터링으로 조회합니다.
@@ -48,5 +54,11 @@ public class DogService {
         AbandonedDog dog = abandonedDogRepository.findById(id)
                 .orElseThrow(() -> new IllegalArgumentException("ID: " + id + " 에 해당하는 유기견을 찾을 수 없습니다."));
         return DogDetailResponse.fromEntity(dog);
+    }
+
+    public List<String> getAllDogKinds() {
+        return dogKindRepository.findAll().stream()
+                .map(DogKind::getName)
+                .collect(Collectors.toList());
     }
 }

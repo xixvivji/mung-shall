@@ -2,8 +2,10 @@ package com.example.backend;
 
 import com.example.backend.api.dog.dto.PublicApiResponse;
 import com.example.backend.domain.dog.AbandonedDog;
+import com.example.backend.domain.dog.DogKind;
 import com.example.backend.domain.shelter.Shelter;
 import com.example.backend.repository.dog.AbandonedDogRepository;
+import com.example.backend.repository.dog.DogKindRepository; // Import DogKindRepository
 import com.example.backend.repository.shelter.ShelterRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -27,7 +29,8 @@ public class AbandonedDogApiScheduler {
 
     private final AbandonedDogRepository abandonedDogRepository;
     private final RestTemplate restTemplate;
-    private final ShelterRepository shelterRepository; // Added injection
+    private final ShelterRepository shelterRepository;
+    private final DogKindRepository dogKindRepository;
 
     @Value("${api.abandoned-dog.url}")
     private String apiUrl;
@@ -53,22 +56,25 @@ public class AbandonedDogApiScheduler {
                 return;
             }
 
-            // 2. API에서 가져온 모든 유기번호(desertionNo)를 추출
+            // 2. 품종 데이터 업데이트 (DogKind 테이블 관리)
+            updateDogKinds(allItems); // Call the new method
+
+            // 3. API에서 가져온 모든 유기번호(desertionNo)를 추출
             Set<String> apiDogIds = allItems.stream()
                     .map(PublicApiResponse.Item::getDesertionNo)
                     .collect(Collectors.toSet());
 
-            // 3. DB에서 이미 존재하는 유기번호를 단 한 번의 쿼리로 조회
+            // 4. DB에서 이미 존재하는 유기번호를 단 한 번의 쿼리로 조회
             List<String> existingDogIds = abandonedDogRepository.findDesertionNosByDesertionNoIn(apiDogIds);
             Set<String> existingDogIdsSet = Set.copyOf(existingDogIds);
 
-            // 4. 새로운 유기견 데이터만 필터링하여 엔티티로 변환
+            // 5. 새로운 유기견 데이터만 필터링하여 엔티티로 변환
             List<AbandonedDog> dogsToSave = allItems.stream()
                     .filter(item -> !existingDogIdsSet.contains(item.getDesertionNo()))
                     .map(this::mapItemToAbandonedDog)
                     .collect(Collectors.toList());
 
-            // 5. 새로운 데이터가 있을 경우, saveAll로 한 번에 저장
+            // 6. 새로운 데이터가 있을 경우, saveAll로 한 번에 저장
             if (!dogsToSave.isEmpty()) {
                 abandonedDogRepository.saveAll(dogsToSave);
                 log.info("유기견 데이터 동기화 작업 완료. 총 {}개의 데이터 중 {}개의 새로운 데이터를 추가했습니다.", allItems.size(), dogsToSave.size());
@@ -79,6 +85,26 @@ public class AbandonedDogApiScheduler {
         } catch (Exception e) {
             log.error("유기견 데이터 동기화 중 오류 발생", e);
         }
+    }
+
+    // 강아지 품종 추가
+    private void updateDogKinds(List<PublicApiResponse.Item> items) {
+        // 호출한 api 응답에서 추출한 품종 리스트
+        Set<String> uniqueKindNames = items.stream()
+                .map(PublicApiResponse.Item::getKindNm)
+                .filter(kindNm -> kindNm != null && !kindNm.trim().isEmpty())
+                .collect(Collectors.toSet());
+
+        log.info("API로부터 {}개의 고유 품종 이름을 추출했습니다.", uniqueKindNames.size());
+
+        // 추출한 품종 리스트 db 품종과 비교해서 추가
+        uniqueKindNames.forEach(kindNm -> {
+            if (!dogKindRepository.existsByName(kindNm)) {
+                dogKindRepository.save(new DogKind(kindNm));
+                log.debug("새로운 품종 추가: {}", kindNm);
+            }
+        });
+        log.info("DogKind 테이블 업데이트 완료.");
     }
 
     private List<PublicApiResponse.Item> fetchAllItemsFromApi() {
@@ -152,7 +178,6 @@ public class AbandonedDogApiScheduler {
         dog.setNeuterYn(item.getNeuterYn());
         dog.setSpecialMark(item.getSpecialMark());
 
-        // api 응답에 존재하지 않는 보호소 정보 있으면 db에 추가
         String careNm = item.getCareNm();
         String careAddr = item.getCareAddr();
         String careTel = item.getCareTel();

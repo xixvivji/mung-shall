@@ -205,7 +205,7 @@ export function NextActions({ currentStep, selectedStep, onSelectStep, onAdvance
 
         <div className="text-sm text-gray-500">
           {isEditable ? (
-            <span className="font-semibold text-[#5f7cf7]">편집 가능</span>
+            <span className="font-semibold text-[#3182F6]">편집 가능</span>
           ) : (
             <span>조회 전용</span>
           )}
@@ -309,18 +309,18 @@ export function NextActions({ currentStep, selectedStep, onSelectStep, onAdvance
       {/* ✅ 어떤 Step이든 "컴포넌트 내부에 제출 버튼이 없을 수 있으니" 안전장치로 NextActions에서 전진 버튼 제공 */}
       <div className="mt-8 flex items-center justify-between gap-3">
         <button
-          className="rounded-xl border border-gray-200 px-4 py-2 text-sm text-gray-700 disabled:opacity-40"
+          className="rounded-md border border-gray-200 px-4 py-2 text-sm text-gray-700 disabled:opacity-40"
           disabled={!prevOf(selectedStep)}
           onClick={() => {
             const prev = prevOf(selectedStep);
             if (prev) onSelectStep?.(prev);
           }}
         >
-          이전 단계 보기
+          이전 단계로
         </button>
 
         <button
-          className="rounded-xl bg-[#5f7cf7] px-4 py-2 text-sm text-white disabled:opacity-40"
+          className="rounded-md bg-[#0064FF] hover:bg-[#0056E6] px-4 py-2 text-sm text-white disabled:opacity-40"
           disabled={!nextOf(selectedStep)}
           onClick={safeGoNextFromSelected}
         >
@@ -350,7 +350,7 @@ export function NextActions({ currentStep, selectedStep, onSelectStep, onAdvance
               </button>
 
               <button
-                className="rounded-xl bg-[#5f7cf7] px-4 py-2 text-sm text-white"
+                className="rounded-xl bg-[#3182F6] px-4 py-2 text-sm text-white"
                 onClick={() => {
                   setIsPreApprovalModalOpen(false);
                   if (pendingNextStep) advanceTo(pendingNextStep);

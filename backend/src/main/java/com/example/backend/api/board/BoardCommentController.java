@@ -60,7 +60,6 @@ public class BoardCommentController {
         Object principalObj = (authentication == null) ? null : authentication.getPrincipal();
 
         if (!(principalObj instanceof CustomUserPrincipal principal)) {
-            // 너희 스타일대로 401 처리(Controller에서 바로)
             throw com.example.backend.common.ApiException.unauthorized("로그인이 필요합니다.");
         }
         return principal;

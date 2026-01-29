@@ -14,7 +14,8 @@ import static lombok.AccessLevel.PROTECTED;
 @NoArgsConstructor(access = PROTECTED)
 @Table(name = "board_comments", indexes = {
         @Index(name = "idx_board_comments_board_id", columnList = "board_id"),
-        @Index(name = "idx_board_comments_user_id", columnList = "user_id")
+        @Index(name = "idx_board_comments_user_id", columnList = "user_id"),
+        @Index(name = "idx_board_comments_parent_id", columnList = "parent_comment_id")
 })
 public class BoardComment {
 
@@ -30,6 +31,10 @@ public class BoardComment {
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "user_id", nullable = false)
     private User writer;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "parent_comment_id")
+    private BoardComment parentComment;
 
     @Lob
     @Column(nullable = false)
@@ -60,6 +65,19 @@ public class BoardComment {
         c.writer = writer;
         c.content = content;
         return c;
+    }
+
+    public static BoardComment reply(Board board, User writer, BoardComment parent, String content) {
+        BoardComment c = new BoardComment();
+        c.board = board;
+        c.writer = writer;
+        c.parentComment = parent;
+        c.content = content;
+        return c;
+    }
+
+    public boolean isReply() {
+        return this.parentComment != null;
     }
 
     public void updateContent(String content) {

@@ -10,7 +10,8 @@ public record BoardCommentResponse(
         String writerName,
         String content,
         LocalDateTime createdAt,
-        LocalDateTime updatedAt
+        LocalDateTime updatedAt,
+        Long parentCommentId
 ) {
     public static BoardCommentResponse from(BoardComment c) {
         return new BoardCommentResponse(
@@ -19,7 +20,8 @@ public record BoardCommentResponse(
                 c.getWriter().getName(),
                 c.getContent(),
                 c.getCreatedAt(),
-                c.getUpdatedAt()
+                c.getUpdatedAt(),
+                c.getParentComment() == null ? null : c.getParentComment().getId()
         );
     }
 }

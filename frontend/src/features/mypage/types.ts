@@ -11,7 +11,6 @@ export type MyPageSummary = {
 export type AdoptionStep = AdoptionBeforeStep | AdoptionInStep | AdoptionAfterStep;
 
 export type AdoptionBeforeStep =
-  | "PROFILE"
   | "SURVEY"
   | "SELECT";
 

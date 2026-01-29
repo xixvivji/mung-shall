@@ -1797,7 +1797,6 @@ export function ApplicationStep({ isEditable, onSubmitSuccess }: Props) {
         return null;
     }
   }
-
   /** ====== 간단 모달 래퍼 ====== */
   return (
     <div className="space-y-3">
@@ -1819,7 +1818,18 @@ export function ApplicationStep({ isEditable, onSubmitSuccess }: Props) {
               </span>
             )}
 
-            <Button onClick={() => setOpen(true)} disabled={!isEditable} className="rounded-xl">
+            {/* ✅ 작성하기: 흰색 버튼 */}
+            <Button
+              onClick={() => setOpen(true)}
+              disabled={!isEditable}
+              className="
+                rounded-md
+                border border-gray-300
+                bg-white text-gray-700
+                hover:bg-gray-50
+                disabled:cursor-not-allowed disabled:opacity-50
+              "
+            >
               작성하기
             </Button>
           </div>
@@ -1856,21 +1866,37 @@ export function ApplicationStep({ isEditable, onSubmitSuccess }: Props) {
               </div>
 
               <div className="flex items-center gap-2">
-                <Button variant="outline" className="rounded-xl" onClick={handlePrev} disabled={stepIndex === 0}>
+                <Button
+                  variant="outline"
+                  className="rounded-md"
+                  onClick={handlePrev}
+                  disabled={stepIndex === 0}
+                >
                   이전
                 </Button>
 
                 {!isLastStep ? (
-                  <Button className="rounded-xl" onClick={handleNext}>
+                  // ✅ 다음: 흰색(보조)로 유지
+                  <Button
+                    variant="outline"
+                    className="rounded-md"
+                    onClick={handleNext}
+                  >
                     다음
                   </Button>
                 ) : (
-                  <Button className="rounded-xl" onClick={handleFinalSave} disabled={submitting}>
+                  // ✅ 최종 저장(제출): 파란색 고정
+                  <Button
+                    className="rounded-md bg-[#0064FF] hover:bg-[#0056E6] disabled:opacity-50"
+                    onClick={handleFinalSave}
+                    disabled={submitting}
+                  >
                     {submitting ? "저장 중..." : "최종 저장"}
                   </Button>
                 )}
               </div>
             </div>
+
             {submitError ? (
               <div className="px-6 pb-4 text-xs text-red-600">{submitError}</div>
             ) : null}

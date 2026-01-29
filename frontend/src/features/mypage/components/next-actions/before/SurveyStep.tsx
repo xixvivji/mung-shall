@@ -25,7 +25,7 @@ export function SurveyStep({ onSubmitSuccess }: Props) {
 
         <div className="mt-6 flex justify-end">
           <Button
-            className="rounded-xl bg-[#5f7cf7] px-6 py-2 text-white"
+            className="rounded-md bg-[#0064FF] hover:bg-[#0056E6] disabled:opacity-50"
             onClick={onSubmitSuccess}
           >
             제출하기

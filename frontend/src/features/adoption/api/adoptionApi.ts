@@ -38,6 +38,17 @@ type FetchAdoptionResult = {
   size: number;
 };
 
+export async function fetchDogKinds(): Promise<string[]> {
+  const response = await fetch("/api/dogs/kinds");
+  if (!response.ok) {
+    const errorText = await response.text();
+    throw new Error(errorText || response.statusText);
+  }
+  const data = await response.json();
+  if (!Array.isArray(data)) return [];
+  return data.filter((value): value is string => typeof value === "string");
+}
+
 export async function fetchAdoptionList({
   page = 10,
   size = 12,

@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "react-router-dom";
-import { fetchAdoptionList } from "../api/adoptionApi";
+import { fetchAdoptionList, fetchDogKinds } from "../api/adoptionApi";
 import type { AdoptionDog } from "../types";
 import DogGrid from "./DogGrid";
 import Filters, { DEFAULT_BREED, DEFAULT_CITY, DEFAULT_PROVINCE } from "./Filters";
@@ -18,6 +18,7 @@ export default function AdoptionList() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [totalPages, setTotalPages] = useState(1);
+  const [breeds, setBreeds] = useState<string[]>([]);
 
   const [searchParams, setSearchParams] = useSearchParams();
 
@@ -104,17 +105,22 @@ export default function AdoptionList() {
     };
   }, [page0, region, breedParam]);
 
-  const breeds = useMemo(
-    () =>
-      Array.from(
-        new Set(
-          dogs
-            .map((dog) => dog.breed?.trim())
-            .filter((value): value is string => Boolean(value))
-        )
-      ),
-    [dogs]
-  );
+  useEffect(() => {
+    let cancelled = false;
+    fetchDogKinds()
+      .then((list) => {
+        if (cancelled) return;
+        setBreeds(list);
+      })
+      .catch(() => {
+        if (cancelled) return;
+        setBreeds([]);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   return (
     <section className="mx-auto max-w-[1200px] px-6 py-16">

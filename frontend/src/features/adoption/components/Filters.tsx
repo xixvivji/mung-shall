@@ -226,7 +226,7 @@ export default function Filters({ breeds, onChange }: FiltersProps) {
             .map((value) => value.trim())
             .filter((value) => value.length > 0)
         )
-      ),
+      ).sort((a, b) => a.localeCompare(b, "ko")),
     [breeds]
   );
 

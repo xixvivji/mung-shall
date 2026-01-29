@@ -13,6 +13,4 @@ public interface BoardCommentRepository extends JpaRepository<BoardComment, Long
     Optional<BoardComment> findByIdAndDeletedAtIsNull(Long commentId);
 
     long countByBoard_IdAndDeletedAtIsNull(Long boardId);
-
-    List<BoardComment> findByParentComment_IdAndDeletedAtIsNullOrderByCreatedAtAsc(Long parentId);
 }

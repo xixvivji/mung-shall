@@ -6,6 +6,8 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 
 import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.List;
 
 import static lombok.AccessLevel.PROTECTED;
 
@@ -36,6 +38,9 @@ public class BoardComment {
     @JoinColumn(name = "parent_comment_id")
     private BoardComment parentComment;
 
+    @OneToMany(mappedBy = "parentComment", cascade = CascadeType.ALL, orphanRemoval = false)
+    private List<BoardComment> children = new ArrayList<>();
+
     @Lob
     @Column(nullable = false)
     private String content;
@@ -59,20 +64,12 @@ public class BoardComment {
         this.updatedAt = LocalDateTime.now();
     }
 
-    public static BoardComment create(Board board, User writer, String content) {
+    public static BoardComment create(Board board, User writer, String content, BoardComment parentComment) {
         BoardComment c = new BoardComment();
         c.board = board;
         c.writer = writer;
         c.content = content;
-        return c;
-    }
-
-    public static BoardComment reply(Board board, User writer, BoardComment parent, String content) {
-        BoardComment c = new BoardComment();
-        c.board = board;
-        c.writer = writer;
-        c.parentComment = parent;
-        c.content = content;
+        c.parentComment = parentComment;
         return c;
     }
 

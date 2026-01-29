@@ -3,25 +3,27 @@ package com.example.backend.api.board.dto;
 import com.example.backend.domain.board.BoardComment;
 
 import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.List;
 
 public record BoardCommentResponse(
         Long id,
-        Long writerId,
-        String writerName,
+        Long parentCommentId,
+        String writer,
         String content,
         LocalDateTime createdAt,
         LocalDateTime updatedAt,
-        Long parentCommentId
+        List<BoardCommentResponse> replies
 ) {
-    public static BoardCommentResponse from(BoardComment c) {
+    public static BoardCommentResponse of(BoardComment c) {
         return new BoardCommentResponse(
                 c.getId(),
-                c.getWriter().getUserId(),
+                (c.getParentComment() == null) ? null : c.getParentComment().getId(),
                 c.getWriter().getName(),
                 c.getContent(),
                 c.getCreatedAt(),
                 c.getUpdatedAt(),
-                c.getParentComment() == null ? null : c.getParentComment().getId()
+                new ArrayList<>()
         );
     }
 }

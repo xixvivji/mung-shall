@@ -1,17 +1,14 @@
-package com.example.backend.service;
+package com.example.backend.service.faq;
 
 import com.example.backend.api.faq.dto.FAQRequest;
 import com.example.backend.api.faq.dto.FAQResponse;
 import com.example.backend.domain.faq.FAQ;
-import com.example.backend.repository.FAQRepository;
+import com.example.backend.repository.faq.FAQRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-
-import java.util.List;
-import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor

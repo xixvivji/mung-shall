@@ -2,7 +2,7 @@ package com.example.backend.api.dog;
 
 import com.example.backend.api.dog.dto.DogDetailResponse;
 import com.example.backend.api.dog.dto.DogSummaryResponse;
-import com.example.backend.service.DogService;
+import com.example.backend.service.dog.DogService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;

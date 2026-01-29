@@ -1,10 +1,10 @@
-package com.example.backend.service;
+package com.example.backend.service.dog;
 
 import com.example.backend.api.dog.dto.DogDetailResponse;
 import com.example.backend.api.dog.dto.DogSummaryResponse;
 import com.example.backend.domain.dog.AbandonedDog;
-import com.example.backend.repository.AbandonedDogRepository;
-import com.example.backend.repository.specification.AbandonedDogSpecification;
+import com.example.backend.repository.dog.AbandonedDogRepository;
+import com.example.backend.repository.dog.AbandonedDogSpecification;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;

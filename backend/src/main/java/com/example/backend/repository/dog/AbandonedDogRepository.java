@@ -1,4 +1,4 @@
-package com.example.backend.repository;
+package com.example.backend.repository.dog;
 
 import com.example.backend.domain.dog.AbandonedDog;
 import org.springframework.data.domain.Page;

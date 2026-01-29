@@ -2,7 +2,7 @@ package com.example.backend.api.faq;
 
 import com.example.backend.api.faq.dto.FAQRequest;
 import com.example.backend.api.faq.dto.FAQResponse;
-import com.example.backend.service.FAQService;
+import com.example.backend.service.faq.FAQService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;

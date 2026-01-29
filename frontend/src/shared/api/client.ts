@@ -18,6 +18,16 @@ type ApiOptions = RequestInit & {
   skipAuth?: boolean;
 };
 
+export class ApiError extends Error {
+  status: number;
+
+  constructor(status: number, message: string) {
+    super(message);
+    this.name = "ApiError";
+    this.status = status;
+  }
+}
+
 export async function api<T>(path: string, options: ApiOptions = {}): Promise<T> {
   const { skipAuth, credentials, ...init } = options;
   const headers = new Headers(init.headers);
@@ -46,7 +56,16 @@ export async function api<T>(path: string, options: ApiOptions = {}): Promise<T>
 
   if (!response.ok) {
     const errorText = await response.text();
-    throw new Error(errorText || response.statusText);
+    let message = errorText || response.statusText;
+    try {
+      const parsed = JSON.parse(errorText);
+      if (parsed && typeof parsed.message === "string") {
+        message = parsed.message;
+      }
+    } catch {
+      // ignore JSON parse errors
+    }
+    throw new ApiError(response.status, message || response.statusText);
   }
 
   if (response.status === 204) {

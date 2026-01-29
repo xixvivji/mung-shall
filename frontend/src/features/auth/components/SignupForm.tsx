@@ -3,6 +3,9 @@ import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { ROUTES } from "@/shared/constants/routes";
 import { checkUsername, sendEmailCode, signup, verifyEmailCode } from "../api/authApi";
+import AlertModal from "@/shared/components/AlertModal";
+import { useAlertModal } from "@/shared/hooks/useAlertModal";
+import { ApiError } from "@/shared/api/client";
 
 type FieldProps = {
   label: string;
@@ -24,6 +27,37 @@ type Status = {
 
 const LEFT = 863;
 const BOX_W = 350;
+const DEFAULT_ERROR_MESSAGE = "서버 오류가 발생했습니다. 잠시 후 다시 시도해 주세요.";
+
+function parseErrorMessage(rawMessage: string) {
+  const trimmed = rawMessage.trim();
+  if (!trimmed) return "";
+  try {
+    const parsed = JSON.parse(trimmed);
+    if (parsed && typeof parsed.message === "string") {
+      return parsed.message;
+    }
+  } catch {
+    // ignore JSON parse errors
+  }
+  return trimmed;
+}
+
+function resolveErrorMessage(err: unknown) {
+  if (err instanceof ApiError) {
+    const parsed = parseErrorMessage(err.message);
+    if (parsed) return parsed;
+    if (err.status === 400) return "입력값을 확인해 주세요.";
+    if (err.status === 401 || err.status === 403) return "로그인이 필요하거나 권한이 없습니다.";
+    if (err.status === 404) return "요청한 기능을 찾을 수 없습니다.";
+    if (err.status === 500) return DEFAULT_ERROR_MESSAGE;
+    return DEFAULT_ERROR_MESSAGE;
+  }
+
+  const rawMessage = err instanceof Error ? err.message : "";
+  const parsed = parseErrorMessage(rawMessage);
+  return parsed || DEFAULT_ERROR_MESSAGE;
+}
 
 function Back() {
   return (
@@ -171,6 +205,7 @@ function TermsText() {
 function Form() {
   const navigate = useNavigate();
   const redirectTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const { openAlert, alertProps } = useAlertModal();
 
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
@@ -219,7 +254,8 @@ function Form() {
 
   const handleCheckUsername = async () => {
     if (!username.trim()) {
-      setUsernameStatus({ type: "error", text: "아이디를 입력해주세요." });
+      setUsernameStatus(null);
+      openAlert({ title: "아이디 확인", message: "아이디를 입력해주세요." });
       return;
     }
     setCheckingUsername(true);
@@ -231,9 +267,9 @@ function Form() {
         setUsernameStatus({ type: "success", text: "사용 가능한 아이디입니다." });
       }
     } catch (err) {
-      const message = err instanceof Error ? err.message : "중복 확인 실패";
       setUsernameChecked(false);
-      setUsernameStatus({ type: "error", text: message });
+      setUsernameStatus(null);
+      openAlert({ title: "아이디 확인", message: resolveErrorMessage(err) });
     } finally {
       setCheckingUsername(false);
     }
@@ -241,7 +277,8 @@ function Form() {
 
   const handleSendEmail = async () => {
     if (!email.trim()) {
-      setEmailStatus({ type: "error", text: "이메일을 입력해주세요." });
+      setEmailStatus(null);
+      openAlert({ title: "이메일 인증", message: "이메일을 입력해주세요." });
       return;
     }
     setSendingCode(true);
@@ -251,9 +288,9 @@ function Form() {
       setEmailSent(true);
       setEmailStatus({ type: "success", text: "인증번호를 발송했습니다." });
     } catch (err) {
-      const message = err instanceof Error ? err.message : "발송 실패";
       setEmailSent(false);
-      setEmailStatus({ type: "error", text: message });
+      setEmailStatus(null);
+      openAlert({ title: "이메일 인증", message: resolveErrorMessage(err) });
     } finally {
       setSendingCode(false);
     }
@@ -261,7 +298,8 @@ function Form() {
 
   const handleVerifyEmail = async () => {
     if (!email.trim() || !emailCode.trim()) {
-      setEmailStatus({ type: "error", text: "이메일과 인증번호를 입력해주세요." });
+      setEmailStatus(null);
+      openAlert({ title: "이메일 인증", message: "이메일과 인증번호를 입력해주세요." });
       return;
     }
     setVerifyingCode(true);
@@ -273,9 +311,9 @@ function Form() {
         setEmailStatus({ type: "success", text: "이메일 인증이 완료되었습니다." });
       }
     } catch (err) {
-      const message = err instanceof Error ? err.message : "인증 실패";
       setEmailVerified(false);
-      setEmailStatus({ type: "error", text: message });
+      setEmailStatus(null);
+      openAlert({ title: "이메일 인증", message: resolveErrorMessage(err) });
     } finally {
       setVerifyingCode(false);
     }
@@ -285,19 +323,19 @@ function Form() {
     setSignupStatus(null);
 
     if (!usernameChecked) {
-      setSignupStatus({ type: "error", text: "아이디 중복 확인이 필요합니다." });
+      openAlert({ title: "회원가입 실패", message: "아이디 중복 확인이 필요합니다." });
       return;
     }
     if (!emailVerified) {
-      setSignupStatus({ type: "error", text: "이메일 인증이 필요합니다." });
+      openAlert({ title: "회원가입 실패", message: "이메일 인증이 필요합니다." });
       return;
     }
     if (!password || password !== passwordConfirm) {
-      setSignupStatus({ type: "error", text: "비밀번호를 확인해주세요." });
+      openAlert({ title: "회원가입 실패", message: "비밀번호를 확인해주세요." });
       return;
     }
     if (!name.trim() || !email.trim()) {
-      setSignupStatus({ type: "error", text: "필수 항목을 입력해주세요." });
+      openAlert({ title: "회원가입 실패", message: "필수 항목을 입력해주세요." });
       return;
     }
 
@@ -323,8 +361,8 @@ function Form() {
         navigate(ROUTES.login);
       }, 1200);
     } catch (err) {
-      const message = err instanceof Error ? err.message : "회원가입 실패";
-      setSignupStatus({ type: "error", text: message });
+      setSignupStatus(null);
+      openAlert({ title: "회원가입 실패", message: resolveErrorMessage(err) });
     } finally {
       setSigningUp(false);
     }
@@ -341,12 +379,7 @@ function Form() {
       emailVerified,
   );
 
-  const usernameStatusClass =
-    usernameStatus?.type === "success" ? "text-[#2f9e44]" : "text-[#d14343]";
-  const emailStatusClass =
-    emailStatus?.type === "success" ? "text-[#2f9e44]" : "text-[#d14343]";
-  const signupStatusClass =
-    signupStatus?.type === "success" ? "text-[#2f9e44]" : "text-[#d14343]";
+  const successStatusClass = "text-[#2f9e44]";
 
   return (
     <div className="absolute left-0 top-0" data-name="input">
@@ -376,9 +409,9 @@ function Form() {
         onClick={handleCheckUsername}
         disabled={checkingUsername}
       />
-      {usernameStatus ? (
+      {usernameStatus?.type === "success" ? (
         <p
-          className={`absolute left-[863px] top-[333px] w-[350px] text-[12px] whitespace-nowrap ${usernameStatusClass}`}
+          className={`absolute left-[863px] top-[333px] w-[350px] text-[12px] whitespace-nowrap ${successStatusClass}`}
         >
           {usernameStatus.text}
         </p>
@@ -453,9 +486,9 @@ function Form() {
         onClick={handleVerifyEmail}
         disabled={!emailSent || verifyingCode}
       />
-      {emailStatus ? (
+      {emailStatus?.type === "success" ? (
         <p
-          className={`absolute left-[863px] top-[658px] w-[350px] text-[12px] whitespace-nowrap ${emailStatusClass}`}
+          className={`absolute left-[863px] top-[658px] w-[350px] text-[12px] whitespace-nowrap ${successStatusClass}`}
         >
           {emailStatus.text}
         </p>
@@ -496,15 +529,17 @@ function Form() {
         onClick={handleSignup}
         disabled={!canSignup || signingUp}
       />
-      {signupStatus ? (
+      {signupStatus?.type === "success" ? (
         <p
-          className={`absolute left-[863px] top-[935px] w-[350px] text-[12px] whitespace-nowrap ${signupStatusClass}`}
+          className={`absolute left-[863px] top-[935px] w-[350px] text-[12px] whitespace-nowrap ${successStatusClass}`}
         >
           {signupStatus.text}
         </p>
       ) : null}
 
       <TermsText />
+
+      <AlertModal {...alertProps} />
     </div>
   );
 }

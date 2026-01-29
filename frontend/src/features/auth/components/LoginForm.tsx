@@ -3,11 +3,12 @@ import imgImage47 from "@/assets/images/sicial_login_naver.png";
 import imgImage46 from "@/assets/images/social_login_google.png";
 import imgMungshall2 from "@/assets/images/mung.png";
 import useAuth from "@/features/auth/hooks/useAuth";
-import { useState } from "react";
+import { useState, type FormEvent } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { ROUTES } from "@/shared/constants/routes";
 import AlertModal from "@/shared/components/AlertModal";
 import { useAlertModal } from "@/shared/hooks/useAlertModal";
+import { primaryButtonClass, secondaryButtonClass } from "@/shared/ui/buttonClasses";
 import { ApiError } from "@/shared/api/client";
 
 function Back() {
@@ -54,7 +55,7 @@ function SocialBtn({
     <button
       type="button"
       onClick={onClick}
-      className={`absolute left-[905px] ${top} h-[36px] w-[350px] rounded-[8px] bg-white px-[12px] py-[8px] flex items-center justify-center border border-[#e5e5e5] shadow-[0px_1px_2px_0px_rgba(0,0,0,0.1)]`}
+      className={`absolute left-[905px] ${top} h-[36px] w-[350px] rounded-[8px] bg-white px-[12px] py-[8px] flex items-center justify-center border border-[#e5e5e5] shadow-[0px_1px_2px_0px_rgba(0,0,0,0.1)] ${secondaryButtonClass}`}
     >
       <div className="relative flex items-center">
         <span className="pr-2">
@@ -144,12 +145,18 @@ function Login() {
     }
   };
 
+  const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (loading) return;
+    handleLogin();
+  };
+
   const handleSocialLogin = (provider: SocialProvider) => {
     window.location.assign(getOAuthUrl(provider));
   };
 
   return (
-    <div className="absolute left-0 top-0" data-name="login">
+    <form className="absolute left-0 top-0" data-name="login" onSubmit={handleSubmit}>
       <Back />
 
       <p
@@ -174,9 +181,8 @@ function Login() {
       />
 
       <button
-        className="absolute left-[905px] top-[472.5px] h-[36px] w-[350px] rounded-[10px] bg-[#3182f6] px-[16px] py-[8px] text-[14px] font-medium leading-[20px] text-[#fafafa] shadow-[0px_1px_2px_0px_rgba(0,0,0,0.1)] disabled:bg-[#9ab8f6]"
-        type="button"
-        onClick={handleLogin}
+        className={`absolute left-[905px] top-[472.5px] h-[36px] w-[350px] rounded-[10px] bg-[#3182f6] px-[16px] py-[8px] text-[14px] font-medium leading-[20px] text-[#fafafa] shadow-[0px_1px_2px_0px_rgba(0,0,0,0.1)] disabled:bg-[#9ab8f6] ${primaryButtonClass}`}
+        type="submit"
         disabled={loading}
       >
         {loading ? "로그인 중..." : "Log In"}
@@ -206,7 +212,7 @@ function Login() {
       <Text />
 
       <AlertModal {...alertProps} />
-    </div>
+    </form>
   );
 }
 

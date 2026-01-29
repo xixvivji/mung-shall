@@ -1,5 +1,4 @@
-const RAW_API_BASE = import.meta.env.VITE_API_BASE_URL ?? "/api";
-const API_BASE = RAW_API_BASE.endsWith("/") ? RAW_API_BASE.slice(0, -1) : RAW_API_BASE;
+const API_BASE = "/api";
 const ACCESS_TOKEN_KEY = "accessToken";
 
 export function getAccessToken() {
@@ -38,11 +37,29 @@ export async function api<T>(path: string, options: ApiOptions = {}): Promise<T>
     headers.set("Content-Type", "application/json");
   }
 
+  const requestId = createRequestId();
+  if (!headers.has("X-Request-Id")) {
+    headers.set("X-Request-Id", requestId);
+  }
+
   if (!skipAuth) {
     const token = getAccessToken();
     if (token && !headers.has("Authorization")) {
       headers.set("Authorization", `Bearer ${token}`);
+    } else if (!token && headers.has("Authorization")) {
+      headers.delete("Authorization");
     }
+  }
+
+  if (import.meta.env.DEV) {
+    const authHeader = headers.get("Authorization");
+    console.debug("[http] request", {
+      requestId,
+      path,
+      method: init.method ?? "GET",
+      hasAuth: Boolean(authHeader),
+      authMasked: authHeader ? `${authHeader.slice(0, 10)}...` : null,
+    });
   }
 
   const shouldIncludeCredentials =
@@ -78,4 +95,11 @@ export async function api<T>(path: string, options: ApiOptions = {}): Promise<T>
   }
 
   return (await response.text()) as T;
+}
+
+function createRequestId() {
+  if (typeof crypto !== "undefined" && "randomUUID" in crypto) {
+    return crypto.randomUUID();
+  }
+  return `req_${Date.now()}_${Math.random().toString(16).slice(2)}`;
 }

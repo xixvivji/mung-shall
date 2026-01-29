@@ -38,6 +38,9 @@ type FetchAdoptionResult = {
   size: number;
 };
 
+let inflightKey = "";
+let inflightController: AbortController | null = null;
+
 export type RegionItem = {
   orgCd: string;
   name: string;
@@ -120,25 +123,37 @@ export async function fetchAdoptionList({
   if (breed) params.set("breed", breed);
 
   const requestPath = `/dogs?${params.toString()}`;
+  if (inflightKey === requestPath && inflightController) {
+    inflightController.abort();
+  }
+  inflightKey = requestPath;
+  inflightController = new AbortController();
   if (import.meta.env.DEV) {
     const debugParams = Object.fromEntries(params.entries());
     console.debug("[adoption] fetchAdoptionList", { requestPath, params: debugParams });
   }
-  const data = await api<DogsResponse>(requestPath);
-
-  return {
-    items: data.content.map((dog) => ({
-      id: String(dog.dogId),
-      name: dog.noticeNo ?? dog.desertionNo ?? dog.kindNm ?? `Dog #${dog.dogId}`,
-      breed: dog.kindNm ?? "Unknown",
-      age: dog.age ?? "",
-      imageUrl: dog.imageUrl,
-    })),
-    totalPages: data.totalPages,
-    totalElements: data.totalElements,
-    page: data.number,
-    size: data.size,
-  };
+  const controller = inflightController;
+  try {
+    const data = await api<DogsResponse>(requestPath, { signal: controller?.signal });
+    return {
+      items: data.content.map((dog) => ({
+        id: String(dog.dogId),
+        name: dog.noticeNo ?? dog.desertionNo ?? dog.kindNm ?? `Dog #${dog.dogId}`,
+        breed: dog.kindNm ?? "Unknown",
+        age: dog.age ?? "",
+        imageUrl: dog.imageUrl,
+      })),
+      totalPages: data.totalPages,
+      totalElements: data.totalElements,
+      page: data.number,
+      size: data.size,
+    };
+  } finally {
+    if (inflightController === controller) {
+      inflightController = null;
+      inflightKey = "";
+    }
+  }
 }
 
 function normalizeSort(value?: string) {

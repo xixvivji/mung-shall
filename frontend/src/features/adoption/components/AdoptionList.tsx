@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { fetchAdoptionList, fetchDogKinds, fetchSigunguList, fetchSidoList } from "../api/adoptionApi";
 import type { AdoptionDog } from "../types";
@@ -19,6 +19,7 @@ export default function AdoptionList() {
   const [error, setError] = useState<string | null>(null);
   const [totalPages, setTotalPages] = useState(1);
   const [breeds, setBreeds] = useState<string[]>([]);
+  const lastFetchKeyRef = useRef<string>("");
 
   const [searchParams, setSearchParams] = useSearchParams();
   const [sidoOptions, setSidoOptions] = useState<{ label: string; value: string }[]>([]);
@@ -87,6 +88,10 @@ export default function AdoptionList() {
 
   useEffect(() => {
     let cancelled = false;
+    const fetchKey = JSON.stringify({ page0, region, breedParam });
+    if (fetchKey === lastFetchKeyRef.current) return undefined;
+    lastFetchKeyRef.current = fetchKey;
+
     setLoading(true);
     setError(null);
 
@@ -103,6 +108,7 @@ export default function AdoptionList() {
       })
       .catch((err) => {
         if (cancelled) return;
+        if (err instanceof DOMException && err.name === "AbortError") return;
         const message = err instanceof Error ? err.message : "Failed to load";
         setError(message);
       })

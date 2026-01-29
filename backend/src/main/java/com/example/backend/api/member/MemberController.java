@@ -49,6 +49,7 @@ public class MemberController {
         body.put("email", me.getEmail());
         body.put("address", me.getAddress());
         body.put("loginType", resolveLoginType(me));
+        body.put("userType", me.getUserType());
 
         return ResponseEntity.ok(body);
     }

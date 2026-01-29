@@ -1,17 +1,15 @@
 import { useEffect, useState } from "react";
-import type { MyDog, MyPageSummary } from "../types";
-import { fetchMyDogs, fetchMyPageSummary } from "../api/mypageApi";
+import type { MyDog } from "../types";
+import { fetchMyDogs } from "../api/mypageApi";
 
 export default function useMyPage() {
-  const [summary, setSummary] = useState<MyPageSummary | null>(null);
   const [dogs, setDogs] = useState<MyDog[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     let mounted = true;
-    Promise.all([fetchMyPageSummary(), fetchMyDogs()]).then(([summaryData, dogsData]) => {
+    fetchMyDogs().then((dogsData) => {
       if (mounted) {
-        setSummary(summaryData);
         setDogs(dogsData);
         setLoading(false);
       }
@@ -21,5 +19,5 @@ export default function useMyPage() {
     };
   }, []);
 
-  return { summary, dogs, loading };
+  return { dogs, loading };
 }

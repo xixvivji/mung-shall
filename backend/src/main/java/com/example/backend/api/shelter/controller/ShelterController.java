@@ -1,6 +1,8 @@
 package com.example.backend.api.shelter.controller;
 
+import com.example.backend.api.dog.dto.DogDetailResponse;
 import com.example.backend.api.dog.dto.DogSummaryResponse;
+import com.example.backend.api.dog.dto.DogUpdateRequest;
 import com.example.backend.service.shelter.ShelterService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
@@ -39,5 +41,36 @@ public class ShelterController {
     ) {
         Page<DogSummaryResponse> dogs = shelterService.getDogsByShelter(shelterId, processState, pageable);
         return ResponseEntity.ok(dogs);
+    }
+
+    @Operation(summary = "보호소의 강아지 정보 수정", description = "특정 보호소에 소속된 강아지의 정보를 수정합니다.")
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "수정 성공"),
+            @ApiResponse(responseCode = "403", description = "권한 없음 (해당 보호소의 강아지가 아님)"),
+            @ApiResponse(responseCode = "404", description = "해당 ID의 보호소 또는 강아지를 찾을 수 없음")
+    })
+    @PutMapping("/{shelterId}/dogs/{dogId}")
+    public ResponseEntity<DogDetailResponse> updateDogInShelter(
+            @Parameter(description = "보호소의 고유 ID", required = true) @PathVariable Long shelterId,
+            @Parameter(description = "수정할 강아지의 ID", required = true) @PathVariable Long dogId,
+            @RequestBody DogUpdateRequest request
+    ) {
+        DogDetailResponse updatedDog = shelterService.updateDogInShelter(shelterId, dogId, request);
+        return ResponseEntity.ok(updatedDog);
+    }
+
+    @Operation(summary = "보호소의 강아지 정보 삭제", description = "특정 보호소에 소속된 강아지의 정보를 삭제합니다.")
+    @ApiResponses({
+            @ApiResponse(responseCode = "204", description = "삭제 성공"),
+            @ApiResponse(responseCode = "403", description = "권한 없음 (해당 보호소의 강아지가 아님)"),
+            @ApiResponse(responseCode = "404", description = "해당 ID의 보호소 또는 강아지를 찾을 수 없음")
+    })
+    @DeleteMapping("/{shelterId}/dogs/{dogId}")
+    public ResponseEntity<Void> deleteDogInShelter(
+            @Parameter(description = "보호소의 고유 ID", required = true) @PathVariable Long shelterId,
+            @Parameter(description = "삭제할 강아지의 ID", required = true) @PathVariable Long dogId
+    ) {
+        shelterService.deleteDogInShelter(shelterId, dogId);
+        return ResponseEntity.noContent().build();
     }
 }

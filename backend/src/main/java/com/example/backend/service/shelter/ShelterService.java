@@ -1,6 +1,8 @@
 package com.example.backend.service.shelter;
 
+import com.example.backend.api.dog.dto.DogDetailResponse;
 import com.example.backend.api.dog.dto.DogSummaryResponse;
+import com.example.backend.api.dog.dto.DogUpdateRequest;
 import com.example.backend.domain.dog.AbandonedDog;
 import com.example.backend.repository.dog.AbandonedDogRepository;
 import com.example.backend.repository.dog.AbandonedDogSpecification;
@@ -19,6 +21,7 @@ public class ShelterService {
 
     private final ShelterRepository shelterRepository;
     private final AbandonedDogRepository abandonedDogRepository;
+    private final ShelterPermissionEvaluator shelterPermissionEvaluator;
 
     /**
      * 특정 보호소에 보관중인 유기견 목록을 상태 필터링과 함께 페이지네이션하여 조회합니다.
@@ -28,10 +31,8 @@ public class ShelterService {
      * @return Page<DogSummaryResponse>
      */
     public Page<DogSummaryResponse> getDogsByShelter(Long shelterId, String processState, Pageable pageable) {
-        // 1. 요청한 shelterId가 실제로 존재하는지 확인
-        if (!shelterRepository.existsById(shelterId)) {
-            throw new IllegalArgumentException("Invalid Shelter ID: " + shelterId);
-        }
+        // 1. 요청한 shelterId에 대한 권한이 있는지 확인
+        shelterPermissionEvaluator.checkShelterOwnership(shelterId);
 
         // 2. Specification을 사용하여 동적 쿼리 생성
         Specification<AbandonedDog> spec = AbandonedDogSpecification.createSpecification(null, null, processState, shelterId);
@@ -41,5 +42,59 @@ public class ShelterService {
 
         // 4. 조회된 AbandonedDog 페이지를 DogSummaryResponse DTO 페이지로 변환
         return dogPage.map(DogSummaryResponse::fromEntity);
+    }
+
+    /**
+     * 특정 보호소의 유기견 정보를 수정합니다.
+     * @param shelterId 수정 권한을 확인할 보호소 ID
+     * @param dogId 수정할 유기견의 ID
+     * @param request 수정할 정보가 담긴 DTO
+     * @return 수정된 유기견의 상세 정보
+     */
+    @Transactional
+    public DogDetailResponse updateDogInShelter(Long shelterId, Long dogId, DogUpdateRequest request) {
+                // 권한 검사
+                shelterPermissionEvaluator.checkShelterOwnership(shelterId);
+                AbandonedDog dog = abandonedDogRepository.findById(dogId)
+                        .orElseThrow(() -> new IllegalArgumentException("ID: " + dogId + " 에 해당하는 유기견을 찾을 수 없습니다."));
+                shelterPermissionEvaluator.checkShelterPermission(dog);
+        dog.setHappenDt(request.getHappenDt());
+        dog.setHappenPlace(request.getHappenPlace());
+        dog.setKindNm(request.getKindNm());
+        dog.setColorCd(request.getColorCd());
+        dog.setAge(request.getAge());
+        dog.setWeight(request.getWeight());
+        dog.setNoticeNo(request.getNoticeNo());
+        dog.setNoticeSdt(request.getNoticeSdt());
+        dog.setNoticeEdt(request.getNoticeEdt());
+        dog.setPopfile1(request.getPopfile1());
+        dog.setPopfile2(request.getPopfile2());
+        dog.setProcessState(request.getProcessState());
+        dog.setSexCd(request.getSexCd());
+        dog.setNeuterYn(request.getNeuterYn());
+        dog.setSpecialMark(request.getSpecialMark());
+        dog.setCareNm(request.getCareNm());
+        dog.setCareTel(request.getCareTel());
+        dog.setCareAddr(request.getCareAddr());
+        dog.setOrgNm(request.getOrgNm());
+
+        AbandonedDog updatedDog = abandonedDogRepository.save(dog);
+        return DogDetailResponse.fromEntity(updatedDog);
+    }
+
+    /**
+     * 특정 보호소의 유기견 정보를 삭제합니다.
+     * @param shelterId 삭제 권한을 확인할 보호소 ID
+     * @param dogId 삭제할 유기견의 ID
+     */
+    @Transactional
+    public void deleteDogInShelter(Long shelterId, Long dogId) {
+        // 권한 검사
+        shelterPermissionEvaluator.checkShelterOwnership(shelterId);
+        AbandonedDog dog = abandonedDogRepository.findById(dogId)
+                .orElseThrow(() -> new IllegalArgumentException("ID: " + dogId + " 에 해당하는 유기견을 찾을 수 없습니다."));
+        shelterPermissionEvaluator.checkShelterPermission(dog);
+
+        abandonedDogRepository.delete(dog);
     }
 }

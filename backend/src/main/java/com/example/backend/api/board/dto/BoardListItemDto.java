@@ -8,6 +8,7 @@ public record BoardListItemDto(
         String writer,
         String thumbnailUrl,
         LocalDateTime createdAt,
-        int viewCount
+        int viewCount,
+        long commentCount
 ) {
 }

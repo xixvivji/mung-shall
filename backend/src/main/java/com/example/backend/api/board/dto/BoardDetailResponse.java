@@ -15,9 +15,10 @@ public record BoardDetailResponse(
         LocalDateTime createdAt,
         LocalDateTime updatedAt,
         int viewCount,
-        List<String> mediaUrls
+        List<String> mediaUrls,
+        long commentCount
 ) {
-    public static BoardDetailResponse from(Board board) {
+    public static BoardDetailResponse from(Board board, long commentCount) {
         return new BoardDetailResponse(
                 board.getId(),
                 board.getTitle(),
@@ -27,7 +28,8 @@ public record BoardDetailResponse(
                 board.getCreatedAt(),
                 board.getUpdatedAt(),
                 board.getViewCount(),
-                board.getMediaUrls()
+                board.getMediaUrls(),
+                commentCount
         );
     }
 }

@@ -1,64 +1,6 @@
 import math
 import numpy as np
-
-# [NEW] 개별 관절을 추적하기 위한 칼만 필터 클래스
-class SimpleKalmanFilter:
-    def __init__(self):
-        self.x, self.y = 0, 0      # 현재 위치
-        self.vx, self.vy = 0, 0    # 현재 속도 (Velocity)
-        self.initialized = False   # 초기화 여부
-
-    def update(self, meas_x, meas_y, conf):
-        """
-        conf(신뢰도)가 높으면 측정값(Meas)을 믿고,
-        conf가 낮으면 예측값(Prediction)을 더 믿는 구조
-        """
-        if not self.initialized:
-            self.x, self.y = meas_x, meas_y
-            self.vx, self.vy = 0, 0
-            self.initialized = True
-            return self.x, self.y
-
-        # 1. 예측 (Prediction): 관성을 이용해 다음 위치 추측
-        pred_x = self.x + self.vx
-        pred_y = self.y + self.vy
-
-        # 2. 보정 가중치 (Kalman Gain) 설정
-        # 신뢰도가 0.5 이상이면 측정값을 90% 신뢰 (빠른 반응)
-        # 신뢰도가 0.3~0.5면 측정값을 40%만 신뢰 (예측값 의존)
-        if conf > 0.5:
-            K = 0.9 
-        elif conf > 0.3:
-            K = 0.4 
-        else:
-            K = 0.0 # 측정값 무시 (순수 예측)
-
-        # 3. 업데이트 (Update): 예측값과 측정값을 가중치로 섞음
-        # 데이터가 아예 없으면(meas=0), 그냥 예측값 유지
-        if meas_x == 0 and meas_y == 0:
-            new_x, new_y = pred_x, pred_y
-        else:
-            new_x = pred_x + K * (meas_x - pred_x)
-            new_y = pred_y + K * (meas_y - pred_y)
-
-        # 4. 속도 업데이트 (감쇠 적용)
-        # 0.8을 곱해 마찰력을 줌 (데이터가 끊겼을 때 무한정 날아가는 것 방지)
-        self.vx = (new_x - self.x) * 0.8
-        self.vy = (new_y - self.y) * 0.8
-
-        self.x, self.y = new_x, new_y
-        return self.x, self.y
-
-    def predict(self):
-        """데이터가 아예 없을 때 관성대로 이동"""
-        if not self.initialized: return 0, 0
-        
-        self.x += self.vx
-        self.y += self.vy
-        self.vx *= 0.7 # 데이터 없으면 속도 빠르게 줄임
-        self.vy *= 0.7
-        return self.x, self.y
-
+from collections import deque, Counter
 
 class DogPoseAnalyzer:
     KEYPOINTS_MAP = {
@@ -73,208 +15,144 @@ class DogPoseAnalyzer:
 
     def __init__(self):
         self.kpts = None
-        self.missing_counter = {}   
-        self.avg_scale = 0.0       
-        self.last_center = None    
-        self.valid_frames = 0      
+        self.avg_scale = 0.0
+        self.valid_frames_count = 0
         
-        # [NEW] 관절별 칼만 필터 생성 (20개)
-        self.filters = {i: SimpleKalmanFilter() for i in range(24)}
+        # [상태 관성 시스템 변수]
+        self.current_state = "undetected"   # 현재 출력되는 상태
+        self.stable_counter = 0             # 현재 상태가 얼마나 유지됐는지 (신뢰도)
+        self.grace_period_counter = 0       # 데이터가 튀었을 때 봐주는 카운트 (관성)
+        
+        # 설정: 0.3초(약 10프레임) 정도는 데이터가 사라져도 봐줌
+        self.MAX_GRACE_FRAMES = 5
+        # 설정: 5프레임 연속으로 같은 동작이 나와야 자세 변경 인정
+        self.STABILITY_THRESHOLD = 5
 
     def process_keypoints(self, raw_kpts):
         """
-        [Smart Tracking + Kalman Filter]
+        복잡한 필터링 제거. 순수한 데이터 업데이트 및 스케일 계산만 수행.
         """
-        # 1. 사람/노이즈 데이터인지 검증
-        if not self._is_dog_data_valid(raw_kpts):
-            # 데이터가 이상하면 강제로 예측 모드(Predict) 진입
-            self._apply_kalman_filter(raw_kpts, force_predict=True)
-            return
-
-        # 2. 정상 데이터 업데이트 (Kalman Update)
-        self._apply_kalman_filter(raw_kpts, force_predict=False)
-        
-        # 3. 트래커 정보 갱신
-        self._update_tracker_info(self.kpts)
-
-    def _is_dog_data_valid(self, kpts):
-        # (기존 로직 유지)
-        if self.valid_frames < 5 or self.avg_scale == 0: return True
-        curr_scale = 0
-        p_tail = kpts[12]
-        p_ear = kpts[14]
-        if p_tail[2] > 0.5 and p_ear[2] > 0.5:
-            curr_scale = math.sqrt((p_tail[0]-p_ear[0])**2 + (p_tail[1]-p_ear[1])**2)
-        
-        if curr_scale > 0 and curr_scale > self.avg_scale * 1.5: return False
-        if self.last_center is not None and p_tail[2] > 0.5:
-            dist = math.sqrt((p_tail[0]-self.last_center[0])**2 + (p_tail[1]-self.last_center[1])**2)
-            if dist > self.avg_scale * 1.0: return False
-        return True
-
-    def _apply_kalman_filter(self, raw_kpts, force_predict=False):
-        """
-        [NEW] 칼만 필터를 이용한 데이터 보정
-        """
-        processed_kpts = raw_kpts.copy()
-        MAX_TTL = 5 
-
-        for i, (x, y, conf) in enumerate(processed_kpts):
-            if i not in self.filters:
-                self.filters[i] = SimpleKalmanFilter()
-            
-            if i not in self.missing_counter: self.missing_counter[i] = 0
-            
-            kf = self.filters[i] # 해당 관절의 필터 가져오기
-
-            # [상황 A] 데이터가 있고 신뢰할만한 경우 (0.3 이상)
-            if not force_predict and conf > 0.1:
-                # 칼만 필터 업데이트 (측정값 반영)
-                # conf가 0.3~0.5 사이면 예측값 비중을 높여서 스무딩 처리됨 (Lag 해결)
-                kx, ky = kf.update(x, y, conf)
-                
-                # 결과 적용 (필터링된 좌표 사용)
-                processed_kpts[i] = [kx, ky, conf] # conf는 원본 유지하거나 보정 가능
-                self.missing_counter[i] = 0
-            
-            # [상황 B] 데이터가 없거나 신뢰도가 낮은 경우 (0.3 이하)
-            else:
-                self.missing_counter[i] += 1
-                
-                # TTL 이내라면? -> 예측(Prediction) 사용
-                if self.missing_counter[i] <= MAX_TTL:
-                    # 측정값 없이 관성으로만 이동 (Predict)
-                    px, py = kf.predict()
-                    # 예측된 위치 적용 (단, 신뢰도는 0.5로 가짜 부여하여 로직 통과 유도)
-                    processed_kpts[i] = [px, py, 0.5] 
-                else:
-                    # TTL 초과 -> 관측 실패 처리
-                    processed_kpts[i] = [0, 0, 0.0] 
-        
-        self.kpts = processed_kpts
-
-    def _update_tracker_info(self, kpts):
-        curr_scale = 0
-        if kpts[12][2] > 0.5 and kpts[14][2] > 0.5:
-            curr_scale = math.sqrt((kpts[12][0]-kpts[14][0])**2 + (kpts[12][1]-kpts[14][1])**2)
-        elif kpts[2][2] > 0.5 and kpts[0][2] > 0.5:
-             curr_scale = math.sqrt((kpts[2][0]-kpts[0][0])**2 + (kpts[2][1]-kpts[0][1])**2) * 2.5
-        if curr_scale > 0:
-            if self.avg_scale == 0: self.avg_scale = curr_scale
-            else: self.avg_scale = (self.avg_scale * 0.9) + (curr_scale * 0.1)
-            self.valid_frames += 1
-        if kpts[12][2] > 0.5: self.last_center = (kpts[12][0], kpts[12][1])
-
-    # --- [Analyze Logic: 기존의 안정적인 로직 100% 유지] ---
-    def _get_y(self, name): return self.kpts[self.KEYPOINTS_MAP[name]][1]
-    def _get_pt(self, name): idx = self.KEYPOINTS_MAP[name]; return self.kpts[idx][:2]
-    def _dist(self, name1, name2):
-        x1, y1 = self._get_pt(name1); x2, y2 = self._get_pt(name2)
-        return math.sqrt((x1-x2)**2 + (y1-y2)**2)
-    def _is_valid(self, name_list):
-        if isinstance(name_list, str): name_list = [name_list]
-        for name in name_list:
-            idx = self.KEYPOINTS_MAP[name]
-            if self.kpts[idx][2] <= 0.5: return False # 분석 단계에선 엄격함 유지
-        return True
+        self.kpts = raw_kpts # 원본 데이터 그대로 사용
+        self._update_scale(raw_kpts)
 
     def analyze(self):
-        if self.kpts is None: return self._result("undetected", 0)
-        scale = self.avg_scale if self.avg_scale > 0 else 100
-        candidate_points = ["R_F_PAW", "L_F_PAW", "R_B_PAW", "L_B_PAW", "R_F_ELBOW", "L_F_ELBOW", "TAIL_BASE", "NOSE"]
-        valid_ys = [self._get_y(p) for p in candidate_points if self._is_valid(p)]
-        ground_y = max(valid_ys) if valid_ys else 0
-        if ground_y == 0: return self._result("undetected", scale)
-
-        spine_y = self._get_y("TAIL_BASE") if self._is_valid("TAIL_BASE") else 0
-        ear_ys = [self._get_y(e) for e in ["L_EAR_BASE", "R_EAR_BASE"] if self._is_valid(e)]
-        avg_ear_y = sum(ear_ys)/len(ear_ys) if ear_ys else 0
-        paws_y = [self._get_y(p) for p in ["R_F_PAW", "L_F_PAW", "R_B_PAW", "L_B_PAW"] if self._is_valid(p)]
-        avg_paw_y = sum(paws_y)/len(paws_y) if paws_y else ground_y
-
-        is_body_upright = False
-        if spine_y > 0 and avg_ear_y > 0:
-            if spine_y - avg_ear_y > (scale * 0.4): is_body_upright = True
-
-        is_legs_above_spine = (spine_y > 0 and avg_paw_y < spine_y - (scale * 0.1))
-        is_flat_on_ground = False
-        if spine_y > 0 and avg_ear_y > 0:
-            if abs(ground_y - spine_y) < (scale * 0.25) and abs(ground_y - avg_ear_y) < (scale * 0.25):
-                if abs(spine_y - avg_ear_y) < (scale * 0.1): is_flat_on_ground = True
-
-        if (is_legs_above_spine or is_flat_on_ground) and not is_body_upright:
-            return self._result("lying", scale)
-
-        hock_dists = []
-        for p in ["R_B_HOCK", "L_B_HOCK"]:
-            if self._is_valid(p): hock_dists.append(abs(ground_y - self._get_y(p)))
+        if self.kpts is None: return self._result(self.current_state) # 데이터 없으면 이전 상태 유지
         
-        IS_BACK_FOLDED = False
-        min_hock_dist = scale 
-        is_hip_grounded = False
-        if spine_y > 0 and abs(ground_y - spine_y) < (scale * 0.35):
-            is_hip_grounded = True
-            IS_BACK_FOLDED = True 
-            min_hock_dist = abs(ground_y - spine_y)
+        scale = self.avg_scale if self.avg_scale > 0 else 100
+        ground_y = self._get_ground_y()
+        
+        # 1. [Raw Analysis] 현재 프레임만 보고 무식하게 판단 (튀든 말든)
+        raw_action = self._get_raw_action(ground_y, scale)
 
-        if not is_hip_grounded and hock_dists:
-            min_hock_dist = min(hock_dists)
-            if min_hock_dist < (scale * 0.20): IS_BACK_FOLDED = True
+        # 2. [State Manager] 관성(Inertia) 적용하여 최종 상태 결정
+        final_action = self._apply_state_inertia(raw_action)
 
-        elbow_dists = []
-        for p in ["R_F_ELBOW", "L_F_ELBOW"]:
-            if self._is_valid(p): elbow_dists.append(abs(ground_y - self._get_y(p)))
-        min_elbow_dist = min(elbow_dists) if elbow_dists else scale
-        IS_FRONT_FOLDED = min_elbow_dist < (scale * 0.25)
+        return self._result(final_action)
 
-        front_lifted_count = 0
-        LIFT_THRESHOLD = scale * 0.20
-        def check_paw_lift(paw_name):
-            if not self._is_valid(paw_name): return False
-            paw_y = self._get_y(paw_name)
-            is_lifted = abs(ground_y - paw_y) > LIFT_THRESHOLD
-            if is_body_upright and spine_y > 0:
-                if paw_y > spine_y - (scale * 0.1): return False 
-            return is_lifted
+    def _apply_state_inertia(self, raw_action):
+        """
+        [핵심 로직] 잠깐 튀는 데이터는 무시하고, 흐름을 유지함
+        """
+        # Case 1: 현재 상태와 같은 동작이 들어옴 (안정적)
+        if raw_action == self.current_state:
+            self.stable_counter += 1
+            self.grace_period_counter = 0 # 봐주기 카운트 리셋
+            return self.current_state
 
-        if check_paw_lift("R_F_PAW"): front_lifted_count += 1
-        if check_paw_lift("L_F_PAW"): front_lifted_count += 1
+        # Case 2: 다른 동작(또는 Unknown)이 들어옴 -> 의심 시작
+        else:
+            # 아직 관성(Grace Period)이 남아있다면? -> 이전 상태 강제 유지
+            if self.grace_period_counter < self.MAX_GRACE_FRAMES:
+                self.grace_period_counter += 1
+                # "잠깐 튄 거야. 무시해."
+                return self.current_state
+            
+            # 관성이 다 떨어짐 (너무 오랫동안 다른 동작이 감지됨) -> 상태 변경 시도
+            else:
+                # 바로 바꾸지 않고, 새로운 동작도 일정 시간 유지되어야 바꿈 (Debouncing)
+                # 여기서는 단순화를 위해 Grace Period가 끝나면 바로 변경하도록 처리
+                # (더 정교하게 하려면 새로운 동작용 버퍼가 필요하지만, Grace Period만으로도 충분)
+                self.current_state = raw_action
+                self.stable_counter = 0
+                self.grace_period_counter = 0
+                return self.current_state
 
-        action = "stand"
-        if IS_BACK_FOLDED: action = "down" if IS_FRONT_FOLDED else "sit"
-        else: action = "playbow" if IS_FRONT_FOLDED else "stand"
+    def _get_raw_action(self, ground_y, scale):
+        """
+        기하학적 규칙으로 현재 프레임의 자세 판단 (Raw Data)
+        """
+        # 데이터가 너무 없으면 Unknown
+        if ground_y == 0: return "undetected"
 
-        if action == "playbow":
-            if ear_ys and spine_y > 0 and spine_y > avg_ear_y: action = "down"
-        if action == "playbow" and not self._is_valid("TAIL_BASE") and not hock_dists: action = "down"
+        spine_y = self._get_y("TAIL_BASE")
+        ear_y = (self._get_y("L_EAR_BASE") + self._get_y("R_EAR_BASE")) / 2
+        if ear_y == 0: ear_y = self._get_y("NOSE")
 
-        if action in ["sit", "stand"]:
-            if front_lifted_count == 1: action = "paw"
-            elif front_lifted_count == 2: action = "beg"
-            elif is_body_upright: action = "beg"
+        # 엉덩이(TailBase)가 없으면? -> 뒷다리(Hock)라도 확인
+        # 둘 다 없으면? -> "모름(undetected)" 처리 (관성 로직이 커버해줌)
+        hip_y = spine_y
+        if hip_y == 0: 
+            hip_y = (self._get_y("R_B_HOCK") + self._get_y("L_B_HOCK")) / 2
+        
+        if hip_y == 0: return "undetected" # 엉덩이 정보 전멸
 
-        if action in ["stand", "down", "run", "walk"]:
-            if self._is_valid("NOSE"):
-                nose_y = self._get_y("NOSE")
-                if abs(ground_y - nose_y) < (scale * 0.2):
-                    if avg_ear_y > spine_y - (scale * 0.1):
-                         return self._result("sniff", scale, min_hock_dist, min_elbow_dist)
+        # 1. 엉덩이 높이로 대분류 (가장 중요)
+        # 엉덩이가 낮으면 SIT/DOWN/BEG, 높으면 STAND
+        is_hip_low = abs(ground_y - hip_y) < (scale * 0.35)
 
-        return self._result(action, scale, min_hock_dist, min_elbow_dist)
+        if is_hip_low:
+            # 앉은 계열 (Sit, Down, Beg, Paw)
+            
+            # 손 들었나 확인
+            lifted_paws = 0
+            lift_threshold = ground_y - (scale * 0.15)
+            if self._get_y("R_F_PAW") > 0 and self._get_y("R_F_PAW") < lift_threshold: lifted_paws += 1
+            if self._get_y("L_F_PAW") > 0 and self._get_y("L_F_PAW") < lift_threshold: lifted_paws += 1
 
-    def _calculate_scale(self):
-        if self._is_valid(["L_EAR_BASE", "TAIL_BASE"]): return self._dist("L_EAR_BASE", "TAIL_BASE")
-        if self._is_valid(["R_F_ELBOW", "R_F_PAW"]): return self._dist("R_F_ELBOW", "R_F_PAW") * 2.5
-        return 0
+            if lifted_paws == 2: return "beg"
+            if lifted_paws == 1: return "paw"
+            
+            # 손 안 들었으면 Sit vs Down (팔꿈치 높이)
+            elbow_y = (self._get_y("R_F_ELBOW") + self._get_y("L_F_ELBOW")) / 2
+            if elbow_y > 0 and abs(ground_y - elbow_y) < (scale * 0.2):
+                return "down"
+            else:
+                return "sit"
+        
+        else:
+            # 서 있는 계열 (Stand, Playbow, Run)
+            elbow_y = (self._get_y("R_F_ELBOW") + self._get_y("L_F_ELBOW")) / 2
+            
+            # Playbow: 엉덩이 높고 앞다리 낮음
+            if elbow_y > 0 and abs(ground_y - elbow_y) < (scale * 0.25):
+                return "playbow"
+            
+            return "stand"
 
-    def _result(self, action, scale, hock=0, elbow=0):
+    # --- 유틸리티 ---
+    def _update_scale(self, kpts):
+        curr = 0
+        if kpts[12][2] > 0.5 and kpts[14][2] > 0.5:
+            curr = math.sqrt((kpts[12][0]-kpts[14][0])**2 + (kpts[12][1]-kpts[14][1])**2)
+        
+        if curr > 0:
+            if self.avg_scale == 0: self.avg_scale = curr
+            else: self.avg_scale = self.avg_scale * 0.95 + curr * 0.05
+    
+    def _get_y(self, name):
+        idx = self.KEYPOINTS_MAP[name]
+        if self.kpts[idx][2] <= 0.3: return 0 
+        return self.kpts[idx][1]
+
+    def _get_ground_y(self):
+        ys = []
+        for p in ["R_F_PAW", "L_F_PAW", "R_B_PAW", "L_B_PAW", "TAIL_BASE"]:
+             y = self._get_y(p)
+             if y > 0: ys.append(y)
+        return max(ys) if ys else 0
+
+    def _result(self, action):
         return {
             "action": action,
-            "debug": {
-                "scale": float(round(scale, 1)),
-                "hock_dist": float(round(hock, 1)),
-                "elbow_dist": float(round(elbow, 1)),
-                "threshold_hock": float(round(scale * 0.20, 1)),
-                "threshold_elbow": float(round(scale * 0.25, 1))
-            }
+            "debug": { "scale": round(self.avg_scale, 1) }
         }

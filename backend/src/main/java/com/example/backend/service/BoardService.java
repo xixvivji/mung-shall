@@ -14,6 +14,8 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.*;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import com.example.backend.repository.adoption.AdoptionRepository;
+import com.example.backend.domain.adoption.enums.AdoptionProcessStatus;
 
 @Service
 @RequiredArgsConstructor
@@ -21,6 +23,7 @@ public class BoardService {
 
     private final BoardRepository boardRepository;
     private final UserRepository userRepository;
+    private final AdoptionRepository adoptionRepository;
 
     @Transactional(readOnly = true)
     public Page<BoardListItemDto> getBoardList(int page, int size, String keyword, String category, String sort) {
@@ -96,6 +99,18 @@ public class BoardService {
 
         User writer = userRepository.findById(userId)
                 .orElseThrow(() -> ApiException.unauthorized("로그인이 필요합니다."));
+
+        if (category == BoardCategory.REVIEW) {
+            boolean hasCompletedAdoption =
+                    adoptionRepository.existsByUser_UserIdAndProcessStatus(
+                            userId,
+                            AdoptionProcessStatus.COMPLETED
+                    );
+
+            if (!hasCompletedAdoption) {
+                throw ApiException.forbidden("입양 완료자만 후기 작성이 가능합니다.");
+            }
+        }
 
         Board board = Board.create(writer, title, content, category);
         Board saved = boardRepository.save(board);

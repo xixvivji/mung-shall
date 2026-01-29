@@ -15,7 +15,6 @@ export default function OAuthCallbackPage() {
     const errorMessage = params.get("message");
     const accessToken = params.get("accessToken");
     const nextParam = params.get("next");
-    const nextRoute = nextParam && nextParam.startsWith("/") ? nextParam : ROUTES.mypage;
 
     if (errorCode) {
       setError(errorMessage ?? "소셜 로그인에 실패했습니다.");
@@ -31,6 +30,10 @@ export default function OAuthCallbackPage() {
     fetchMe(accessToken)
       .then((user) => {
         authStore.setUser(user);
+        const userType = user?.userType?.toLowerCase();
+        const defaultRoute =
+          userType === "shelter" || userType === "center" ? ROUTES.center : ROUTES.mypage;
+        const nextRoute = nextParam && nextParam.startsWith("/") ? nextParam : defaultRoute;
         navigate(nextRoute, { replace: true });
       })
       .catch((err) => {

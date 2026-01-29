@@ -99,8 +99,10 @@ function Login() {
     setLoading(true);
     setError(null);
     try {
-      await login({ username: username.trim(), password });
-      navigate(ROUTES.mypage);
+      const loggedInUser = await login({ username: username.trim(), password });
+      const userType = loggedInUser?.userType?.toLowerCase();
+      const nextRoute = userType === "shelter" || userType === "center" ? ROUTES.center : ROUTES.mypage;
+      navigate(nextRoute);
     } catch (err) {
       const message = err instanceof Error ? err.message : "로그인 실패";
       setError(message);

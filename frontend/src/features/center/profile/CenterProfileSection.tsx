@@ -1,6 +1,6 @@
 ﻿import * as React from "react";
-import { getCenterProfile, upsertCenterProfile } from "../api/centerProfileApi";
-import type { CenterProfile, CenterProfileUpdateRequest } from "../types";
+import { fetchCenterProfile, fetchMe, upsertCenterProfile } from "../api/centerProfileApi";
+import type { CenterProfile, CenterProfileUpdateRequest } from "./types";
 
 const EMPTY_FORM: CenterProfileUpdateRequest = {
   centerName: "",
@@ -15,7 +15,11 @@ type FieldErrors = Partial<Record<keyof CenterProfileUpdateRequest, string>>;
 
 function isNotFoundError(message: string) {
   const lowered = message.toLowerCase();
-  return lowered.includes("404") || lowered.includes("not found");
+  return (
+    lowered.includes("404") ||
+    lowered.includes("not found") ||
+    lowered.includes("존재하지 않는 경로")
+  );
 }
 
 function formatError(err: unknown) {
@@ -28,6 +32,9 @@ function formatError(err: unknown) {
     lowered.includes("forbidden")
   ) {
     return "권한이 없습니다.";
+  }
+  if (isNotFoundError(message)) {
+    return "센터 프로필이 존재하지 않습니다.";
   }
   return message || "요청에 실패했습니다.";
 }
@@ -57,6 +64,8 @@ export function CenterProfileSection() {
   const [mode, setMode] = React.useState<Mode>("view");
   const [form, setForm] = React.useState<CenterProfileUpdateRequest>(EMPTY_FORM);
   const [savedProfile, setSavedProfile] = React.useState<CenterProfile | null>(null);
+  const [shelterId, setShelterId] = React.useState<number | null>(null);
+  const [accessDenied, setAccessDenied] = React.useState(false);
   const [loading, setLoading] = React.useState(true);
   const [saving, setSaving] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
@@ -72,9 +81,19 @@ export function CenterProfileSection() {
     setLoading(true);
     setError(null);
 
-    getCenterProfile()
-      .then((profile) => {
+    fetchMe()
+      .then((meResponse) => {
         if (!active) return;
+        if (meResponse.userType !== "shelter") {
+          setAccessDenied(true);
+          setLoading(false);
+          return;
+        }
+        setShelterId(meResponse.userId);
+        return fetchCenterProfile(meResponse.userId);
+      })
+      .then((profile) => {
+        if (!active || !profile) return;
         setSavedProfile(profile);
         setForm({
           centerName: profile.centerName ?? "",
@@ -153,8 +172,14 @@ export function CenterProfileSection() {
     setError(null);
     setMessage(null);
 
+    if (!shelterId) {
+      setError("센터 계정 정보가 확인되지 않습니다.");
+      setSaving(false);
+      return;
+    }
+
     try {
-      const updated = await upsertCenterProfile(normalized);
+      const updated = await upsertCenterProfile(shelterId, normalized);
       setSavedProfile(updated);
       setForm({
         centerName: updated.centerName ?? "",
@@ -181,7 +206,7 @@ export function CenterProfileSection() {
             센터 정보(센터명/주소/연락처)를 확인하고 수정합니다.
           </p>
         </div>
-        {!loading && (
+        {!loading && !accessDenied && (
           <div className="flex gap-2">
             {isEdit ? (
               <>
@@ -221,6 +246,12 @@ export function CenterProfileSection() {
         </div>
       )}
 
+      {accessDenied && (
+        <div className="mt-4 rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-700">
+          센터(보호소) 계정만 센터 프로필을 열람할 수 있습니다.
+        </div>
+      )}
+
       {error && (
         <div className="mt-4 rounded-2xl border border-red-200 bg-red-50 p-4 text-sm text-red-600">
           {error}
@@ -233,7 +264,7 @@ export function CenterProfileSection() {
         </div>
       )}
 
-      {!loading && (
+      {!loading && !accessDenied && (
         <div className="mt-6 grid gap-4 sm:grid-cols-2">
           <div className="space-y-1">
             <label className="text-xs font-medium text-slate-600">센터명</label>

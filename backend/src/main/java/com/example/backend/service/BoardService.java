@@ -9,6 +9,7 @@ import com.example.backend.domain.adoption.enums.AdoptionProcessStatus;
 import com.example.backend.domain.board.Board;
 import com.example.backend.domain.board.BoardCategory;
 import com.example.backend.domain.user.User;
+import com.example.backend.repository.BoardCommentRepository;
 import com.example.backend.repository.BoardRepository;
 import com.example.backend.repository.UserRepository;
 import com.example.backend.repository.adoption.AdoptionRepository;
@@ -24,6 +25,8 @@ public class BoardService {
     private final BoardRepository boardRepository;
     private final UserRepository userRepository;
     private final AdoptionRepository adoptionRepository;
+
+    private final BoardCommentRepository boardCommentRepository;
 
     @Transactional(readOnly = true)
     public Page<BoardListItemDto> getBoardList(int page, int size, String keyword, String category, String sort) {
@@ -99,7 +102,6 @@ public class BoardService {
         validateReviewPermission(userId, category);
 
         Board board = Board.create(writer, title, content, category);
-
         board.replaceMedias(request.mediaUrls());
 
         Board saved = boardRepository.save(board);
@@ -121,15 +123,20 @@ public class BoardService {
     }
 
     private BoardListItemDto toListItemDto(Board board) {
+        long commentCount =
+                boardCommentRepository.countByBoard_IdAndDeletedAtIsNull(board.getId());
+
         return new BoardListItemDto(
                 board.getId(),
                 board.getTitle(),
                 board.getWriter().getName(),
                 null,
                 board.getCreatedAt(),
-                board.getViewCount()
+                board.getViewCount(),
+                commentCount
         );
     }
+
 
     @Transactional
     public BoardDetailResponse getBoardDetail(Long boardId) {
@@ -137,7 +144,10 @@ public class BoardService {
                 .orElseThrow(() -> ApiException.notFound("삭제되었거나 존재하지 않는 게시글입니다."));
 
         board.increaseViewCount();
-        return BoardDetailResponse.from(board);
+
+        long commentCount = boardCommentRepository.countByBoard_IdAndDeletedAtIsNull(boardId);
+
+        return BoardDetailResponse.from(board, commentCount);
     }
 
     @Transactional
@@ -179,12 +189,10 @@ public class BoardService {
         }
 
         board.update(title, content, nextCategory);
-
         board.replaceMedias(request.mediaUrls());
 
         return board.getId();
     }
-
 
     @Transactional
     public void deleteBoard(Long userId, Long boardId) {

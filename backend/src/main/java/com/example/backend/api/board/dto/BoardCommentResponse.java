@@ -13,9 +13,11 @@ public record BoardCommentResponse(
         String content,
         LocalDateTime createdAt,
         LocalDateTime updatedAt,
-        List<BoardCommentResponse> replies
+        List<BoardCommentResponse> replies,
+        long likeCount,
+        boolean likedByMe
 ) {
-    public static BoardCommentResponse of(BoardComment c) {
+    public static BoardCommentResponse of(BoardComment c, long likeCount, boolean likedByMe) {
         return new BoardCommentResponse(
                 c.getId(),
                 (c.getParentComment() == null) ? null : c.getParentComment().getId(),
@@ -23,7 +25,9 @@ public record BoardCommentResponse(
                 c.getContent(),
                 c.getCreatedAt(),
                 c.getUpdatedAt(),
-                new ArrayList<>()
+                new ArrayList<>(),
+                likeCount,
+                likedByMe
         );
     }
 }

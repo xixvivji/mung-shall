@@ -31,11 +31,22 @@ public class BoardCommentController {
         return ResponseEntity.ok(Map.of("commentId", id));
     }
 
-    // 댓글 목록 (비로그인 허용)
+    // 댓글 목록
     @GetMapping("/boards/{boardId}/comments")
     public ResponseEntity<?> getComments(@PathVariable Long boardId) {
-        return ResponseEntity.ok(boardCommentService.getComments(boardId));
+        Long userId = null;
+
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        Object principalObj = (authentication == null) ? null : authentication.getPrincipal();
+
+        if (principalObj instanceof CustomUserPrincipal p) userId = p.getUserId();
+        else if (principalObj instanceof String s) {
+            try { userId = Long.parseLong(s); } catch (Exception ignored) {}
+        } else if (principalObj instanceof Long l) userId = l;
+
+        return ResponseEntity.ok(boardCommentService.getComments(userId, boardId));
     }
+
 
     // 댓글 수정
     @PutMapping("/comments/{commentId}")

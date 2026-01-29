@@ -13,6 +13,8 @@ import com.example.backend.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import com.example.backend.repository.BoardCommentLikeRepository;
+import com.example.backend.domain.board.BoardCommentLike;
 
 import java.util.*;
 
@@ -23,6 +25,7 @@ public class BoardCommentService {
     private final BoardRepository boardRepository;
     private final BoardCommentRepository boardCommentRepository;
     private final UserRepository userRepository;
+    private final BoardCommentLikeRepository boardCommentLikeRepository;
 
     @Transactional
     public Long createComment(Long userId, Long boardId, BoardCommentCreateRequest request) {
@@ -56,36 +59,69 @@ public class BoardCommentService {
     }
 
     @Transactional(readOnly = true)
-    public List<BoardCommentResponse> getComments(Long boardId) {
-        // 게시글 존재/삭제여부 체크 (목록 조회 정책이 필요하면 유지)
+    public List<BoardCommentResponse> getComments(Long userIdOrNull, Long boardId) {
+
         boardRepository.findByIdAndDeletedAtIsNull(boardId)
                 .orElseThrow(() -> ApiException.notFound("삭제되었거나 존재하지 않는 게시글입니다."));
 
-        List<BoardComment> all = boardCommentRepository.findByBoard_IdAndDeletedAtIsNullOrderByCreatedAtAsc(boardId);
+        List<BoardComment> all =
+                boardCommentRepository.findByBoard_IdAndDeletedAtIsNullOrderByCreatedAtAsc(boardId);
+
+        if (all.isEmpty()) return List.of();
+
+        List<Long> commentIds = all.stream().map(BoardComment::getId).toList();
+
+        Map<Long, Long> likeCountMap = new HashMap<>();
+        List<Object[]> counts =
+                boardCommentLikeRepository.countLikesByCommentIds(commentIds);
+
+        for (Object[] row : counts) {
+            Long commentId = (Long) row[0];
+            Long cnt = (Long) row[1];
+            likeCountMap.put(commentId, cnt);
+        }
+
+        Set<Long> likedCommentIds = new HashSet<>();
+        if (userIdOrNull != null) {
+            List<BoardCommentLike> likes =
+                    boardCommentLikeRepository.findByUser_UserIdAndComment_IdIn(userIdOrNull, commentIds);
+            for (BoardCommentLike l : likes) {
+                likedCommentIds.add(l.getComment().getId());
+            }
+        }
 
         Map<Long, BoardCommentResponse> nodeMap = new LinkedHashMap<>();
         for (BoardComment c : all) {
-            nodeMap.put(c.getId(), BoardCommentResponse.of(c));
+            long likeCount = likeCountMap.getOrDefault(c.getId(), 0L);
+            boolean likedByMe = likedCommentIds.contains(c.getId());
+
+            nodeMap.put(
+                    c.getId(),
+                    BoardCommentResponse.of(c, likeCount, likedByMe)
+            );
         }
 
         List<BoardCommentResponse> roots = new ArrayList<>();
 
         for (BoardComment c : all) {
             BoardCommentResponse node = nodeMap.get(c.getId());
-            Long parentId = (c.getParentComment() == null) ? null : c.getParentComment().getId();
+            Long parentId =
+                    (c.getParentComment() == null) ? null : c.getParentComment().getId();
 
             if (parentId == null) {
                 roots.add(node);
             } else {
-                BoardCommentResponse parentNode = nodeMap.get(parentId);
-                if (parentNode != null) {
-                    parentNode.replies().add(node);
+                BoardCommentResponse parent = nodeMap.get(parentId);
+                if (parent != null) {
+                    parent.replies().add(node);
                 }
             }
         }
 
         return roots;
     }
+
+
 
     @Transactional
     public Long updateComment(Long userId, Long commentId, BoardCommentUpdateRequest request) {

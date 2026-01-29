@@ -88,4 +88,12 @@ public class BoardComment {
     public boolean isDeleted() {
         return this.deletedAt != null;
     }
+
+    @OneToMany(mappedBy = "comment", cascade = CascadeType.ALL, orphanRemoval = true)
+    private List<BoardCommentLike> likes = new ArrayList<>();
+
+    public int getLikeCount() {
+        return likes == null ? 0 : likes.size();
+    }
+
 }

@@ -39,20 +39,18 @@ export default function DogCard({
 
   const content = (
     <>
-      <div className="mb-3 overflow-hidden rounded-t-2xl bg-neutral-50">
-        <div className="relative w-full aspect-[4/3]">
-          {dog.imageUrl ? (
-            <img
-              src={dog.imageUrl}
-              alt={dog.name}
-              className="h-full w-full object-contain object-center transition-transform duration-200 group-hover:scale-[1.02]"
-            />
-          ) : (
-            <div className="flex h-full w-full items-center justify-center text-xs text-gray-400">
-              No image
-            </div>
-          )}
-        </div>
+      <div className="relative mb-3 w-full aspect-[4/3] overflow-hidden rounded-t-2xl bg-neutral-50">
+        {dog.imageUrl ? (
+          <img
+            src={dog.imageUrl}
+            alt={dog.name}
+            className="h-full w-full object-contain object-center transition-transform duration-200 ease-out group-hover:scale-[1.02]"
+          />
+        ) : (
+          <div className="flex h-full w-full items-center justify-center text-xs text-gray-400">
+            No image
+          </div>
+        )}
       </div>
       <div className="text-sm font-semibold">{dog.name}</div>
       <div className="text-xs text-[#666]">{dog.breed}</div>

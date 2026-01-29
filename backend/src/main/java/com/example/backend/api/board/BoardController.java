@@ -28,9 +28,10 @@ public class BoardController {
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "20") int size,
             @RequestParam(required = false) String keyword,
-            @RequestParam(required = false) String category
+            @RequestParam(required = false) String category,
+            @RequestParam(required = false) String sort
     ) {
-        var pageResult = boardService.getBoardList(page, size, keyword, category);
+        var pageResult = boardService.getBoardList(page, size, keyword, category, sort);
         return ResponseEntity.ok(BoardListResponse.from(pageResult));
     }
 

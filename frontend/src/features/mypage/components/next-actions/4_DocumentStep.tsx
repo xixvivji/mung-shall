@@ -1,8 +1,11 @@
 import { useMemo, useRef, useState } from "react";
 import { Button } from "@/shared/ui/button";
+import { uploadAdoptionDocument } from "@/features/adoptionApplication/api";
+import type { DocumentType } from "@/features/adoptionApplication/types";
 
 type Props = {
   isEditable: boolean; // 제출 가능 여부(단계에 따른)
+  onSubmitSuccess: () => void;
 };
 
 type DocKey = "idCard" | "familyCert" | "lease";
@@ -11,10 +14,16 @@ type DocFile = File | null;
 
 type DocsState = Record<DocKey, DocFile>;
 
-const DOCS: Array<{ key: DocKey; label: string; hint: string }> = [
-  { key: "idCard", label: "신분증 사본", hint: "주민등록증 또는 운전면허증 사본" },
-  { key: "familyCert", label: "가족관계증명서", hint: "최근 발급본 권장" },
-  { key: "lease", label: "임대차계약서", hint: "전/월세 계약서 사본(해당 시)" },
+type UploadStatus = "idle" | "uploading" | "success" | "error";
+
+type UploadState = Record<DocKey, { status: UploadStatus; error?: string }>;
+
+const APPLICATION_ID_KEY = "adoptionApplicationId";
+
+const DOCS: Array<{ key: DocKey; label: string; hint: string; type: DocumentType }> = [
+  { key: "idCard", label: "신분증 사본", hint: "주민등록증 또는 운전면허증 사본", type: "ID_CARD" },
+  { key: "familyCert", label: "가족관계증명서", hint: "최근 발급본 권장", type: "FAMILY_CERT" },
+  { key: "lease", label: "임대차계약서", hint: "전/월세 계약서 사본(해당 시)", type: "LEASE_CONTRACT" },
 ];
 
 function fileMeta(file: File | null) {
@@ -26,7 +35,7 @@ function fileMeta(file: File | null) {
   };
 }
 
-export function DocumentStep({ isEditable }: Props) {
+export function DocumentStep({ isEditable, onSubmitSuccess }: Props) {
   // 실제 첨부 파일(항목별)
   const [docs, setDocs] = useState<DocsState>({
     idCard: null,
@@ -36,6 +45,13 @@ export function DocumentStep({ isEditable }: Props) {
 
   // "제출 완료" 스냅샷
   const [submittedDocs, setSubmittedDocs] = useState<DocsState | null>(null);
+  const [uploadState, setUploadState] = useState<UploadState>({
+    idCard: { status: "idle" },
+    familyCert: { status: "idle" },
+    lease: { status: "idle" },
+  });
+  const [submitting, setSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState<string | null>(null);
 
   // 모달
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -45,7 +61,7 @@ export function DocumentStep({ isEditable }: Props) {
   const [tempFile, setTempFile] = useState<File | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
-  const canAttach = true;
+  const canAttach = isEditable;
   const canSubmit = isEditable;
 
   const isSubmitted = submittedDocs !== null;
@@ -54,7 +70,7 @@ export function DocumentStep({ isEditable }: Props) {
     return DOCS.every(({ key }) => !!docs[key]);
   }, [docs]);
 
-  const canSubmitNow = canSubmit && allAttached && !isSubmitted;
+  const canSubmitNow = canSubmit && allAttached && !submitting && !isSubmitted;
 
   const openModal = (key: DocKey) => {
     if (!canAttach) return;
@@ -76,20 +92,82 @@ export function DocumentStep({ isEditable }: Props) {
   const onConfirmModal = () => {
     if (!activeKey) return;
     setDocs((prev) => ({ ...prev, [activeKey]: tempFile ?? null }));
+    setSubmittedDocs(null);
+    setUploadState((prev) => ({
+      ...prev,
+      [activeKey]: { status: "idle" },
+    }));
     closeModal();
   };
 
   const removeFile = (key: DocKey) => {
     setDocs((prev) => ({ ...prev, [key]: null }));
-  };
-
-  const onSubmit = () => {
-    if (!canSubmitNow) return;
-    setSubmittedDocs(docs); // 제출된 것처럼 스냅샷 저장
-  };
-
-  const onRevertSubmit = () => {
     setSubmittedDocs(null);
+    setUploadState((prev) => ({
+      ...prev,
+      [key]: { status: "idle" },
+    }));
+  };
+
+  const onSubmit = async () => {
+    if (!canSubmitNow) return;
+
+    const rawId = localStorage.getItem(APPLICATION_ID_KEY);
+    const applicationId = rawId ? Number(rawId) : NaN;
+    if (!applicationId) {
+      setSubmitError("입양 신청서 제출 후 문서 업로드가 가능합니다.");
+      return;
+    }
+
+    setSubmitting(true);
+    setSubmitError(null);
+
+    setUploadState((prev) => {
+      const next = { ...prev };
+      DOCS.forEach(({ key }) => {
+        next[key] = { status: "uploading" };
+      });
+      return next;
+    });
+
+    const results = await Promise.allSettled(
+      DOCS.map(async (doc) => {
+        const file = docs[doc.key];
+        if (!file) {
+          setUploadState((prev) => ({
+            ...prev,
+            [doc.key]: { status: "error", error: "파일이 없습니다." },
+          }));
+          throw new Error("Missing file");
+        }
+
+        try {
+          await uploadAdoptionDocument(applicationId, doc.type, file);
+          setUploadState((prev) => ({
+            ...prev,
+            [doc.key]: { status: "success" },
+          }));
+          return true;
+        } catch (err) {
+          const message = err instanceof Error ? err.message : "업로드 실패";
+          setUploadState((prev) => ({
+            ...prev,
+            [doc.key]: { status: "error", error: message },
+          }));
+          throw err;
+        }
+      })
+    );
+
+    const hasFailure = results.some((r) => r.status === "rejected");
+    if (hasFailure) {
+      setSubmitError("일부 문서 업로드에 실패했습니다. 상태를 확인해주세요.");
+    } else {
+      setSubmittedDocs(docs);
+      onSubmitSuccess();
+    }
+
+    setSubmitting(false);
   };
 
   const handleDrop: React.DragEventHandler<HTMLDivElement> = (e) => {
@@ -114,7 +192,7 @@ export function DocumentStep({ isEditable }: Props) {
           <div>
             <p className="text-sm font-semibold text-gray-900">입양 문서 제출</p>
             <p className="mt-1 text-sm text-gray-500">
-              아래 3가지 서류를 각각 첨부한 뒤 제출하세요. (현재는 UI만 구현)
+              아래 3가지 서류를 각각 첨부한 뒤 제출하세요.
             </p>
           </div>
 
@@ -135,6 +213,7 @@ export function DocumentStep({ isEditable }: Props) {
         <div className="mt-6 space-y-4">
           {DOCS.map((d) => {
             const m = fileMeta(docs[d.key]);
+            const state = uploadState[d.key];
             return (
               <div
                 key={d.key}
@@ -180,6 +259,18 @@ export function DocumentStep({ isEditable }: Props) {
                     </div>
                   )}
                 </div>
+
+                {state.status === "uploading" && (
+                  <p className="mt-2 text-xs text-blue-600">업로드 중...</p>
+                )}
+                {state.status === "success" && (
+                  <p className="mt-2 text-xs text-emerald-600">업로드 완료</p>
+                )}
+                {state.status === "error" && (
+                  <p className="mt-2 text-xs text-red-600">
+                    {state.error ?? "업로드에 실패했습니다."}
+                  </p>
+                )}
               </div>
             );
           })}
@@ -205,19 +296,13 @@ export function DocumentStep({ isEditable }: Props) {
               disabled={!canSubmitNow}
               onClick={onSubmit}
             >
-              문서 제출
+              {submitting ? "업로드 중..." : isSubmitted ? "제출 완료" : "문서 제출"}
             </Button>
-
-            {isSubmitted && (
-              <Button
-                variant="outline"
-                className="rounded-lg"
-                onClick={onRevertSubmit}
-              >
-                제출 취소
-              </Button>
-            )}
           </div>
+
+          {submitError ? (
+            <p className="text-xs text-red-600">{submitError}</p>
+          ) : null}
         </div>
       </div>
 
@@ -226,7 +311,7 @@ export function DocumentStep({ isEditable }: Props) {
         <div className="rounded-2xl border border-emerald-200 bg-emerald-50/40 p-6">
           <p className="text-sm font-semibold text-emerald-900">제출된 문서</p>
           <p className="mt-1 text-sm text-emerald-800/70">
-            아래 파일이 제출된 상태로 저장되었습니다. (UI 상태)
+            아래 파일이 제출된 상태로 저장되었습니다.
           </p>
 
           <div className="mt-4 space-y-3">

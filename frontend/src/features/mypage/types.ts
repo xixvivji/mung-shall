@@ -8,6 +8,13 @@ export type MyPageSummary = {
   adoptedCount: number;
 };
 
+export type AdoptionStep = AdoptionBeforeStep | AdoptionInStep | AdoptionAfterStep;
+
+export type AdoptionBeforeStep =
+  | "PROFILE"
+  | "SURVEY"
+  | "SELECT";
+
 export type AdoptionInStep =
   | "APPLICATION"
   | "EDUCATION_CERT"
@@ -15,3 +22,7 @@ export type AdoptionInStep =
   | "DOCUMENT"
   | "CONTRACT"
   | "APPROVAL";
+
+export type AdoptionAfterStep =
+  | "PICKUP"
+  | "CARE";

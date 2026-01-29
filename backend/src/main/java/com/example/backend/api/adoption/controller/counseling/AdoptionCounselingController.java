@@ -80,33 +80,4 @@ public class AdoptionCounselingController {
             @Parameter(description = "취소할 입양 프로세스 ID") @PathVariable Long adoptionId) {
                     AdoptionStepInstanceResponse response = adoptionCounselingService.cancelCounselingApplication(adoptionId);        return ResponseEntity.ok(response);
     }
-
-    @Operation(summary = "입양 상담 시간대 신청 승인 (보호소용)", description = "보호소 계정에서 특정 입양 프로세스의 상담(Step 3) 단계를 승인합니다.")
-    @ApiResponses(value = {
-            @ApiResponse(responseCode = "200", description = "상담 단계 승인 성공",
-                    content = @Content(schema = @Schema(implementation = AdoptionStepInstanceResponse.class))),
-            @ApiResponse(responseCode = "400", description = "잘못된 요청 또는 승인 불가능한 상태"),
-            @ApiResponse(responseCode = "404", description = "해당 입양 프로세스 또는 상담 단계를 찾을 수 없음")
-    })
-    @PostMapping("/{adoptionId}/counseling-step/approve")
-    public ResponseEntity<AdoptionStepInstanceResponse> approveCounselingStep(
-            @Parameter(description = "승인할 입양 프로세스 ID") @PathVariable Long adoptionId) {
-        AdoptionStepInstanceResponse response = adoptionCounselingService.approveCounselingStep(adoptionId);
-        return ResponseEntity.ok(response);
-    }
-    // RejectionRequest 삭제 필
-    @Operation(summary = "입양 상담 시간대 신청 거절 (보호소용)", description = "보호소 계정에서 특정 입양 프로세스의 상담(Step 3) 단계를 거절합니다.")
-    @ApiResponses(value = {
-            @ApiResponse(responseCode = "200", description = "상담 단계 거절 성공",
-                    content = @Content(schema = @Schema(implementation = AdoptionStepInstanceResponse.class))),
-            @ApiResponse(responseCode = "400", description = "잘못된 요청 또는 거절 불가능한 상태"),
-            @ApiResponse(responseCode = "404", description = "해당 입양 프로세스 또는 상담 단계를 찾을 수 없음")
-    })
-    @PostMapping("/{adoptionId}/counseling-step/reject")
-    public ResponseEntity<AdoptionStepInstanceResponse> rejectCounselingStep(
-            @Parameter(description = "거절할 입양 프로세스 ID") @PathVariable Long adoptionId,
-            @Valid @RequestBody RejectionRequest request) {
-        AdoptionStepInstanceResponse response = adoptionCounselingService.rejectCounselingStep(adoptionId, request.getReason());
-        return ResponseEntity.ok(response);
-    }
 }

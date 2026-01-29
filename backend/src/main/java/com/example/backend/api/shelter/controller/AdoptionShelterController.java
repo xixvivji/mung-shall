@@ -26,30 +26,10 @@ import java.util.Map;
 @Tag(name = "보호소 입양 관리 API", description = "보호소 관리자의 입양 프로세스 관리 관련 API")
 @RestController
 @RequiredArgsConstructor
-@RequestMapping("/api/shelter") // Changed base path to /api/shelter
+@RequestMapping("/api/shelter")
 public class AdoptionShelterController {
 
     private final AdoptionShelterService adoptionShelterService;
-
-    @Operation(summary = "입양 단계 승인/반려", description = "보호소 관리자가 제출된 입양 단계를 승인하거나 반려합니다.")
-    @PostMapping("/adoption-steps/{stepInstanceId}/verify")
-    public ResponseEntity<?> verifyAdoptionStep(
-            @Parameter(description = "처리할 입양 단계 인스턴스 ID") @PathVariable Long stepInstanceId,
-            @Valid @RequestBody StepVerificationRequest request) {
-
-        adoptionShelterService.verifyAdoptionStep(stepInstanceId, request.getIsApproved(), request.getRejectionReason());
-
-        String message = request.getIsApproved() ? "단계가 성공적으로 승인되었습니다." : "단계가 반려되었습니다.";
-        return ResponseEntity.ok(Map.of("message", message));
-    }
-
-    @Operation(summary = "입양 프로세스 수동 완료", description = "보호소 관리자가 특정 입양 프로세스를 수동으로 완료 상태로 변경합니다.")
-    @PostMapping("/adoptions/{adoptionId}/complete")
-    public ResponseEntity<?> completeAdoptionProcess(
-            @Parameter(description = "완료할 입양 프로세스 ID") @PathVariable Long adoptionId) {
-        adoptionShelterService.completeAdoptionProcess(adoptionId);
-        return ResponseEntity.ok(Map.of("message", "입양 프로세스가 성공적으로 완료되었습니다."));
-    }
 
     @Operation(summary = "보호소 강아지 입양 신청자 목록 조회", description = "보호소에 소속된 강아지들의 입양 신청자 목록을 조회합니다.")
     @ApiResponses(value = {
@@ -83,5 +63,29 @@ public class AdoptionShelterController {
             @Parameter(description = "조회할 입양 프로세스 ID") @PathVariable Long adoptionId) {
         AdoptionDetailResponse response = adoptionShelterService.getShelterAdoptionDetail(userPrincipal.getUserId(), adoptionId);
         return ResponseEntity.ok(response);
+    }
+
+    @Operation(summary = "입양 단계 승인/반려", description = "보호소 관리자가 제출된 입양 단계를 승인하거나 반려합니다.")
+    @PostMapping("/adoption-steps/{stepInstanceId}/verify")
+    public ResponseEntity<?> verifyAdoptionStep(
+            @Parameter(description = "처리할 입양 단계 인스턴스 ID") @PathVariable Long stepInstanceId,
+            @Valid @RequestBody StepVerificationRequest request) {
+
+        adoptionShelterService.verifyAdoptionStep(stepInstanceId, request.getIsApproved(), request.getRejectionReason());
+
+        String message = request.getIsApproved() ? "단계가 성공적으로 승인되었습니다." : "단계가 반려되었습니다.";
+        return ResponseEntity.ok(Map.of("message", message));
+    }
+
+    @Operation(summary = "입양 최종 승인/반려", description = "보호소 관리자가 최종 입양을 승인하거나 반려합니다.")
+    @PostMapping("/adoptions/{adoptionId}/verify")
+    public ResponseEntity<?> verifyAdoptionProcess(
+            @Parameter(description = "처리할 입양 프로세스 ID") @PathVariable Long adoptionId,
+            @Valid @RequestBody StepVerificationRequest request) {
+
+        adoptionShelterService.verifyAdoptionProcess(adoptionId, request.getIsApproved(), request.getRejectionReason());
+
+        String message = request.getIsApproved() ? "단계가 성공적으로 승인되었습니다." : "단계가 반려되었습니다.";
+        return ResponseEntity.ok(Map.of("message", message));
     }
 }

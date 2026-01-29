@@ -20,7 +20,8 @@ public class AdoptionCounselingService {
     private final AdoptionRepository adoptionRepository;
     private final AdoptionStepInstanceRepository adoptionStepInstanceRepository;
 
-    private AdoptionStepInstanceResponse mapToResponse(AdoptionStepInstance counselingStep) {
+    // AdoptionShelterService에서 써서 public으로, 구조 수정할것
+    public AdoptionStepInstanceResponse mapToResponse(AdoptionStepInstance counselingStep) {
         return AdoptionStepInstanceResponse.builder()
                 .id(counselingStep.getId())
                 .stepDef(AdoptionStepDefResponse.builder()
@@ -132,55 +133,6 @@ public class AdoptionCounselingService {
             counselingStep.setCompletedAt(null);
         } else {
             throw new IllegalStateException("상담을 취소 가능한 상태가 아닙니다");
-        }
-
-        adoptionRepository.save(counselingStep.getAdoption());
-        return mapToResponse(counselingStep);
-    }
-
-    /**
-     * 보호소 계정에서 입양 상담 단계를 승인합니다.
-     *
-     * @param adoptionId 입양 프로세스 ID
-     * @return 업데이트된 상담 단계 정보 DTO
-     */
-    public AdoptionStepInstanceResponse approveCounselingStep(Long adoptionId) {
-        AdoptionStepInstance counselingStep = adoptionStepInstanceRepository
-                .findByAdoptionIdAndStepDefStepOrder(adoptionId, 3)
-                .orElseThrow(() -> new IllegalArgumentException("입양 상담 단계를 찾을 수 없습니다."));
-
-        if (counselingStep.getStatus() == AdoptionStepStatus.PENDING) {
-            counselingStep.setStatus(AdoptionStepStatus.APPROVED);
-            counselingStep.setApprovedAt(LocalDateTime.now());
-            counselingStep.setRejectionReason(null); // Clear any previous rejection reason
-        } else {
-            throw new IllegalStateException("PENDING 상태의 상담 신청만 승인할 수 있습니다. 현재 상태: " + counselingStep.getStatus());
-        }
-
-        adoptionRepository.save(counselingStep.getAdoption());
-        return mapToResponse(counselingStep);
-    }
-
-    /**
-     * 보호소 계정에서 입양 상담 단계를 거절합니다.
-     *
-     * @param adoptionId 입양 프로세스 ID
-     * @param reason     거절 사유
-     * @return 업데이트된 상담 단계 정보 DTO
-     */
-    public AdoptionStepInstanceResponse rejectCounselingStep(Long adoptionId, String reason) {
-        AdoptionStepInstance counselingStep = adoptionStepInstanceRepository
-                .findByAdoptionIdAndStepDefStepOrder(adoptionId, 3)
-                .orElseThrow(() -> new IllegalArgumentException("입양 상담 단계를 찾을 수 없습니다."));
-
-        if (counselingStep.getStatus() == AdoptionStepStatus.PENDING) {
-            counselingStep.setStatus(AdoptionStepStatus.REJECTED);
-            counselingStep.setRejectionReason(reason);
-            counselingStep.setSubmittedAt(null); // Clear the proposed appointment time upon rejection
-            counselingStep.setApprovedAt(null);
-            counselingStep.setCompletedAt(null);
-        } else {
-            throw new IllegalStateException("PENDING 상태의 상담 신청만 거절할 수 있습니다. 현재 상태: " + counselingStep.getStatus());
         }
 
         adoptionRepository.save(counselingStep.getAdoption());

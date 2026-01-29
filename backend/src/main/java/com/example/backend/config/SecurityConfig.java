@@ -68,7 +68,8 @@ public class SecurityConfig {
                                 "/api/dogs/**",
                                 "/api/openvidu/**",
                                 "/oauth2/**",
-                                "/login/**"
+                                "/login/**",
+                                "/api/region/**"
                         ).permitAll()
 
                         .requestMatchers("/api/shelter/**").hasRole("SHELTER")

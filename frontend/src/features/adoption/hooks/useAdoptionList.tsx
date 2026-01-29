@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { fetchAdoptionList } from "../api/adoptionApi";
+import { fetchAdoptionList, fetchDogKinds, fetchSigunguList, fetchSidoList } from "../api/adoptionApi";
 import DogGrid from "../components/DogGrid";
 import Filters, { DEFAULT_BREED, DEFAULT_CITY, DEFAULT_PROVINCE } from "../components/Filters";
 import Pagination from "../components/Pagination";
@@ -11,6 +11,9 @@ export default function AdoptionList() {
   const [error, setError] = useState<string | null>(null);
   const [page, setPage] = useState(0);
   const [totalPages, setTotalPages] = useState(1);
+  const [breeds, setBreeds] = useState<string[]>([]);
+  const [sidoOptions, setSidoOptions] = useState<{ label: string; value: string }[]>([]);
+  const [sigunguOptions, setSigunguOptions] = useState<{ label: string; value: string }[]>([]);
   const [filters, setFilters] = useState({
     breed: DEFAULT_BREED,
     province: DEFAULT_PROVINCE,
@@ -60,17 +63,62 @@ export default function AdoptionList() {
     };
   }, [page, region, breedParam]);
 
-  const breeds = useMemo(
-    () =>
-      Array.from(
-        new Set(
-          dogs
-            .map((dog) => dog.breed?.trim())
-            .filter((value): value is string => Boolean(value))
-        )
-      ),
-    [dogs]
-  );
+  useEffect(() => {
+    let cancelled = false;
+    fetchSidoList()
+      .then((list) => {
+        if (cancelled) return;
+        setSidoOptions(list.map((item) => ({ label: item.name, value: item.orgCd })));
+      })
+      .catch(() => {
+        if (cancelled) return;
+        setSidoOptions([]);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  useEffect(() => {
+    if (filters.province === DEFAULT_PROVINCE) {
+      setSigunguOptions([]);
+      return;
+    }
+
+    let cancelled = false;
+    setSigunguOptions([]);
+    fetchSigunguList(filters.province)
+      .then((list) => {
+        if (cancelled) return;
+        setSigunguOptions(list.map((item) => ({ label: item.name, value: item.orgCd })));
+      })
+      .catch(() => {
+        if (cancelled) return;
+        setSigunguOptions([]);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [filters.province]);
+
+  useEffect(() => {
+    let cancelled = false;
+    fetchDogKinds()
+      .then((list) => {
+        if (cancelled) return;
+        setBreeds(list);
+      })
+      .catch(() => {
+        if (cancelled) return;
+        setBreeds([]);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   return (
     <section className="mx-auto max-w-[1200px] px-6 py-16">
@@ -78,6 +126,8 @@ export default function AdoptionList() {
         <h1 className="text-3xl font-semibold text-[#333]">Adoption</h1>
         <Filters
           breeds={breeds}
+          provinces={sidoOptions}
+          cities={sigunguOptions}
           onChange={(next) => {
             setFilters(next);
             setPage(0);

@@ -6,15 +6,6 @@ export const DEFAULT_BREED = "모든 품종";
 export const DEFAULT_PROVINCE = "전체지역";
 export const DEFAULT_CITY = "전체도시";
 
-// ✅ 예시 데이터 (원하면 공공데이터/백엔드 응답 형태로 바꿔줄게)
-const PROVINCES = ["서울특별시", "경기도", "인천광역시", "부산광역시"] as const;
-const CITIES_BY_PROVINCE: Record<(typeof PROVINCES)[number], string[]> = {
-  서울특별시: ["강남구", "서초구", "마포구", "송파구"],
-  경기도: ["수원시", "성남시", "고양시", "용인시"],
-  인천광역시: ["연수구", "남동구", "부평구", "서구"],
-  부산광역시: ["해운대구", "수영구", "부산진구", "동래구"],
-};
-
 function Chevron({ direction = "down" }: { direction?: "down" | "up" }) {
   const rotateClass = direction === "up" ? "rotate-180" : "";
   return (
@@ -208,10 +199,12 @@ function AccessibleSelect({
 
 type FiltersProps = {
   breeds: string[];
+  provinces: SelectOption[];
+  cities: SelectOption[];
   onChange?: (value: { breed: string; province: string; city: string }) => void;
 };
 
-export default function Filters({ breeds, onChange }: FiltersProps) {
+export default function Filters({ breeds, provinces, cities, onChange }: FiltersProps) {
   const [open, setOpen] = useState<DropdownKey>(null);
 
   const [breed, setBreed] = useState<string>(DEFAULT_BREED);
@@ -226,7 +219,7 @@ export default function Filters({ breeds, onChange }: FiltersProps) {
             .map((value) => value.trim())
             .filter((value) => value.length > 0)
         )
-      ),
+      ).sort((a, b) => a.localeCompare(b, "ko")),
     [breeds]
   );
 
@@ -236,17 +229,19 @@ export default function Filters({ breeds, onChange }: FiltersProps) {
   );
 
   const provinceOptions: SelectOption[] = useMemo(
-    () => [{ label: DEFAULT_PROVINCE, value: DEFAULT_PROVINCE }, ...PROVINCES.map((p) => ({ label: p, value: p }))],
-    []
+    () => [{ label: DEFAULT_PROVINCE, value: DEFAULT_PROVINCE }, ...provinces],
+    [provinces]
   );
 
-  const cityOptions: SelectOption[] = useMemo(() => {
-    if (province === DEFAULT_PROVINCE) return [{ label: DEFAULT_CITY, value: DEFAULT_CITY }];
-    const list = CITIES_BY_PROVINCE[province as (typeof PROVINCES)[number]] ?? [];
-    return [{ label: DEFAULT_CITY, value: DEFAULT_CITY }, ...list.map((c) => ({ label: c, value: c }))];
-  }, [province]);
-
   const isCityDisabled = province === DEFAULT_PROVINCE;
+
+  const cityOptions: SelectOption[] = useMemo(
+    () =>
+      isCityDisabled
+        ? [{ label: DEFAULT_CITY, value: DEFAULT_CITY }]
+        : [{ label: DEFAULT_CITY, value: DEFAULT_CITY }, ...cities],
+    [cities, isCityDisabled]
+  );
 
   // ✅ 도 변경 시 시 초기화(종속 필터)
   useEffect(() => {
@@ -255,7 +250,6 @@ export default function Filters({ breeds, onChange }: FiltersProps) {
       if (open === "city") setOpen(null);
       return;
     }
-    // 선택된 city가 새 province 목록에 없으면 초기화
     const validCities = new Set(cityOptions.map((o) => o.value));
     if (!validCities.has(city)) setCity(DEFAULT_CITY);
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -269,6 +263,25 @@ export default function Filters({ breeds, onChange }: FiltersProps) {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [breedOptions]);
+
+  useEffect(() => {
+    const validProvinces = new Set(provinceOptions.map((option) => option.value));
+    if (!validProvinces.has(province)) {
+      setProvince(DEFAULT_PROVINCE);
+      setCity(DEFAULT_CITY);
+      if (open === "province") setOpen(null);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [provinceOptions]);
+
+  useEffect(() => {
+    const validCities = new Set(cityOptions.map((option) => option.value));
+    if (!validCities.has(city)) {
+      setCity(DEFAULT_CITY);
+      if (open === "city") setOpen(null);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [cityOptions]);
 
   const close = () => setOpen(null);
 
@@ -296,7 +309,7 @@ export default function Filters({ breeds, onChange }: FiltersProps) {
         onToggle={() => setOpen((prev) => (prev === "province" ? null : "province"))}
         onSelect={(v) => {
           setProvince(v);
-          // 도를 전체로 바꾸면 시는 자동 초기화됨(useEffect)
+          setCity(DEFAULT_CITY);
         }}
         onClose={close}
       />

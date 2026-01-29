@@ -38,6 +38,65 @@ type FetchAdoptionResult = {
   size: number;
 };
 
+export type RegionItem = {
+  orgCd: string;
+  name: string;
+};
+
+export async function fetchDogKinds(): Promise<string[]> {
+  const response = await fetch("/api/dogs/kinds");
+  if (!response.ok) {
+    const errorText = await response.text();
+    throw new Error(errorText || response.statusText);
+  }
+  const data = await response.json();
+  if (!Array.isArray(data)) return [];
+  return data.filter((value): value is string => typeof value === "string");
+}
+
+function normalizeRegionItems(data: unknown): RegionItem[] {
+  if (!Array.isArray(data)) return [];
+  const map = new Map<string, RegionItem>();
+  for (const raw of data) {
+    if (!raw || typeof raw !== "object") continue;
+    const item = raw as { orgCd?: unknown; name?: unknown; orgdownNm?: unknown };
+    const orgCd = typeof item.orgCd === "string" ? item.orgCd.trim() : "";
+    const nameSource =
+      typeof item.orgdownNm === "string"
+        ? item.orgdownNm
+        : typeof item.name === "string"
+        ? item.name
+        : "";
+    const name = nameSource.trim();
+    if (!orgCd || !name) continue;
+    if (!map.has(orgCd)) {
+      map.set(orgCd, { orgCd, name });
+    }
+  }
+  return Array.from(map.values()).sort((a, b) => a.name.localeCompare(b.name, "ko"));
+}
+
+export async function fetchSidoList(): Promise<RegionItem[]> {
+  const response = await fetch("/api/region/sido");
+  if (!response.ok) {
+    const errorText = await response.text();
+    throw new Error(errorText || response.statusText);
+  }
+  const data = await response.json();
+  return normalizeRegionItems(data);
+}
+
+export async function fetchSigunguList(sidoOrgCd: string): Promise<RegionItem[]> {
+  if (!sidoOrgCd) return [];
+  const response = await fetch(`/api/region/sido/${encodeURIComponent(sidoOrgCd)}/sigungu`);
+  if (!response.ok) {
+    const errorText = await response.text();
+    throw new Error(errorText || response.statusText);
+  }
+  const data = await response.json();
+  return normalizeRegionItems(data);
+}
+
 export async function fetchAdoptionList({
   page = 10,
   size = 12,

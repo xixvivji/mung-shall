@@ -37,6 +37,7 @@ function useOnClickOutside(ref: React.RefObject<HTMLElement>, handler: () => voi
 function AccessibleSelect({
   label,
   value,
+  displayValue,
   options,
   isOpen,
   disabled,
@@ -47,6 +48,7 @@ function AccessibleSelect({
 }: {
   label: string;
   value: string;
+  displayValue?: string;
   options: SelectOption[];
   isOpen: boolean;
   disabled?: boolean;
@@ -151,7 +153,7 @@ function AccessibleSelect({
         aria-controls={listboxId}
         disabled={disabled}
       >
-        <span className="truncate">{value}</span>
+        <span className="truncate">{displayValue ?? value}</span>
         <Chevron direction={isOpen ? "up" : "down"} />
       </button>
 
@@ -243,6 +245,16 @@ export default function Filters({ breeds, provinces, cities, onChange }: Filters
     [cities, isCityDisabled]
   );
 
+  const selectedProvinceLabel = useMemo(() => {
+    const found = provinceOptions.find((option) => option.value === province);
+    return found?.label ?? province;
+  }, [provinceOptions, province]);
+
+  const selectedCityLabel = useMemo(() => {
+    const found = cityOptions.find((option) => option.value === city);
+    return found?.label ?? city;
+  }, [cityOptions, city]);
+
   // ✅ 도 변경 시 시 초기화(종속 필터)
   useEffect(() => {
     if (province === DEFAULT_PROVINCE) {
@@ -304,6 +316,7 @@ export default function Filters({ breeds, provinces, cities, onChange }: Filters
       <AccessibleSelect
         label="도"
         value={province}
+        displayValue={selectedProvinceLabel}
         options={provinceOptions}
         isOpen={open === "province"}
         onToggle={() => setOpen((prev) => (prev === "province" ? null : "province"))}
@@ -317,6 +330,7 @@ export default function Filters({ breeds, provinces, cities, onChange }: Filters
       <AccessibleSelect
         label="시"
         value={city}
+        displayValue={selectedCityLabel}
         options={cityOptions}
         isOpen={open === "city"}
         disabled={isCityDisabled}

@@ -6,6 +6,9 @@ import useAuth from "@/features/auth/hooks/useAuth";
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { ROUTES } from "@/shared/constants/routes";
+import AlertModal from "@/shared/components/AlertModal";
+import { useAlertModal } from "@/shared/hooks/useAlertModal";
+import { ApiError } from "@/shared/api/client";
 
 function Back() {
   return (
@@ -83,29 +86,59 @@ const getOAuthUrl = (provider: SocialProvider) => {
   return `${origin}/oauth2/authorization/${provider}`;
 };
 
+const DEFAULT_ERROR_MESSAGE = "서버 오류가 발생했습니다. 잠시 후 다시 시도해 주세요.";
+
+function parseErrorMessage(rawMessage: string) {
+  const trimmed = rawMessage.trim();
+  if (!trimmed) return "";
+  try {
+    const parsed = JSON.parse(trimmed);
+    if (parsed && typeof parsed.message === "string") {
+      return parsed.message;
+    }
+  } catch {
+    // ignore JSON parse errors
+  }
+  return trimmed;
+}
+
+function resolveErrorMessage(err: unknown) {
+  if (err instanceof ApiError) {
+    const parsed = parseErrorMessage(err.message);
+    if (parsed) return parsed;
+    if (err.status === 400) return "입력값을 확인해 주세요.";
+    if (err.status === 401 || err.status === 403) return "로그인이 필요하거나 권한이 없습니다.";
+    if (err.status === 404) return "요청한 기능을 찾을 수 없습니다.";
+    if (err.status === 500) return DEFAULT_ERROR_MESSAGE;
+    return DEFAULT_ERROR_MESSAGE;
+  }
+
+  const rawMessage = err instanceof Error ? err.message : "";
+  const parsed = parseErrorMessage(rawMessage);
+  return parsed || DEFAULT_ERROR_MESSAGE;
+}
+
 function Login() {
   const { login } = useAuth();
   const navigate = useNavigate();
+  const { openAlert, alertProps } = useAlertModal();
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
 
   const handleLogin = async () => {
     if (!username.trim() || !password.trim()) {
-      setError("아이디와 비밀번호를 입력해주세요.");
+      openAlert({ title: "로그인 실패", message: "아이디와 비밀번호를 입력해주세요." });
       return;
     }
     setLoading(true);
-    setError(null);
     try {
       const loggedInUser = await login({ username: username.trim(), password });
       const userType = loggedInUser?.userType?.toLowerCase();
       const nextRoute = userType === "shelter" || userType === "center" ? ROUTES.center : ROUTES.mypage;
       navigate(nextRoute);
     } catch (err) {
-      const message = err instanceof Error ? err.message : "로그인 실패";
-      setError(message);
+      openAlert({ title: "로그인 실패", message: resolveErrorMessage(err) });
     } finally {
       setLoading(false);
     }
@@ -149,12 +182,6 @@ function Login() {
         {loading ? "로그인 중..." : "Log In"}
       </button>
 
-      {error ? (
-        <p className="absolute left-[905px] top-[512px] text-[12px] text-[#d14343]">
-          {error}
-        </p>
-      ) : null}
-
       <Divider />
 
       <SocialBtn
@@ -177,6 +204,8 @@ function Login() {
       />
 
       <Text />
+
+      <AlertModal {...alertProps} />
     </div>
   );
 }

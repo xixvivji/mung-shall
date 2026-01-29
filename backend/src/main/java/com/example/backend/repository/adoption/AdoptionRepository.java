@@ -11,4 +11,9 @@ import java.util.Optional;
 @Repository
 public interface AdoptionRepository extends JpaRepository<Adoption, Long> {
     Optional<Adoption> findByAbandonedDogAndProcessStatus(AbandonedDog abandonedDog, AdoptionProcessStatus status);
+
+    boolean existsByUser_UserIdAndProcessStatus(
+            Long userId,
+            AdoptionProcessStatus status
+    );
 }

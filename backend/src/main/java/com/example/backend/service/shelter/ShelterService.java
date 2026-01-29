@@ -3,16 +3,22 @@ package com.example.backend.service.shelter;
 import com.example.backend.api.dog.dto.DogDetailResponse;
 import com.example.backend.api.dog.dto.DogSummaryResponse;
 import com.example.backend.api.dog.dto.DogUpdateRequest;
+import com.example.backend.api.shelter.dto.ShelterResponse;
+import com.example.backend.api.shelter.dto.ShelterUpdateRequest;
 import com.example.backend.domain.dog.AbandonedDog;
+import com.example.backend.domain.shelter.Shelter;
 import com.example.backend.repository.dog.AbandonedDogRepository;
-import com.example.backend.repository.dog.AbandonedDogSpecification;
 import com.example.backend.repository.shelter.ShelterRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.Pageable;
-import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.util.StringUtils;
+
+import java.util.List;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -34,14 +40,21 @@ public class ShelterService {
         // 1. 요청한 shelterId에 대한 권한이 있는지 확인
         shelterPermissionEvaluator.checkShelterOwnership(shelterId);
 
-        // 2. Specification을 사용하여 동적 쿼리 생성
-        Specification<AbandonedDog> spec = AbandonedDogSpecification.createSpecification(null, null, processState, shelterId);
+        List<AbandonedDog> dogs;
+        if (StringUtils.hasText(processState)) {
+            dogs = abandonedDogRepository.findByShelter_IdAndProcessState(shelterId, processState);
+        } else {
+            dogs = abandonedDogRepository.findByShelter_Id(shelterId);
+        }
 
-        // 3. 동적 쿼리와 페이지 정보를 사용하여 DB에서 데이터 조회
-        Page<AbandonedDog> dogPage = abandonedDogRepository.findAll(spec, pageable);
+        // List를 Page로 변환
+        int start = (int) pageable.getOffset();
+        int end = Math.min((start + pageable.getPageSize()), dogs.size());
+        List<DogSummaryResponse> dtoList = dogs.subList(start, end).stream()
+                .map(DogSummaryResponse::fromEntity)
+                .collect(Collectors.toList());
 
-        // 4. 조회된 AbandonedDog 페이지를 DogSummaryResponse DTO 페이지로 변환
-        return dogPage.map(DogSummaryResponse::fromEntity);
+        return new PageImpl<>(dtoList, pageable, dogs.size());
     }
 
     /**
@@ -97,4 +110,39 @@ public class ShelterService {
 
         abandonedDogRepository.delete(dog);
     }
+
+    /**
+     * 현재 로그인된 보호소 계정의 정보를 조회합니다.
+     * @return 로그인된 보호소의 ShelterResponse DTO
+     */
+    public ShelterResponse getLoggedInShelterInfo() {
+        Shelter shelter = shelterPermissionEvaluator.getLoggedInShelter();
+        return new ShelterResponse(shelter);
+    }
+
+    /**
+     * 현재 로그인된 보호소 계정의 정보를 수정합니다.
+     * @param request 수정할 정보가 담긴 DTO
+     * @return 수정된 보호소의 ShelterResponse DTO
+     */
+    @Transactional
+    public ShelterResponse updateShelterInfo(ShelterUpdateRequest request) {
+        Shelter shelter = shelterPermissionEvaluator.getLoggedInShelter();
+
+        // DTO의 정보로 보호소 정보 업데이트
+        if (request.getCareNm() != null) {
+            shelter.setCareNm(request.getCareNm());
+        }
+        if (request.getTel() != null) {
+            shelter.setTel(request.getTel());
+        }
+        if (request.getAddress() != null) {
+            shelter.setAddress(request.getAddress());
+        }
+        // shelterRegNo는 고유값이므로 수정하지 않음
+
+        Shelter updatedShelter = shelterRepository.save(shelter);
+        return new ShelterResponse(updatedShelter);
+    }
+
 }

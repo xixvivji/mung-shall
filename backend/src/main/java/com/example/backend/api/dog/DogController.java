@@ -26,14 +26,16 @@ public class DogController {
 
     private final DogService dogService;
 
-    @Operation(summary = "유기견 목록 조회", description = "페이지네이션과 동적 필터링(지역, 성별, 상태)을 사용하여 유기견 목록을 조회합니다.")
+    @Operation(summary = "유기견 목록 조회", description = "페이지네이션과 동적 필터링(시도, 품종, 성별, 상태)을 사용하여 유기견 목록을 조회합니다.")
     @ApiResponses({
             @ApiResponse(responseCode = "200", description = "조회 성공"),
     })
     @GetMapping
     public ResponseEntity<Page<DogSummaryResponse>> getDogs(
-            @Parameter(description = "검색할 지역명 (e.g., '경기도', '수원시')")
-            @RequestParam(required = false) String region,
+            @Parameter(description = "검색할 시도명 (e.g., '서울특별시')")
+            @RequestParam(required = false) String sido,
+            @Parameter(description = "검색할 품종명 (e.g., '말티즈')")
+            @RequestParam(required = false) String kindNm,
             @Parameter(description = "검색할 성별 코드 (M: 수컷, F: 암컷, Q: 미상)")
             @RequestParam(required = false) String sexCd,
             @Parameter(description = "검색할 상태 (공고중, 보호중, 종료)")
@@ -41,7 +43,7 @@ public class DogController {
             @Parameter(description = "페이지 요청 정보 (0-based page, size, sort)")
             @PageableDefault(size = 12, sort = "happenDt", direction = Sort.Direction.DESC) Pageable pageable
     ) {
-        Page<DogSummaryResponse> dogs = dogService.getDogs(region, sexCd, processState, pageable);
+        Page<DogSummaryResponse> dogs = dogService.getDogs(sido, kindNm, sexCd, processState, pageable);
         return ResponseEntity.ok(dogs);
     }
 

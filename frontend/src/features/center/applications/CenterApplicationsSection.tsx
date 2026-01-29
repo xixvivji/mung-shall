@@ -11,6 +11,7 @@ import {
   fetchShelterApplications,
   fetchShelterApplicationDocuments,
   fetchShelterDocumentBlob,
+  verifyAdoptionStep,
   type ApplicationStatusFilter,
   type ShelterApplicationSummary,
   type ShelterApplicationDocument,
@@ -66,6 +67,20 @@ function isPdfFile(fileName?: string | null) {
   return fileName.toLowerCase().endsWith(".pdf");
 }
 
+function formatActionError(err: unknown) {
+  const message = err instanceof Error ? err.message : "요청에 실패했습니다.";
+  const lowered = message.toLowerCase();
+  if (
+    lowered.includes("401") ||
+    lowered.includes("403") ||
+    lowered.includes("unauthorized") ||
+    lowered.includes("forbidden")
+  ) {
+    return "권한이 없습니다.";
+  }
+  return message || "요청에 실패했습니다.";
+}
+
 export function CenterApplicationsSection() {
   const [apps, setApps] = React.useState<ShelterApplicationSummary[]>([]);
   const [selectedId, setSelectedId] = React.useState<number | null>(null);
@@ -82,35 +97,41 @@ export function CenterApplicationsSection() {
   const [previewLoading, setPreviewLoading] = React.useState(false);
   const [previewError, setPreviewError] = React.useState<string | null>(null);
 
-  React.useEffect(() => {
-    let active = true;
-    setLoading(true);
-    setListError(null);
+  const [actionLoading, setActionLoading] = React.useState(false);
+  const [actionError, setActionError] = React.useState<string | null>(null);
+  const [actionMessage, setActionMessage] = React.useState<string | null>(null);
+  const [isRejectModalOpen, setIsRejectModalOpen] = React.useState(false);
+  const [rejectReason, setRejectReason] = React.useState("");
+  const [rejectError, setRejectError] = React.useState<string | null>(null);
 
-    fetchShelterApplications(filter)
-      .then((data) => {
-        if (!active) return;
+  const refreshList = React.useCallback(
+    async (activeFilter: ApplicationStatusFilter) => {
+      setLoading(true);
+      setListError(null);
+
+      try {
+        const data = await fetchShelterApplications(activeFilter);
         setApps(data);
         setSelectedId((prev) => {
           if (prev && data.some((item) => item.applicationId === prev)) return prev;
           return data[0]?.applicationId ?? null;
         });
-      })
-      .catch((err) => {
-        if (!active) return;
+        return data;
+      } catch (err) {
         setApps([]);
         setSelectedId(null);
         setListError(err instanceof Error ? err.message : "신청 목록을 불러오지 못했습니다.");
-      })
-      .finally(() => {
-        if (!active) return;
+        return [];
+      } finally {
         setLoading(false);
-      });
+      }
+    },
+    []
+  );
 
-    return () => {
-      active = false;
-    };
-  }, [filter]);
+  React.useEffect(() => {
+    refreshList(filter);
+  }, [filter, refreshList]);
 
   React.useEffect(() => {
     if (!selectedId) {
@@ -151,6 +172,11 @@ export function CenterApplicationsSection() {
   }, [selectedId]);
 
   React.useEffect(() => {
+    setActionError(null);
+    setActionMessage(null);
+  }, [selectedId, filter]);
+
+  React.useEffect(() => {
     return () => {
       if (previewUrl) URL.revokeObjectURL(previewUrl);
     };
@@ -160,6 +186,8 @@ export function CenterApplicationsSection() {
     () => apps.find((a) => a.applicationId === selectedId) ?? null,
     [apps, selectedId]
   );
+  const canVerify = selected?.status === "WAITING";
+  const actionDisabled = actionLoading || !canVerify;
 
   const handleOpen = async (doc: ShelterApplicationDocument) => {
     setDocsError(null);
@@ -200,6 +228,93 @@ export function CenterApplicationsSection() {
     }
   };
 
+  const handleApprove = async () => {
+    if (!selected || actionLoading) return;
+    if (selected.status !== "WAITING") return;
+
+    const confirmed = window.confirm("해당 신청을 승인 처리할까요?");
+    if (!confirmed) return;
+
+    setActionLoading(true);
+    setActionError(null);
+    setActionMessage(null);
+
+    try {
+      await verifyAdoptionStep(selected.applicationId, {
+        isApproved: true,
+        rejectionReason: "",
+      });
+
+      setApps((prev) =>
+        prev.map((item) =>
+          item.applicationId === selected.applicationId
+            ? { ...item, status: "APPROVED" }
+            : item
+        )
+      );
+
+      setActionMessage("승인 처리가 완료되었습니다.");
+      await refreshList(filter);
+    } catch (err) {
+      setActionError(formatActionError(err));
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  const openRejectModal = () => {
+    if (!selected || selected.status !== "WAITING") return;
+    setRejectReason("");
+    setRejectError(null);
+    setIsRejectModalOpen(true);
+  };
+
+  const closeRejectModal = () => {
+    if (actionLoading) return;
+    setIsRejectModalOpen(false);
+    setRejectReason("");
+    setRejectError(null);
+  };
+
+  const handleReject = async () => {
+    if (!selected || actionLoading) return;
+    if (selected.status !== "WAITING") return;
+
+    const reason = rejectReason.trim();
+    if (!reason) {
+      setRejectError("반려 사유를 입력해주세요.");
+      return;
+    }
+
+    setActionLoading(true);
+    setActionError(null);
+    setActionMessage(null);
+
+    try {
+      await verifyAdoptionStep(selected.applicationId, {
+        isApproved: false,
+        rejectionReason: reason,
+      });
+
+      setApps((prev) =>
+        prev.map((item) =>
+          item.applicationId === selected.applicationId
+            ? { ...item, status: "REJECTED" }
+            : item
+        )
+      );
+
+      setActionMessage("반려 처리가 완료되었습니다.");
+      setIsRejectModalOpen(false);
+      setRejectReason("");
+      await refreshList(filter);
+    } catch (err) {
+      setActionError(formatActionError(err));
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
   const listCount = apps.length;
 
   return (
@@ -234,6 +349,16 @@ export function CenterApplicationsSection() {
       </CardHeader>
 
       <CardContent>
+        {actionError ? (
+          <div className="mb-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+            {actionError}
+          </div>
+        ) : null}
+        {actionMessage ? (
+          <div className="mb-4 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-700">
+            {actionMessage}
+          </div>
+        ) : null}
         <div className="grid gap-4 md:grid-cols-[320px_1fr]">
           <div className="rounded-2xl border border-slate-200 bg-white">
             <div className="border-b border-slate-200 p-3 text-sm font-medium text-slate-900">
@@ -405,24 +530,43 @@ export function CenterApplicationsSection() {
                 </div>
 
                 <div className="rounded-2xl border border-slate-200 p-4">
-                  <div className="text-sm font-semibold text-slate-900">처리</div>
-                  <p className="mt-2 text-xs text-slate-500">
-                    승인/반려 기능은 추후 연동 예정입니다.
-                  </p>
+                  <div className="flex items-center justify-between">
+                    <div className="text-sm font-semibold text-slate-900">처리</div>
+                    {actionLoading ? (
+                      <span className="text-xs text-slate-500">처리 중...</span>
+                    ) : null}
+                  </div>
+                  {!canVerify && (
+                    <p className="mt-2 text-xs text-slate-500">
+                      이미 처리된 신청입니다.
+                    </p>
+                  )}
                   <div className="mt-3 flex flex-wrap gap-2">
                     <button
                       type="button"
-                      disabled
-                      className="cursor-not-allowed rounded-xl bg-slate-200 px-3 py-2 text-sm font-medium text-slate-500"
+                      onClick={handleApprove}
+                      disabled={actionDisabled}
+                      className={[
+                        "rounded-xl px-3 py-2 text-sm font-medium transition",
+                        actionDisabled
+                          ? "cursor-not-allowed bg-slate-200 text-slate-500"
+                          : "bg-slate-900 text-white hover:bg-slate-800",
+                      ].join(" ")}
                     >
-                      승인하기
+                      {actionLoading ? "승인 중..." : "승인하기"}
                     </button>
                     <button
                       type="button"
-                      disabled
-                      className="cursor-not-allowed rounded-xl bg-slate-200 px-3 py-2 text-sm font-medium text-slate-500"
+                      onClick={openRejectModal}
+                      disabled={actionDisabled}
+                      className={[
+                        "rounded-xl px-3 py-2 text-sm font-medium transition",
+                        actionDisabled
+                          ? "cursor-not-allowed bg-slate-200 text-slate-500"
+                          : "bg-red-600 text-white hover:bg-red-500",
+                      ].join(" ")}
                     >
-                      반려하기
+                      {actionLoading ? "반려 중..." : "반려하기"}
                     </button>
                   </div>
                 </div>
@@ -431,6 +575,51 @@ export function CenterApplicationsSection() {
           </div>
         </div>
       </CardContent>
+
+      {isRejectModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+          <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-lg">
+            <h3 className="text-lg font-semibold text-slate-900">반려 사유 입력</h3>
+            <p className="mt-2 text-sm text-slate-600">
+              반려 사유를 입력해 주세요. 사유는 신청자에게 안내될 수 있습니다.
+            </p>
+
+            <textarea
+              value={rejectReason}
+              onChange={(e) => {
+                setRejectReason(e.target.value);
+                if (rejectError) setRejectError(null);
+              }}
+              placeholder="반려 사유를 입력하세요."
+              className="mt-4 h-28 w-full resize-none rounded-xl border border-slate-200 bg-white p-3 text-sm outline-none focus:border-slate-900"
+              disabled={actionLoading}
+            />
+
+            {rejectError ? (
+              <p className="mt-2 text-xs text-red-600">{rejectError}</p>
+            ) : null}
+
+            <div className="mt-6 flex justify-end gap-2">
+              <button
+                type="button"
+                onClick={closeRejectModal}
+                disabled={actionLoading}
+                className="rounded-xl border border-slate-200 px-4 py-2 text-sm text-slate-700"
+              >
+                취소
+              </button>
+              <button
+                type="button"
+                onClick={handleReject}
+                disabled={actionLoading}
+                className="rounded-xl bg-red-600 px-4 py-2 text-sm text-white hover:bg-red-500 disabled:bg-red-300"
+              >
+                {actionLoading ? "처리 중..." : "반려 처리"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </Card>
   );
 }

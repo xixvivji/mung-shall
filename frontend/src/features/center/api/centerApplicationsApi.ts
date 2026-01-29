@@ -25,6 +25,11 @@ export type ShelterApplicationDocument = {
   uploadedAt: string;
 };
 
+export type VerifyAdoptionStepPayload = {
+  isApproved: boolean;
+  rejectionReason?: string | null;
+};
+
 export async function fetchShelterApplications(status: ApplicationStatusFilter) {
   const params = new URLSearchParams({ status });
   return api<ShelterApplicationSummary[]>(`/shelter/adoptions/applications?${params.toString()}`);
@@ -52,4 +57,14 @@ export async function fetchShelterDocumentBlob(documentId: number): Promise<Blob
   }
 
   return response.blob();
+}
+
+export async function verifyAdoptionStep(
+  stepInstanceId: number,
+  payload: VerifyAdoptionStepPayload
+): Promise<void> {
+  await api<void>(`/shelter/adoption-steps/${stepInstanceId}/verify`, {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
 }

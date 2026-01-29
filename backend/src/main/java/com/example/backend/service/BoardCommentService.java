@@ -15,6 +15,13 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import com.example.backend.repository.BoardCommentLikeRepository;
 import com.example.backend.domain.board.BoardCommentLike;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
+
+import com.example.backend.api.board.dto.BoardCommentPageResponse;
+import org.springframework.data.domain.*;
 
 import java.util.*;
 
@@ -152,4 +159,100 @@ public class BoardCommentService {
 
         comment.softDelete();
     }
+
+    @Transactional(readOnly = true)
+    public BoardCommentPageResponse getCommentsPaged(Long userIdOrNull, Long boardId, int page, int size) {
+
+        boardRepository.findByIdAndDeletedAtIsNull(boardId)
+                .orElseThrow(() -> ApiException.notFound("삭제되었거나 존재하지 않는 게시글입니다."));
+
+        int safePage = Math.max(page, 0);
+        int safeSize = (size <= 0) ? 20 : Math.min(size, 50);
+
+        Pageable pageable = PageRequest.of(
+                safePage,
+                safeSize,
+                Sort.by(Sort.Direction.ASC, "createdAt")
+        );
+
+        Page<BoardComment> rootPage =
+                boardCommentRepository.findByBoard_IdAndParentCommentIsNullAndDeletedAtIsNullOrderByCreatedAtAsc(
+                        boardId, pageable
+                );
+
+        List<BoardComment> roots = rootPage.getContent();
+
+        if (roots.isEmpty()) {
+            return BoardCommentPageResponse.of(
+                    List.of(),
+                    safePage,
+                    safeSize,
+                    rootPage.getTotalElements(),
+                    rootPage.getTotalPages(),
+                    rootPage.isLast()
+            );
+        }
+
+        List<Long> rootIds = roots.stream().map(BoardComment::getId).toList();
+
+        List<BoardComment> replies =
+                boardCommentRepository.findByBoard_IdAndParentComment_IdInAndDeletedAtIsNullOrderByCreatedAtAsc(
+                        boardId, rootIds
+                );
+
+        List<BoardComment> all = new ArrayList<>(roots.size() + replies.size());
+        all.addAll(roots);
+        all.addAll(replies);
+
+        List<Long> commentIds = all.stream().map(BoardComment::getId).toList();
+
+        Map<Long, Long> likeCountMap = new HashMap<>();
+        if (!commentIds.isEmpty()) {
+            List<Object[]> counts = boardCommentLikeRepository.countLikesByCommentIds(commentIds);
+            for (Object[] row : counts) {
+                likeCountMap.put((Long) row[0], (Long) row[1]);
+            }
+        }
+
+        Set<Long> likedCommentIds = new HashSet<>();
+        if (userIdOrNull != null && !commentIds.isEmpty()) {
+            List<BoardCommentLike> likes =
+                    boardCommentLikeRepository.findByUser_UserIdAndComment_IdIn(userIdOrNull, commentIds);
+            for (BoardCommentLike l : likes) {
+                likedCommentIds.add(l.getComment().getId());
+            }
+        }
+
+        Map<Long, BoardCommentResponse> nodeMap = new LinkedHashMap<>();
+        for (BoardComment c : all) {
+            long likeCount = likeCountMap.getOrDefault(c.getId(), 0L);
+            boolean likedByMe = likedCommentIds.contains(c.getId());
+            nodeMap.put(c.getId(), BoardCommentResponse.of(c, likeCount, likedByMe));
+        }
+
+        List<BoardCommentResponse> rootResponses = new ArrayList<>();
+
+        for (BoardComment c : all) {
+            BoardCommentResponse node = nodeMap.get(c.getId());
+            Long parentId = (c.getParentComment() == null) ? null : c.getParentComment().getId();
+
+            if (parentId == null) {
+                rootResponses.add(node);
+            } else {
+                BoardCommentResponse parent = nodeMap.get(parentId);
+                if (parent != null) parent.replies().add(node);
+            }
+        }
+
+        return BoardCommentPageResponse.of(
+                rootResponses,
+                safePage,
+                safeSize,
+                rootPage.getTotalElements(),
+                rootPage.getTotalPages(),
+                rootPage.isLast()
+        );
+    }
+
+
 }

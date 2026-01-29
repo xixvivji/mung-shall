@@ -33,7 +33,11 @@ public class BoardCommentController {
 
     // 댓글 목록
     @GetMapping("/boards/{boardId}/comments")
-    public ResponseEntity<?> getComments(@PathVariable Long boardId) {
+    public ResponseEntity<?> getComments(
+            @PathVariable Long boardId,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size
+    ) {
         Long userId = null;
 
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
@@ -44,8 +48,9 @@ public class BoardCommentController {
             try { userId = Long.parseLong(s); } catch (Exception ignored) {}
         } else if (principalObj instanceof Long l) userId = l;
 
-        return ResponseEntity.ok(boardCommentService.getComments(userId, boardId));
+        return ResponseEntity.ok(boardCommentService.getCommentsPaged(userId, boardId, page, size));
     }
+
 
 
     // 댓글 수정

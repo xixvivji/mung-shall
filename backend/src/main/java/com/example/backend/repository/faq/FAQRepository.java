@@ -1,4 +1,4 @@
-package com.example.backend.repository;
+package com.example.backend.repository.faq;
 
 import com.example.backend.domain.faq.FAQ;
 import org.springframework.data.jpa.repository.JpaRepository;

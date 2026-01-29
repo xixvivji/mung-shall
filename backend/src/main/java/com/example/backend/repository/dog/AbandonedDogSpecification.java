@@ -1,4 +1,4 @@
-package com.example.backend.repository.specification;
+package com.example.backend.repository.dog;
 
 import com.example.backend.domain.dog.AbandonedDog;
 import jakarta.persistence.criteria.Predicate;

@@ -3,7 +3,7 @@ package com.example.backend;
 import com.example.backend.api.dog.dto.PublicApiResponse;
 import com.example.backend.domain.dog.AbandonedDog;
 import com.example.backend.domain.shelter.Shelter;
-import com.example.backend.repository.AbandonedDogRepository;
+import com.example.backend.repository.dog.AbandonedDogRepository;
 import com.example.backend.repository.shelter.ShelterRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;

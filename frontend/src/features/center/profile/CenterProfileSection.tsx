@@ -23,7 +23,16 @@ function isNotFoundError(message: string) {
 }
 
 function formatError(err: unknown) {
-  const message = err instanceof Error ? err.message : "요청에 실패했습니다.";
+  const rawMessage = err instanceof Error ? err.message : "요청에 실패했습니다.";
+  let message = rawMessage;
+  try {
+    const parsed = JSON.parse(rawMessage);
+    if (parsed && typeof parsed.message === "string") {
+      message = parsed.message;
+    }
+  } catch {
+    // ignore JSON parse errors
+  }
   const lowered = message.toLowerCase();
   if (
     lowered.includes("401") ||

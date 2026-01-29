@@ -22,3 +22,17 @@ export type CenterProfileUpdateRequest = {
   address: string;
   description?: string | null;
 };
+
+export type ShelterProfileResponse = {
+  id: number;
+  careNm: string;
+  shelterRegNo?: string | null;
+  tel: string;
+  address: string;
+};
+
+export type ShelterProfileUpdateRequest = {
+  careNm: string;
+  tel: string;
+  address: string;
+};

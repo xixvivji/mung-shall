@@ -1,7 +1,9 @@
 package com.example.backend.service;
 
 import com.example.backend.api.board.dto.BoardCreateRequest;
+import com.example.backend.api.board.dto.BoardDetailResponse;
 import com.example.backend.api.board.dto.BoardListItemDto;
+import com.example.backend.api.board.dto.BoardUpdateRequest;
 import com.example.backend.common.ApiException;
 import com.example.backend.domain.board.Board;
 import com.example.backend.domain.board.BoardCategory;
@@ -12,9 +14,6 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.*;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import com.example.backend.api.board.dto.BoardDetailResponse;
-import com.example.backend.api.board.dto.BoardUpdateRequest;
-import com.example.backend.api.board.dto.BoardUpdateResponse;
 
 @Service
 @RequiredArgsConstructor
@@ -24,14 +23,23 @@ public class BoardService {
     private final UserRepository userRepository;
 
     @Transactional(readOnly = true)
-    public Page<BoardListItemDto> getBoardList(int page, int size, String keyword, String category) {
+    public Page<BoardListItemDto> getBoardList(int page, int size, String keyword, String category, String sort) {
         int safePage = Math.max(page, 0);
         int safeSize = (size <= 0) ? 20 : Math.min(size, 50);
+
+        String sortKey = (sort == null || sort.isBlank()) ? "createdAt" : sort.trim();
+
+        Sort s;
+        switch (sortKey) {
+            case "createdAt" -> s = Sort.by(Sort.Direction.DESC, "createdAt");
+            case "viewCount" -> s = Sort.by(Sort.Direction.DESC, "viewCount");
+            default -> throw ApiException.badRequest("잘못된 파라미터");
+        }
 
         Pageable pageable = PageRequest.of(
                 safePage,
                 safeSize,
-                Sort.by(Sort.Direction.DESC, "createdAt")
+                s
         );
 
         String kw = (keyword == null || keyword.isBlank()) ? null : keyword.trim();
@@ -110,7 +118,7 @@ public class BoardService {
         Board board = boardRepository.findByIdAndDeletedAtIsNull(boardId)
                 .orElseThrow(() -> ApiException.notFound("삭제되었거나 존재하지 않는 게시글입니다."));
 
-        board.increaseViewCount();   // 조회수 +1
+        board.increaseViewCount();
         return BoardDetailResponse.from(board);
     }
 
@@ -155,5 +163,4 @@ public class BoardService {
 
         board.softDelete();
     }
-
 }

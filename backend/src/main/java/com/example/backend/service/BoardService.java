@@ -116,7 +116,7 @@ public class BoardService {
                 );
 
         if (!hasCompletedAdoption) {
-            throw ApiException.forbidden("입양 완료자만 후기 작성이 가능합니다.");
+            throw ApiException.forbidden("입양 완료자만 후기(Review) 작성이 가능합니다.");
         }
     }
 
@@ -159,21 +159,32 @@ public class BoardService {
         if (content == null || content.isBlank()) throw ApiException.badRequest("내용은 필수입니다.");
         if (categoryRaw == null || categoryRaw.isBlank()) throw ApiException.badRequest("카테고리는 필수입니다.");
 
-        BoardCategory category;
+        BoardCategory nextCategory;
         try {
-            category = BoardCategory.valueOf(categoryRaw.toUpperCase());
+            nextCategory = BoardCategory.valueOf(categoryRaw.toUpperCase());
         } catch (Exception e) {
             throw ApiException.badRequest("카테고리가 올바르지 않습니다.");
         }
 
-        validateReviewPermission(userId, category);
+        if (nextCategory == BoardCategory.REVIEW) {
+            boolean hasCompletedAdoption =
+                    adoptionRepository.existsByUser_UserIdAndProcessStatus(
+                            userId,
+                            AdoptionProcessStatus.COMPLETED
+                    );
 
-        board.update(title, content, category);
+            if (!hasCompletedAdoption) {
+                throw ApiException.forbidden("입양 완료자만 후기(Review)로 변경/작성할 수 있습니다.");
+            }
+        }
+
+        board.update(title, content, nextCategory);
 
         board.replaceMedias(request.mediaUrls());
 
         return board.getId();
     }
+
 
     @Transactional
     public void deleteBoard(Long userId, Long boardId) {
@@ -183,7 +194,6 @@ public class BoardService {
         if (!board.getWriter().getUserId().equals(userId)) {
             throw ApiException.forbidden("작성자만 삭제할 수 있습니다.");
         }
-
         board.softDelete();
     }
 }

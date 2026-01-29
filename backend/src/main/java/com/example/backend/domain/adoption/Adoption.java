@@ -3,6 +3,7 @@ package com.example.backend.domain.adoption;
 import com.example.backend.domain.dog.AbandonedDog;
 import com.example.backend.domain.user.User;
 import com.example.backend.domain.adoption.enums.AdoptionProcessStatus;
+import com.example.backend.domain.adoption.enums.AdoptionStatus;
 import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
@@ -43,6 +44,11 @@ public class Adoption {
     @Column(nullable = false)
     private AdoptionProcessStatus processStatus;
 
+    @Enumerated(EnumType.STRING)
+    private AdoptionStatus status; // 최종 승인 여부 (null 가능 - 아직 최종평가x)
+
+    private String rejectionReason; // 최종 반려 사유 - 테이블 구조 좋지 않아..
+
     @OneToMany(mappedBy = "adoption", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<AdoptionStepInstance> steps = new ArrayList<>();
 
@@ -52,7 +58,6 @@ public class Adoption {
     @UpdateTimestamp
     private LocalDateTime updatedAt;
 
-    // 헬퍼 메서드
     public void addStep(AdoptionStepInstance stepInstance) {
         steps.add(stepInstance);
         stepInstance.setAdoption(this);

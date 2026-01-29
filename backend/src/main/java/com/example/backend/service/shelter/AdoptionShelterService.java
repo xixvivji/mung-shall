@@ -7,14 +7,19 @@ import com.example.backend.api.adoption.dto.shelter.ShelterAdoptionUserResponse;
 import com.example.backend.domain.adoption.Adoption;
 import com.example.backend.domain.adoption.AdoptionStepInstance;
 import com.example.backend.domain.adoption.enums.AdoptionProcessStatus;
+import com.example.backend.domain.adoption.enums.AdoptionStatus;
 import com.example.backend.domain.adoption.enums.AdoptionStepStatus;
 import com.example.backend.domain.dog.AbandonedDog;
 import com.example.backend.domain.shelter.Shelter;
+import com.example.backend.domain.user.UserType;
 import com.example.backend.repository.adoption.AdoptionRepository;
 import com.example.backend.repository.adoption.AdoptionStepInstanceRepository;
 import com.example.backend.repository.dog.AbandonedDogRepository;
 import com.example.backend.repository.shelter.ShelterRepository;
+import com.example.backend.security.principal.CustomUserPrincipal;
 import lombok.RequiredArgsConstructor;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
@@ -41,13 +46,13 @@ public class AdoptionShelterService {
      */
     public void verifyAdoptionStep(Long stepInstanceId, boolean isApproved, String rejectionReason) {
         AdoptionStepInstance currentStep = adoptionStepInstanceRepository.findById(stepInstanceId)
-                .orElseThrow(() -> new IllegalArgumentException("Adoption step instance not found with ID: " + stepInstanceId));
+                .orElseThrow(() -> new IllegalArgumentException("ID에 해당하는 stepInstance가 존재하지 않습니다: " + stepInstanceId));
 
-        // TODO: 현재 로그인된 보호소 관리자가 이 입양 건을 처리할 권한이 있는지 확인하는 로직 추가 필요
-        // (예: currentStep.getAdoption().getShelter().getId() == loggedInShelterId)
+        // 현재 로그인된 보호소 관리자가 이 입양 건을 처리할 권한이 있는지 확인
+        checkShelterPermission(currentStep.getAdoption().getAbandonedDog());
 
         if (currentStep.getStatus() != AdoptionStepStatus.SUBMITTED) {
-            throw new IllegalStateException("Step is not in a submitted state. Current state: " + currentStep.getStatus());
+            throw new IllegalStateException("stepInstance가 SUBMITTED 상태가 아닙니다: " + currentStep.getStatus());
         }
 
         if (isApproved) {
@@ -60,11 +65,8 @@ public class AdoptionShelterService {
     private void approveStep(AdoptionStepInstance currentStep) {
         currentStep.setStatus(AdoptionStepStatus.APPROVED);
         currentStep.setApprovedAt(LocalDateTime.now());
-        // TODO: Set approver from security context
-        // currentStep.setApprover(loggedInUser);
         adoptionStepInstanceRepository.save(currentStep);
 
-        // Find next step and activate it
         activateNextStep(currentStep);
     }
 
@@ -74,8 +76,6 @@ public class AdoptionShelterService {
         }
         step.setStatus(AdoptionStepStatus.REJECTED);
         step.setRejectionReason(reason);
-        // TODO: Set approver from security context
-        // step.setApprover(loggedInUser);
         adoptionStepInstanceRepository.save(step);
     }
 
@@ -83,26 +83,27 @@ public class AdoptionShelterService {
         Adoption adoption = currentStep.getAdoption();
         List<AdoptionStepInstance> allSteps = adoptionStepInstanceRepository.findByAdoptionIdOrderByStepDefStepOrderAsc(adoption.getId());
 
-        // 현재 단계 다음의 단계를 찾음
         int currentIndex = allSteps.indexOf(currentStep);
-        if (currentIndex > -1 && currentIndex < allSteps.size() - 1) {
-            AdoptionStepInstance nextStep = allSteps.get(currentIndex + 1);
-            if (nextStep.getStatus() == AdoptionStepStatus.NOT_STARTED) {
-                nextStep.setStatus(AdoptionStepStatus.PENDING);
-                adoptionStepInstanceRepository.save(nextStep);
-            }
-        } else {
-            // 마지막 단계였을 경우, 전체 입양 프로세스를 완료 상태로 변경
-            adoption.setProcessStatus(AdoptionProcessStatus.COMPLETED);
-            adoptionRepository.save(adoption); // Explicitly save the adoption
+        if (currentIndex < 0 || currentIndex == allSteps.size() - 1) {
+            // 마지막 단계가 승인되었거나, 더 이상 진행할 단계가 없음
+            // 이 경우 전체 입양 프로세스의 상태는 verifyAdoptionProcess에서 별도로 관리하므로 여기서는 개별 step만 처리
+            return;
+        }
+
+        AdoptionStepInstance nextStep = allSteps.get(currentIndex + 1);
+        if (nextStep.getStatus() == AdoptionStepStatus.NOT_STARTED) {
+            nextStep.setStatus(AdoptionStepStatus.PENDING);
+            adoptionStepInstanceRepository.save(nextStep);
         }
     }
 
     /**
-     * 보호소 관리자가 입양 프로세스를 수동으로 완료시킵니다.
-     * @param adoptionId 완료할 입양 프로세스 ID
+     * 보호소 관리자가 입양 프로세스를 최종 승인하거나 반려합니다.
+     * @param adoptionId 처리할 입양 프로세스 ID
+     * @param isApproved 승인 여부
+     * @param rejectionReason 반려 시 사유
      */
-    public void completeAdoptionProcess(Long adoptionId) {
+    public void verifyAdoptionProcess(Long adoptionId, boolean isApproved, String rejectionReason) {
         Adoption adoption = adoptionRepository.findById(adoptionId)
                 .orElseThrow(() -> new IllegalArgumentException("Adoption not found with ID: " + adoptionId));
 
@@ -110,27 +111,65 @@ public class AdoptionShelterService {
             throw new IllegalStateException("이미 완료되었거나 취소된 입양 프로세스입니다.");
         }
 
-        // TODO: 현재 로그인된 보호소 관리자가 이 입양 건을 처리할 권한이 있는지 확인하는 로직 추가 필요
+        // 현재 로그인된 보호소 관리자가 이 입양 건을 처리할 권한이 있는지 확인
+        checkShelterPermission(adoption.getAbandonedDog());
 
-        // 모든 단계가 정확히 APPROVED 상태인지 확인 (COMPLETED 상태는 허용하지 않음)
-        boolean allStepsApproved = adoption.getSteps().stream()
-                .allMatch(step -> step.getStatus() == AdoptionStepStatus.APPROVED);
+        if (isApproved) {
+            // 모든 단계가 정확히 APPROVED 상태인지 확인해야 최종 승인 가능
+            boolean allStepsApproved = adoption.getSteps().stream()
+                    .allMatch(step -> step.getStatus() == AdoptionStepStatus.APPROVED);
 
-        if (!allStepsApproved) {
-            throw new IllegalStateException("모든 입양 단계가 승인(APPROVED) 상태여야 최종 완료할 수 있습니다.");
+            if (!allStepsApproved) {
+                throw new IllegalStateException("모든 입양 단계가 승인(APPROVED) 상태여야 최종 완료할 수 있습니다.");
+            }
+            approveAdoption(adoption);
+        } else {
+            rejectAdoption(adoption, rejectionReason);
         }
+    }
 
-        adoption.setProcessStatus(AdoptionProcessStatus.COMPLETED);
-
+    private void approveAdoption(Adoption adoption) {
         // 모든 APPROVED 상태의 단계들을 COMPLETED 처리
         adoption.getSteps().forEach(step -> {
-            // 모든 단계가 APPROVED임을 위에서 확인했으므로, 다시 상태 확인은 필요 없음
-            step.setStatus(AdoptionStepStatus.COMPLETED);
-            step.setCompletedAt(LocalDateTime.now());
-            adoptionStepInstanceRepository.save(step); // 변경된 stepInstance 저장
+            if (step.getStatus() == AdoptionStepStatus.APPROVED) {
+                step.setStatus(AdoptionStepStatus.COMPLETED);
+                step.setCompletedAt(LocalDateTime.now());
+                adoptionStepInstanceRepository.save(step);
+            }
         });
 
+        adoption.setProcessStatus(AdoptionProcessStatus.COMPLETED);
+        adoption.setStatus(AdoptionStatus.APPROVED);
         adoptionRepository.save(adoption);
+    }
+
+    private void rejectAdoption(Adoption adoption, String reason) {
+        if (!StringUtils.hasText(reason)) {
+            throw new IllegalArgumentException("반려 사유를 반드시 입력해야 합니다.");
+        }
+        adoption.setProcessStatus(AdoptionProcessStatus.COMPLETED); // 반려도 절차는 완료된 것
+        adoption.setStatus(AdoptionStatus.REJECTED);
+        adoption.setRejectionReason(reason);
+        adoptionRepository.save(adoption);
+    }
+
+    private void checkShelterPermission(AbandonedDog dog) {
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        if (authentication == null || !authentication.isAuthenticated() || !(authentication.getPrincipal() instanceof CustomUserPrincipal)) {
+            throw new SecurityException("인증되지 않은 사용자입니다.");
+        }
+        CustomUserPrincipal principal = (CustomUserPrincipal) authentication.getPrincipal();
+
+        if (principal.getUserType() != UserType.shelter) {
+            throw new SecurityException("보호소 관리자만 이 작업을 수행할 수 있습니다.");
+        }
+
+        Shelter shelter = shelterRepository.findByUserUserId(principal.getUserId())
+                .orElseThrow(() -> new IllegalArgumentException("해당 관리자에 매칭되는 보호소가 없습니다."));
+
+        if (!shelter.getShelterRegNo().equals(dog.getCareRegNo())) {
+            throw new SecurityException("해당 입양 건을 처리할 권한이 없습니다.");
+        }
     }
 
     /**
@@ -174,20 +213,11 @@ public class AdoptionShelterService {
      */
     @Transactional(readOnly = true)
     public AdoptionDetailResponse getShelterAdoptionDetail(Long shelterId, Long adoptionId) {
-        Shelter shelter = shelterRepository.findById(shelterId)
-                .orElseThrow(() -> new IllegalArgumentException("ID에 해당하는 보호소가 없습니다: " + shelterId));
-
-//        if (shelterUser.getUserType() != UserType.shelter || shelterUser.getShelterRegNo() == null) {
-//            throw new IllegalArgumentException("요청한 유저는 보호소 타입이 아니거나 등록 번호가 없습니다.");
-//        }
-
         Adoption adoption = adoptionRepository.findById(adoptionId)
                 .orElseThrow(() -> new IllegalArgumentException("ID와 일치하는 입양이 없습니다: " + adoptionId));
 
         // 입양의 보호소 유저가 현재 요청한 보호소 유저와 일치하는지 확인
-        if (!adoption.getUser().getUserId().equals(shelter.getUser().getUserId())) {
-            throw new SecurityException("해당 입양 정보에 접근할 권한이 없습니다.");
-        }
+        checkShelterPermission(adoption.getAbandonedDog());
 
         List<AdoptionStepInstanceResponse> stepResponses = adoption.getSteps().stream()
                 .map(stepInstance -> AdoptionStepInstanceResponse.builder()
@@ -213,6 +243,8 @@ public class AdoptionShelterService {
                 .userName(adoption.getUser().getName())
                 .dogId(adoption.getAbandonedDog().getId())
                 .processStatus(adoption.getProcessStatus())
+                .status(adoption.getStatus())
+                .rejectionReason(adoption.getRejectionReason())
                 .steps(stepResponses) // Add the steps here
                 .build();
     }

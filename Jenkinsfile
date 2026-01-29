@@ -2,7 +2,6 @@ pipeline {
     agent any
 
     stages {
-
         stage('Checkout') {
             steps {
                 checkout scm
@@ -11,7 +10,6 @@ pipeline {
 
         stage('Build & Docker Image') {
             parallel {
-
                 stage('Backend Build') {
                     steps {
                         dir('backend') {
@@ -50,11 +48,8 @@ pipeline {
                     string(credentialsId: 'KAKAO_CLIENT_SECRET', variable: 'KAKAO_PW'),
                     string(credentialsId: 'NAVER_CLIENT_ID', variable: 'NAVER_ID'),
                     string(credentialsId: 'NAVER_CLIENT_SECRET', variable: 'NAVER_PW'),
-
                     string(credentialsId: 'MAIL_USERNAME', variable: 'MAIL_USERNAME'),
                     string(credentialsId: 'MAIL_PASSWORD', variable: 'MAIL_PASSWORD'),
-
-                    // AWS S3 Credentials 가져오기
                     string(credentialsId: 'AWS_ACCESS_KEY', variable: 'S3_ACCESS_KEY'),
                     string(credentialsId: 'AWS_SECRET_KEY', variable: 'S3_SECRET_KEY'),
                     string(credentialsId: 'S3_BUCKET_NAME', variable: 'S3_BUCKET_NAME'),
@@ -63,16 +58,14 @@ pipeline {
                     script {
                         // 1. .env 파일 생성
                         sh """
-                        # --- OpenVidu 설정 ---
+                        # --- OpenVidu 설정 (도메인 주소로 수정) ---
                         echo "OPENVIDU_SECRET=${OV_SECRET}" > .env
-                        echo "OPENVIDU_URL=https://13.125.3.38:4443/" >> .env
-                        echo "OPENVIDU_PUBLIC_URL=https://13.125.3.38:4443/" >> .env
-                        echo "DOMAIN_OR_PUBLIC_IP=13.125.3.38" >> .env
+                        echo "OPENVIDU_URL=https://i14c109.p.ssafy.io:4443/" >> .env
+                        echo "OPENVIDU_PUBLIC_URL=https://i14c109.p.ssafy.io:4443/" >> .env
+                        echo "DOMAIN_OR_PUBLIC_IP=i14c109.p.ssafy.io" >> .env
 
-                        # --- DB 설정 ---
+                        # --- DB 및 JWT 설정 ---
                         echo "DB_ROOT_PASSWORD=${DB_PW}" >> .env
-
-                        # --- JWT 설정 ---
                         echo "JWT_SECRET=${JWT_SECRET}" >> .env
                         echo "JWT_ACCESS_EXP_MIN=30" >> .env
                         echo "JWT_REFRESH_EXP_DAYS=14" >> .env
@@ -85,29 +78,25 @@ pipeline {
                         echo "NAVER_CLIENT_ID=${NAVER_ID}" >> .env
                         echo "NAVER_CLIENT_SECRET=${NAVER_PW}" >> .env
 
-                        # --- Redis 설정 ---
+                        # --- Redis 및 이메일 설정 ---
                         echo "REDIS_HOST=redis-container" >> .env
                         echo "REDIS_PORT=6379" >> .env
                         echo "REDIS_PASSWORD=" >> .env
-
-                        # --- 이메일 설정 추가 ---
                         echo "MAIL_USERNAME=${MAIL_USERNAME}" >> .env
                         echo "MAIL_PASSWORD=${MAIL_PASSWORD}" >> .env
 
-                        # --- AWS S3 설정 (.env에 기록) ---
+                        # --- AWS S3 및 GMS 설정 ---
                         echo "S3_ACCESS_KEY=${S3_ACCESS_KEY}" >> .env
                         echo "S3_SECRET_KEY=${S3_SECRET_KEY}" >> .env
                         echo "S3_BUCKET_NAME=${S3_BUCKET_NAME}" >> .env
-
-                        # --- GMS키 설정 ---
                         echo "GMS_KEY=${MyGmsKey}" >> .env
 
-                        # --- 기타 설정 ---
-                        echo "FRONT_OAUTH_REDIRECT_URL=http://13.125.3.38/oauth/callback" >> .env
-                        echo "DOMAIN_URL=http://13.125.3.38:8080" >> .env
-                        echo "FRONT_RESET_PASSWORD_URL=http://13.125.3.38/reset-password" >> .env
-                        echo "COOKIE_SECURE=false" >> .env
-                        echo "COOKIE_SAMESITE=Lax" >> .env
+                        # --- 기타 배포 설정 (중요: HTTPS 도메인 반영) ---
+                        echo "FRONT_OAUTH_REDIRECT_URL=https://i14c109.p.ssafy.io/oauth/callback" >> .env
+                        echo "DOMAIN_URL=https://i14c109.p.ssafy.io" >> .env
+                        echo "FRONT_RESET_PASSWORD_URL=https://i14c109.p.ssafy.io/reset-password" >> .env
+                        echo "COOKIE_SECURE=true" >> .env
+                        echo "COOKIE_SAMESITE=None" >> .env
                         """
 
                         // 2. 배포 실행

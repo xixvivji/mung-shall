@@ -36,10 +36,16 @@ export default function AdoptionList() {
   });
 
   const region = useMemo(() => {
-    if (filters.city !== DEFAULT_CITY) return filters.city;
-    if (filters.province !== DEFAULT_PROVINCE) return filters.province;
+    if (filters.city !== DEFAULT_CITY) {
+      const selectedCity = sigunguOptions.find((option) => option.value === filters.city);
+      return selectedCity?.label;
+    }
+    if (filters.province !== DEFAULT_PROVINCE) {
+      const selectedProvince = sidoOptions.find((option) => option.value === filters.province);
+      return selectedProvince?.label;
+    }
     return undefined;
-  }, [filters.city, filters.province]);
+  }, [filters.city, filters.province, sigunguOptions, sidoOptions]);
 
   const breedParam = useMemo(
     () => (filters.breed !== DEFAULT_BREED ? filters.breed : undefined),

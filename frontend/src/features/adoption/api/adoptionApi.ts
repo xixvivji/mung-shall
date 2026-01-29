@@ -38,6 +38,9 @@ type FetchAdoptionResult = {
   size: number;
 };
 
+let inflightKey = "";
+let inflightController: AbortController | null = null;
+
 export type RegionItem = {
   orgCd: string;
   name: string;
@@ -100,7 +103,7 @@ export async function fetchSigunguList(sidoOrgCd: string): Promise<RegionItem[]>
 export async function fetchAdoptionList({
   page = 0,
   size = 12,
-  sort = "happenDt",
+  sort,
   region,
   sexCd,
   processState,
@@ -120,39 +123,54 @@ export async function fetchAdoptionList({
   if (breed) params.set("breed", breed);
 
   const requestPath = `/dogs?${params.toString()}`;
+  if (inflightKey === requestPath && inflightController) {
+    inflightController.abort();
+  }
+  inflightKey = requestPath;
+  inflightController = new AbortController();
   if (import.meta.env.DEV) {
     const debugParams = Object.fromEntries(params.entries());
     console.debug("[adoption] fetchAdoptionList", { requestPath, params: debugParams });
   }
-  const data = await api<DogsResponse>(requestPath);
-
-  return {
-    items: data.content.map((dog) => ({
-      id: String(dog.dogId),
-      name: dog.noticeNo ?? dog.desertionNo ?? dog.kindNm ?? `Dog #${dog.dogId}`,
-      breed: dog.kindNm ?? "Unknown",
-      age: dog.age ?? "",
-      imageUrl: dog.imageUrl,
-    })),
-    totalPages: data.totalPages,
-    totalElements: data.totalElements,
-    page: data.number,
-    size: data.size,
-  };
+  const controller = inflightController;
+  try {
+    const data = await api<DogsResponse>(requestPath, { signal: controller?.signal });
+    return {
+      items: data.content.map((dog) => ({
+        id: String(dog.dogId),
+        name: dog.noticeNo ?? dog.desertionNo ?? dog.kindNm ?? `Dog #${dog.dogId}`,
+        breed: dog.kindNm ?? "Unknown",
+        age: dog.age ?? "",
+        imageUrl: dog.imageUrl,
+      })),
+      totalPages: data.totalPages,
+      totalElements: data.totalElements,
+      page: data.number,
+      size: data.size,
+    };
+  } finally {
+    if (inflightController === controller) {
+      inflightController = null;
+      inflightKey = "";
+    }
+  }
 }
 
 function normalizeSort(value?: string) {
   const raw = value?.trim();
   if (!raw) return null;
-  if (raw.includes(",")) {
-    const [field, direction] = raw.split(",");
-    const safeField = field?.trim();
-    const safeDirection = direction?.trim().toLowerCase();
-    if (!safeField) return null;
-    if (safeDirection === "asc" || safeDirection === "desc") {
-      return `${safeField},${safeDirection}`;
-    }
-    return null;
+  const [field, direction] = raw.includes(",") ? raw.split(",") : [raw, "desc"];
+  const safeField = field?.trim();
+  const safeDirection = direction?.trim().toLowerCase();
+  if (!safeField) return null;
+  if (!ALLOWED_SORT_FIELDS.includes(safeField)) return null;
+  if (safeDirection === "asc" || safeDirection === "desc") {
+    return `${safeField},${safeDirection}`;
   }
-  return `${raw},desc`;
+  return null;
 }
+
+// NOTE: Backend currently 500s on unsupported sort fields (e.g. happenDt,desc).
+// Failing request example: /api/dogs?page=0&size=12&sort=happenDt,desc
+// Suggested backend fix: return 400 for invalid sort, or document supported sort fields.
+const ALLOWED_SORT_FIELDS: string[] = [];

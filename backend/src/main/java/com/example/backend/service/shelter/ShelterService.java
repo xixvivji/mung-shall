@@ -3,7 +3,10 @@ package com.example.backend.service.shelter;
 import com.example.backend.api.dog.dto.DogDetailResponse;
 import com.example.backend.api.dog.dto.DogSummaryResponse;
 import com.example.backend.api.dog.dto.DogUpdateRequest;
+import com.example.backend.api.shelter.dto.ShelterResponse;
+import com.example.backend.api.shelter.dto.ShelterUpdateRequest;
 import com.example.backend.domain.dog.AbandonedDog;
+import com.example.backend.domain.shelter.Shelter;
 import com.example.backend.repository.dog.AbandonedDogRepository;
 import com.example.backend.repository.dog.AbandonedDogSpecification;
 import com.example.backend.repository.shelter.ShelterRepository;
@@ -97,4 +100,39 @@ public class ShelterService {
 
         abandonedDogRepository.delete(dog);
     }
+
+    /**
+     * 현재 로그인된 보호소 계정의 정보를 조회합니다.
+     * @return 로그인된 보호소의 ShelterResponse DTO
+     */
+    public ShelterResponse getLoggedInShelterInfo() {
+        Shelter shelter = shelterPermissionEvaluator.getLoggedInShelter();
+        return new ShelterResponse(shelter);
+    }
+
+    /**
+     * 현재 로그인된 보호소 계정의 정보를 수정합니다.
+     * @param request 수정할 정보가 담긴 DTO
+     * @return 수정된 보호소의 ShelterResponse DTO
+     */
+    @Transactional
+    public ShelterResponse updateShelterInfo(ShelterUpdateRequest request) {
+        Shelter shelter = shelterPermissionEvaluator.getLoggedInShelter();
+
+        // DTO의 정보로 보호소 정보 업데이트
+        if (request.getCareNm() != null) {
+            shelter.setCareNm(request.getCareNm());
+        }
+        if (request.getTel() != null) {
+            shelter.setTel(request.getTel());
+        }
+        if (request.getAddress() != null) {
+            shelter.setAddress(request.getAddress());
+        }
+        // shelterRegNo는 고유값이므로 수정하지 않음
+
+        Shelter updatedShelter = shelterRepository.save(shelter);
+        return new ShelterResponse(updatedShelter);
+    }
+
 }

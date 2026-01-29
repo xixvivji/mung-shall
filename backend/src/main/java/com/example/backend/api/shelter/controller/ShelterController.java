@@ -3,6 +3,8 @@ package com.example.backend.api.shelter.controller;
 import com.example.backend.api.dog.dto.DogDetailResponse;
 import com.example.backend.api.dog.dto.DogSummaryResponse;
 import com.example.backend.api.dog.dto.DogUpdateRequest;
+import com.example.backend.api.shelter.dto.ShelterResponse;
+import com.example.backend.api.shelter.dto.ShelterUpdateRequest;
 import com.example.backend.service.shelter.ShelterService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
@@ -73,4 +75,29 @@ public class ShelterController {
         shelterService.deleteDogInShelter(shelterId, dogId);
         return ResponseEntity.noContent().build();
     }
+
+    @Operation(summary = "로그인된 보호소 정보 조회 (보호소 계정 로그인 시만)", description = "현재 로그인된 보호소 계정의 상세 정보를 조회합니다.")
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "조회 성공"),
+            @ApiResponse(responseCode = "401", description = "인증되지 않은 사용자"),
+            @ApiResponse(responseCode = "403", description = "보호소 관리자가 아님")
+    })
+    @GetMapping("/me")
+    public ResponseEntity<ShelterResponse> getLoggedInShelterInfo() {
+        ShelterResponse shelterInfo = shelterService.getLoggedInShelterInfo();
+        return ResponseEntity.ok(shelterInfo);
+    }
+
+    @Operation(summary = "보호소 정보 수정 (보호소 계정 로그인 시만)", description = "현재 로그인된 보호소 계정의 정보를 수정합니다.")
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "수정 성공"),
+            @ApiResponse(responseCode = "401", description = "인증되지 않은 사용자"),
+            @ApiResponse(responseCode = "403", description = "보호소 관리자가 아님")
+    })
+    @PutMapping("/me")
+    public ResponseEntity<ShelterResponse> updateShelterInfo(@RequestBody ShelterUpdateRequest request) {
+        ShelterResponse updatedShelter = shelterService.updateShelterInfo(request);
+        return ResponseEntity.ok(updatedShelter);
+    }
+
 }

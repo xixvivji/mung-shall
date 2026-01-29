@@ -2,13 +2,13 @@ import { useState } from "react";
 import { Button } from "@/shared/ui/button";
 import { Badge } from "@/shared/ui/badge";
 import { CheckCircle2, User } from "lucide-react";
-import type { MyPageSummary } from "@/features/mypage/types";
+import type { MemberMeResponse } from "@/features/member/types";
 
 type Props = {
-  summary: MyPageSummary;
+  user: MemberMeResponse;
 };
 
-export function ProfileSummary({ summary }: Props) {
+export function ProfileSummary({ user }: Props) {
   // ✅ 기본값: 본인인증 안 된 상태
   const [isVerified, setIsVerified] = useState(false);
 
@@ -32,7 +32,7 @@ export function ProfileSummary({ summary }: Props) {
             {/* 이름 + 인증 배지 */}
             <div className="mb-2 flex items-center gap-3">
               <h3 className="text-2xl font-semibold text-gray-900">
-                {summary.username}
+                {user.username}
               </h3>
 
               {isVerified && (
@@ -47,7 +47,7 @@ export function ProfileSummary({ summary }: Props) {
             </div>
 
             {/* 이메일 (임시 더미) */}
-            <p className="text-gray-500">email@example.com</p>
+            <p className="text-gray-500">{user.email}</p>
           </div>
         </div>
 

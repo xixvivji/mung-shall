@@ -1,10 +1,14 @@
 package com.example.backend.domain.dog;
 
 import com.example.backend.domain.shelter.Shelter;
+import com.example.backend.domain.dog.interest.UserDogInterest;
 import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
+
+import java.util.ArrayList;
+import java.util.List;
 
 @Entity
 @Table(name = "abandoned_dog")
@@ -18,8 +22,11 @@ public class AbandonedDog {
     private Long id;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "shelter_id", nullable = false)
+    @JoinColumn(name = "shelter_id", nullable = true)
     private Shelter shelter;
+
+    @OneToMany(mappedBy = "abandonedDog", cascade = CascadeType.ALL, orphanRemoval = true)
+    private List<UserDogInterest> userDogInterests = new ArrayList<>();
 
     @Column(unique = true, nullable = false)
     private String desertionNo; // 유기번호 (고유키)

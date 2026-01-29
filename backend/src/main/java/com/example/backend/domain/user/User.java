@@ -1,11 +1,14 @@
 package com.example.backend.domain.user;
 
+import com.example.backend.domain.dog.interest.UserDogInterest;
 import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 
 import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.List;
 
 @Entity
 @Table(
@@ -55,6 +58,9 @@ public class User {
 
     @Column(name = "updated_at", nullable = false)
     private LocalDateTime updatedAt;
+
+    @OneToMany(mappedBy = "user", cascade = CascadeType.ALL, orphanRemoval = true)
+    private List<UserDogInterest> userDogInterests = new ArrayList<>();
 
     @PrePersist
     public void prePersist() {

@@ -1,10 +1,11 @@
 import imgMungshall2 from "@/assets/images/mung.png";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type FormEvent } from "react";
 import { useNavigate } from "react-router-dom";
 import { ROUTES } from "@/shared/constants/routes";
 import { checkUsername, sendEmailCode, signup, verifyEmailCode } from "../api/authApi";
 import AlertModal from "@/shared/components/AlertModal";
 import { useAlertModal } from "@/shared/hooks/useAlertModal";
+import { primaryButtonClass, secondaryButtonClass } from "@/shared/ui/buttonClasses";
 import { ApiError } from "@/shared/api/client";
 
 type FieldProps = {
@@ -126,6 +127,8 @@ function PrimaryButton({
   width,
   onClick,
   disabled,
+  type = "button",
+  variant = "primary",
 }: {
   text: string;
   top: number;
@@ -133,15 +136,18 @@ function PrimaryButton({
   width: number;
   onClick?: () => void;
   disabled?: boolean;
+  type?: "button" | "submit";
+  variant?: "primary" | "secondary";
 }) {
   const baseClass =
     "absolute flex h-[36px] items-center justify-center rounded-[10px] px-[16px] py-[8px] shadow-[0px_1px_2px_0px_rgba(0,0,0,0.1)] text-[14px] font-medium leading-[20px]";
   const disabledClass = disabled ? "bg-[#9ab8f6] cursor-not-allowed" : "bg-[#3182f6] cursor-pointer";
+  const interactionClass = variant === "primary" ? primaryButtonClass : secondaryButtonClass;
 
   return (
     <button
-      type="button"
-      className={`${baseClass} ${disabledClass}`}
+      type={type}
+      className={`${baseClass} ${disabledClass} ${interactionClass}`}
       style={{ left, top, width }}
       onClick={onClick}
       disabled={disabled}
@@ -368,6 +374,12 @@ function Form() {
     }
   };
 
+  const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (!canSignup || signingUp) return;
+    handleSignup();
+  };
+
   const canSignup = Boolean(
     username.trim() &&
       password &&
@@ -382,7 +394,7 @@ function Form() {
   const successStatusClass = "text-[#2f9e44]";
 
   return (
-    <div className="absolute left-0 top-0" data-name="input">
+    <form className="absolute left-0 top-0" data-name="input" onSubmit={handleSubmit}>
       <Back />
 
       <p
@@ -408,6 +420,7 @@ function Form() {
         width={87}
         onClick={handleCheckUsername}
         disabled={checkingUsername}
+        variant="secondary"
       />
       {usernameStatus?.type === "success" ? (
         <p
@@ -465,6 +478,7 @@ function Form() {
         width={120}
         onClick={handleSendEmail}
         disabled={sendingCode}
+        variant="secondary"
       />
 
       <Box
@@ -485,6 +499,7 @@ function Form() {
         width={87}
         onClick={handleVerifyEmail}
         disabled={!emailSent || verifyingCode}
+        variant="secondary"
       />
       {emailStatus?.type === "success" ? (
         <p
@@ -526,8 +541,9 @@ function Form() {
         top={899}
         left={LEFT}
         width={350}
-        onClick={handleSignup}
+        type="submit"
         disabled={!canSignup || signingUp}
+        variant="primary"
       />
       {signupStatus?.type === "success" ? (
         <p
@@ -540,7 +556,7 @@ function Form() {
       <TermsText />
 
       <AlertModal {...alertProps} />
-    </div>
+    </form>
   );
 }
 

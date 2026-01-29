@@ -58,16 +58,8 @@ function getStepStatus(
   return "pending";
 }
 
-export function NextActions({
-  currentStep,
-  selectedStep,
-  onSelectStep,
-}: Props) {
-  /**
-   * ✅ 프론트-only 상태
-   * - 3단계 상담완료 → 1/2 잠금
-   * - 6단계 심사 시작 → 4/5 잠금
-   */
+export function NextActions({ currentStep, selectedStep, onSelectStep }: Props) {
+  // 잠금 트리거(프론트-only): 상담완료 → 1~2 잠금, 심사시작 → 4~5 잠금
   const [consultationConfirmed, setConsultationConfirmed] = useState(false);
   const [reviewStarted, setReviewStarted] = useState(false);
 
@@ -80,13 +72,7 @@ export function NextActions({
     [selectedStep, currentStep]
   );
 
-  /**
-   * ✅ 핵심 로직
-   * - current 단계만 편집 가능
-   * - 상담/심사 이후 잠금 규칙 적용
-   */
   const isEditable = useMemo(() => {
-    // 3단계 상담완료 이후 → 1/2단계 잠금
     if (
       consultationConfirmed &&
       (selectedStep === "APPLICATION" || selectedStep === "EDUCATION_CERT")
@@ -94,7 +80,6 @@ export function NextActions({
       return false;
     }
 
-    // 6단계 심사 시작 이후 → 4/5단계 잠금
     if (
       reviewStarted &&
       (selectedStep === "DOCUMENT" || selectedStep === "CONTRACT")
@@ -102,10 +87,8 @@ export function NextActions({
       return false;
     }
 
-    // 그 외는 모두 수정 가능 (현재 단계 여부 상관 ❌)
     return true;
   }, [consultationConfirmed, reviewStarted, selectedStep]);
-
 
   const goNext = (next: AdoptionInStep) => {
     if (next === "APPROVAL") {
@@ -158,9 +141,7 @@ export function NextActions({
 
         <div className="text-sm text-gray-500">
           {isEditable ? (
-            <span className="font-semibold text-[#5f7cf7]">
-              편집 가능
-            </span>
+            <span className="font-semibold text-[#5f7cf7]">편집 가능</span>
           ) : (
             <span>조회 전용</span>
           )}
@@ -215,15 +196,11 @@ export function NextActions({
       {isPreApprovalModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
           <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-lg">
-            <h3 className="text-lg font-semibold">
-              심사 단계로 넘어갈까요?
-            </h3>
+            <h3 className="text-lg font-semibold">심사 단계로 넘어갈까요?</h3>
             <p className="mt-2 text-sm text-gray-600">
               심사 단계로 넘어가면{" "}
-              <span className="font-semibold">
-                입양 문서/계약서(4~5단계)
-              </span>
-              는 더 이상 수정할 수 없습니다.
+              <span className="font-semibold">입양 문서/계약서(4~5단계)</span>는
+              더 이상 수정할 수 없습니다.
             </p>
 
             <div className="mt-6 flex justify-end gap-2">
@@ -241,8 +218,7 @@ export function NextActions({
                 className="rounded-xl bg-[#5f7cf7] px-4 py-2 text-sm text-white"
                 onClick={() => {
                   setIsPreApprovalModalOpen(false);
-                  if (pendingNextStep)
-                    onSelectStep?.(pendingNextStep);
+                  if (pendingNextStep) onSelectStep?.(pendingNextStep);
                   setPendingNextStep(null);
                 }}
               >

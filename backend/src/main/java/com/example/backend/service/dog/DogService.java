@@ -33,9 +33,9 @@ public class DogService {
      * @param pageable 페이지 요청 정보 (page, size, sort)
      * @return Page<DogSummaryResponse>
      */
-    public Page<DogSummaryResponse> getDogs(String region, String sexCd, String processState, Pageable pageable) {
+    public Page<DogSummaryResponse> getDogs(String sido, String kindNm, String sexCd, String processState, Pageable pageable) {
         // 1. Specification을 사용하여 동적 쿼리 생성
-        Specification<AbandonedDog> spec = AbandonedDogSpecification.createSpecification(region, sexCd, processState);
+        Specification<AbandonedDog> spec = AbandonedDogSpecification.createSpecification(sido, kindNm, sexCd, processState);
 
         // 2. 동적 쿼리와 페이지 정보를 사용하여 DB에서 데이터 조회
         Page<AbandonedDog> dogPage = abandonedDogRepository.findAll(spec, pageable);

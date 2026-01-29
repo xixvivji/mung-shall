@@ -11,16 +11,11 @@ import com.example.backend.domain.adoption.enums.AdoptionStatus;
 import com.example.backend.domain.adoption.enums.AdoptionStepStatus;
 import com.example.backend.domain.dog.AbandonedDog;
 import com.example.backend.domain.shelter.Shelter;
-import com.example.backend.domain.user.UserType;
 import com.example.backend.repository.adoption.AdoptionRepository;
 import com.example.backend.repository.adoption.AdoptionStepInstanceRepository;
 import com.example.backend.repository.dog.AbandonedDogRepository;
 import com.example.backend.repository.shelter.ShelterRepository;
-import com.example.backend.service.adoption.counseling.AdoptionCounselingService;
-import com.example.backend.security.principal.CustomUserPrincipal;
 import lombok.RequiredArgsConstructor;
-import org.springframework.security.core.Authentication;
-import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
@@ -38,7 +33,7 @@ public class AdoptionShelterService {
     private final AdoptionRepository adoptionRepository;
     private final ShelterRepository shelterRepository;
     private final AbandonedDogRepository abandonedDogRepository;
-    private final AdoptionCounselingService adoptionCounselingService;
+    private final ShelterPermissionEvaluator shelterPermissionEvaluator;
 
     /**
      * 보호소 사용자를 위한 입양 신청자 목록을 조회합니다.
@@ -85,7 +80,7 @@ public class AdoptionShelterService {
                 .orElseThrow(() -> new IllegalArgumentException("ID와 일치하는 입양이 없습니다: " + adoptionId));
 
         // 입양의 보호소 유저가 현재 요청한 보호소 유저와 일치하는지 확인
-        checkShelterPermission(adoption.getAbandonedDog());
+        shelterPermissionEvaluator.checkShelterPermission(adoption.getAbandonedDog());
 
         List<AdoptionStepInstanceResponse> stepResponses = adoption.getSteps().stream()
                 .map(stepInstance -> AdoptionStepInstanceResponse.builder()
@@ -128,7 +123,7 @@ public class AdoptionShelterService {
                 .orElseThrow(() -> new IllegalArgumentException("ID에 해당하는 stepInstance가 존재하지 않습니다: " + stepInstanceId));
 
         // 현재 로그인된 보호소 관리자가 이 입양 건을 처리할 권한이 있는지 확인
-        checkShelterPermission(currentStep.getAdoption().getAbandonedDog());
+        shelterPermissionEvaluator.checkShelterPermission(currentStep.getAdoption().getAbandonedDog());
 
         if (currentStep.getStatus() != AdoptionStepStatus.SUBMITTED) {
             throw new IllegalStateException("stepInstance가 SUBMITTED 상태가 아닙니다: " + currentStep.getStatus());
@@ -191,7 +186,7 @@ public class AdoptionShelterService {
         }
 
         // 현재 로그인된 보호소 관리자가 이 입양 건을 처리할 권한이 있는지 확인
-        checkShelterPermission(adoption.getAbandonedDog());
+        shelterPermissionEvaluator.checkShelterPermission(adoption.getAbandonedDog());
 
         if (isApproved) {
             // 모든 단계가 정확히 APPROVED 상태인지 확인해야 최종 승인 가능
@@ -230,24 +225,5 @@ public class AdoptionShelterService {
         adoption.setStatus(AdoptionStatus.REJECTED);
         adoption.setRejectionReason(reason);
         adoptionRepository.save(adoption);
-    }
-
-    private void checkShelterPermission(AbandonedDog dog) {
-        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-        if (authentication == null || !authentication.isAuthenticated() || !(authentication.getPrincipal() instanceof CustomUserPrincipal)) {
-            throw new SecurityException("인증되지 않은 사용자입니다.");
-        }
-        CustomUserPrincipal principal = (CustomUserPrincipal) authentication.getPrincipal();
-
-        if (principal.getUserType() != UserType.shelter) {
-            throw new SecurityException("보호소 관리자만 이 작업을 수행할 수 있습니다.");
-        }
-
-        Shelter shelter = shelterRepository.findByUserUserId(principal.getUserId())
-                .orElseThrow(() -> new IllegalArgumentException("해당 관리자에 매칭되는 보호소가 없습니다."));
-
-        if (!shelter.getShelterRegNo().equals(dog.getCareRegNo())) {
-            throw new SecurityException("해당 입양 건을 처리할 권한이 없습니다.");
-        }
     }
 }

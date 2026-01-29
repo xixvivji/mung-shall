@@ -1,5 +1,7 @@
 import { useMemo, useState, type ReactNode } from "react";
 import { Button } from "@/shared/ui/button";
+import { submitAdoptionApplication } from "@/features/adoptionApplication/api";
+import type { AdoptionApplicationRequest } from "@/features/adoptionApplication/types";
 
 type Props = {
   isEditable: boolean;
@@ -107,6 +109,8 @@ type Form = {
 };
 
 type Errors = Record<string, string>;
+
+const APPLICATION_ID_KEY = "adoptionApplicationId";
 
 function isValidEmail(v: string) {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v.trim());
@@ -342,6 +346,8 @@ export function ApplicationStep({ isEditable, onSubmitSuccess }: Props) {
   const [open, setOpen] = useState(false);
   const [stepIndex, setStepIndex] = useState(0);
   const [errors, setErrors] = useState<Errors>({});
+  const [submitting, setSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState<string | null>(null);
 
   const [form, setForm] = useState<Form>({
     name: "",
@@ -750,21 +756,101 @@ export function ApplicationStep({ isEditable, onSubmitSuccess }: Props) {
     setStepIndex((i) => Math.max(i - 1, 0));
   }
 
-  function handleFinalSave() {
-    if (!isEditable) return;
+  async function handleFinalSave() {
+    if (!isEditable || submitting) return;
 
     const s = sanitize(form);
     const all = validateAll(s);
     setErrors(all);
     if (Object.keys(all).length > 0) return;
 
-    // ✅ 여기까지 오면 "제출/저장 성공"으로 간주
-    setForm(s);
-    setOpen(false);
-    setStepIndex(0);
+    const payload: AdoptionApplicationRequest = {
+      name: s.name,
+      dateOfBirth: s.dateOfBirth,
+      gender: s.gender as Gender,
+      phoneNumber: s.phoneNumber,
+      email: s.email,
+      address: s.address,
+      detailAddress: s.detailAddress,
+      emergencyContacts: s.emergencyContacts.map((c) => ({
+        contactName: c.contactName,
+        contactPhoneNumber: c.contactPhoneNumber,
+        relationship: c.relationship,
+      })),
+      petPreference: s.petPreference as PetPreference,
+      cohabitantAgreement: s.cohabitantAgreement,
+      hasCohabitant: s.hasCohabitant,
+      cohabitantComposition: s.hasCohabitant
+        ? {
+            numberOfAdults: Number(s.cohabitantComposition.numberOfAdults),
+            numberOfChildren: Number(s.cohabitantComposition.numberOfChildren ?? 0),
+          }
+        : null,
+      cohabitantDetails: s.hasCohabitant
+        ? s.cohabitantDetails.map((d) => ({
+            relationship: d.relationship,
+            age: Number(d.age),
+            hasAllergy: d.hasAllergy,
+            adoptionAgreement: d.adoptionAgreement,
+          }))
+        : [],
+      hasCurrentPets: s.hasCurrentPets,
+      currentPetDetails: s.hasCurrentPets
+        ? s.currentPetDetails.map((p) => ({
+            petType: p.petType,
+            breed: p.breed,
+            count: Number(p.count),
+            age: p.age === "" ? null : Number(p.age),
+            neutered: p.neutered,
+            reasonForAdoptingMore: p.reasonForAdoptingMore,
+          }))
+        : [],
+      hasPastPetExperience: s.hasPastPetExperience,
+      pastPetExperiences: s.hasPastPetExperience
+        ? s.pastPetExperiences.map((p) => ({
+            pastPetType: p.pastPetType,
+            pastPetCount: Number(p.pastPetCount),
+            duration: p.duration,
+            isCurrentlyWithYou: p.isCurrentlyWithYou,
+            details: p.details,
+          }))
+        : [],
+      residenceType: s.residenceType as ResidenceType,
+      isOwner: s.isOwner,
+      completedOwnerEducation: s.completedOwnerEducation,
+      agreesToLifetimeCommitment: s.agreesToLifetimeCommitment,
+      agreesToFollowUp: s.agreesToFollowUp,
+      job: s.job,
+      workingHours: s.workingHours,
+      aloneTimeManagement: s.aloneTimeManagement,
+      maritalStatus: s.maritalStatus as MaritalStatus,
+      petLivingSpaceLocation: s.petLivingSpaceLocation,
+      petLivingSpacePhotoUrl: s.petLivingSpacePhotoUrl,
+      monthlyExpenseRange: s.monthlyExpenseRange as MonthlyExpenseRange,
+      agreesToNeutering: s.agreesToNeutering,
+      motivationForAdoption: s.motivationForAdoption,
+      lifeChangeCopingPlan: s.lifeChangeCopingPlan,
+      travelCopingPlan: s.travelCopingPlan,
+      agreesToRegularUpdates: s.agreesToRegularUpdates,
+      additionalQuestions: s.additionalQuestions,
+    };
 
-    // ✅ NextActions에게 "제출 완료" 알림 -> n단계 완료 + n+1 진행중 처리
-    onSubmitSuccess();
+    setSubmitting(true);
+    setSubmitError(null);
+    try {
+      const { applicationId } = await submitAdoptionApplication(payload);
+      localStorage.setItem(APPLICATION_ID_KEY, String(applicationId));
+
+      setForm(s);
+      setOpen(false);
+      setStepIndex(0);
+      onSubmitSuccess();
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "제출 중 오류가 발생했습니다.";
+      setSubmitError(message);
+    } finally {
+      setSubmitting(false);
+    }
   }
 
   const summary = useMemo(() => {
@@ -1779,12 +1865,15 @@ export function ApplicationStep({ isEditable, onSubmitSuccess }: Props) {
                     다음
                   </Button>
                 ) : (
-                  <Button className="rounded-xl" onClick={handleFinalSave}>
-                    최종 저장
+                  <Button className="rounded-xl" onClick={handleFinalSave} disabled={submitting}>
+                    {submitting ? "저장 중..." : "최종 저장"}
                   </Button>
                 )}
               </div>
             </div>
+            {submitError ? (
+              <div className="px-6 pb-4 text-xs text-red-600">{submitError}</div>
+            ) : null}
           </div>
         </div>
       ) : null}

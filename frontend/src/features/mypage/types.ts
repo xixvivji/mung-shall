@@ -3,6 +3,15 @@ export type MyDog = {
   name: string;
 };
 
+export type LikedDog = {
+  id: string;
+  name: string;
+  breed?: string;
+  age?: string;
+  imageUrl?: string;
+  centerName?: string;
+};
+
 export type MyPageSummary = {
   username: string;
   adoptedCount: number;

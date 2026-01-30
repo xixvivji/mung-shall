@@ -16,6 +16,18 @@ services:
     depends_on:
       - backend
 
+  ai-server:
+    build:
+      context: ./ai   # ./ai 폴더 안의 Dockerfile을 쓰겠다는 뜻
+    container_name: ai-server
+    ports:
+      - "8000:8000"   # 외부에서 테스트할 때 필요 (배포 시엔 보안상 닫아도 됨)
+    volumes:
+      - ./ai/model:/app/model # [중요] 모델 파일이 크면 볼륨으로 연결 (선택)
+    networks:
+      - app-network
+    restart: always
+
   # 2. Spring Boot 백엔드
   backend:
     container_name: backend-server
@@ -71,6 +83,7 @@ services:
       - mysql
       - redis
       - openvidu
+      - ai-server
 
   # 3. OpenVidu Server (화상회의 엔진)
   openvidu:

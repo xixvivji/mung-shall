@@ -1,7 +1,7 @@
 pipeline {
     agent any
 
-    // 1. 젠킨스 기본 체크아웃 비활성화 (우리가 직접 제어하기 위해)
+    // 1. 젠킨스 기본 체크아웃 비활성화
     options {
         skipDefaultCheckout()
     }
@@ -9,8 +9,6 @@ pipeline {
     stages {
         stage('Checkout') {
             steps {
-                // [핵심 해결책] 이 블록 안에서는 LFS 파일 다운로드를 강제로 막습니다 (SMUDGE=1)
-                // 이렇게 해야 체크아웃이 가볍게 끝나고 타임아웃이 안 걸립니다.
                 deleteDir() // 깨끗한 상태에서 시작
                 withEnv(['GIT_LFS_SKIP_SMUDGE=1']) {
                     checkout([
@@ -18,7 +16,7 @@ pipeline {
                         branches: scm.branches,
                         doGenerateSubmoduleConfigurations: false,
                         extensions: [
-                            // 타임아웃을 120분(2시간)으로 설정 (안전장치)
+                            // 타임아웃을 120분(2시간)으로 설정
                             [$class: 'CloneOption', timeout: 120, shallow: true, depth: 1, noTags: true, reference: ''],
                             [$class: 'CheckoutOption', timeout: 120]
                         ],
@@ -28,27 +26,22 @@ pipeline {
             }
         }
 
-        // [2단계] 여기서만 대용량 파일(AI 모델)을 별도로 다운로드
+        // [2단계] AI 모델 다운로드는 잠시 주석 처리
 //         stage('Fetch LFS Files') {
 //             steps {
 //                 script {
-//                     echo "📡 LFS 대용량 파일(AI 모델) 다운로드 시작..."
 //                     sh 'git lfs pull'
 //                 }
 //             }
 //         }
 
         stage('Build & Docker Image') {
-            // 서버 사양이 좋으므로 병렬 실행(Parallel) 유지
             parallel {
                 stage('Backend Build') {
                     steps {
                         dir('backend') {
                             sh 'chmod +x ./gradlew'
-                            // [속도 최적화] clean, refresh 제거 -> 변경된 코드만 빠르게 빌드
                             sh './gradlew build -x test'
-
-                            // [필수] 도커 이미지 빌드
                             sh 'docker build -t backend-image:latest .'
                         }
                     }
@@ -57,7 +50,6 @@ pipeline {
                 stage('Frontend Build') {
                     steps {
                         dir('frontend') {
-                            // 프론트엔드 이미지 빌드
                             sh 'docker build -t frontend-image:latest .'
                         }
                     }
@@ -134,11 +126,38 @@ pipeline {
                         echo "COOKIE_SAMESITE=None" >> .env
                         """
 
-                        // 2. 배포 실행
+                        sh '''
+                        mkdir -p monitoring
+                        # 혹시 폴더로 존재하면 강제 삭제 (에러 원인 제거)
+                        rm -rf monitoring/prometheus.yml
+
+                        # 파일 내용 직접 작성해서 생성
+                        cat <<EOF > monitoring/prometheus.yml
+global:
+  scrape_interval: 15s
+
+scrape_configs:
+  - job_name: 'prometheus'
+    static_configs:
+      - targets: ['localhost:9090']
+
+  - job_name: 'node-exporter'
+    static_configs:
+      - targets: ['node-exporter:9100']
+
+  # - job_name: 'ai-server'
+  #   metrics_path: '/metrics'
+  #   static_configs:
+  #     - targets: ['ai-server:8000']
+EOF
+                        '''
+
+                        // 3. 배포 실행
                         sh 'docker rm -f backend-server frontend-server || true'
                         sh 'docker-compose down || true'
 
-                       sh 'docker-compose up -d --force-recreate --build backend frontend openvidu mysql redis prometheus grafana node-exporter'
+                        // 모니터링 도구들 포함해서 실행
+                        sh 'docker-compose up -d --force-recreate --build backend frontend openvidu mysql redis prometheus grafana node-exporter'
 
                         sh 'docker image prune -f'
                     }

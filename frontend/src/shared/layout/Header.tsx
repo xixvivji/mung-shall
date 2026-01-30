@@ -84,6 +84,16 @@ export default function Header() {
               )}
             </NavLink>
 
+            <NavLink
+              to={ROUTES.boards}
+              className={({ isActive }) => `${linkBase} ${linkState}`}
+              style={{ fontVariationSettings: "'wdth' 100" }}
+            >
+              {({ isActive }) => (
+                <span data-active={isActive ? "true" : "false"}>board</span>
+              )}
+            </NavLink>
+
             {displayName ? (
               <div className="flex flex-col items-end gap-1">
                 <Link

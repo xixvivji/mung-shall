@@ -5,7 +5,7 @@ import com.example.backend.domain.dog.AbandonedDog;
 import com.example.backend.domain.dog.DogKind;
 import com.example.backend.domain.shelter.Shelter;
 import com.example.backend.repository.dog.AbandonedDogRepository;
-import com.example.backend.repository.dog.DogKindRepository; // Import DogKindRepository
+import com.example.backend.repository.dog.DogKindRepository;
 import com.example.backend.repository.shelter.ShelterRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -13,6 +13,7 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.annotation.Propagation;
 import org.springframework.web.client.RestTemplate;
 import org.springframework.web.util.UriComponentsBuilder;
 
@@ -51,13 +52,14 @@ public class AbandonedDogApiScheduler {
         try {
             // 1. API를 통해 모든 유기견 데이터를 가져옴
             List<PublicApiResponse.Item> allItems = fetchAllItemsFromApi();
+            log.debug("fetchAllItemsFromApi()로부터 총 {}개의 항목을 받았습니다.", allItems.size());
             if (allItems.isEmpty()) {
                 log.info("API로부터 가져온 새로운 유기견 데이터가 없습니다.");
                 return;
             }
 
             // 2. 품종 데이터 업데이트 (DogKind 테이블 관리)
-            updateDogKinds(allItems); // Call the new method
+            updateDogKinds(allItems);
 
             // 3. API에서 가져온 모든 유기번호(desertionNo)를 추출
             Set<String> apiDogIds = allItems.stream()
@@ -88,7 +90,8 @@ public class AbandonedDogApiScheduler {
     }
 
     // 강아지 품종 추가
-    private void updateDogKinds(List<PublicApiResponse.Item> items) {
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
+    public void updateDogKinds(List<PublicApiResponse.Item> items) {
         // 호출한 api 응답에서 추출한 품종 리스트
         Set<String> uniqueKindNames = items.stream()
                 .map(PublicApiResponse.Item::getKindNm)
@@ -100,8 +103,8 @@ public class AbandonedDogApiScheduler {
         // 추출한 품종 리스트 db 품종과 비교해서 추가
         uniqueKindNames.forEach(kindNm -> {
             if (!dogKindRepository.existsByName(kindNm)) {
+                log.info("새로운 품종 발견: '{}'. DB에 추가합니다.", kindNm);
                 dogKindRepository.save(new DogKind(kindNm));
-                log.debug("새로운 품종 추가: {}", kindNm);
             }
         });
         log.info("DogKind 테이블 업데이트 완료.");
@@ -147,7 +150,6 @@ public class AbandonedDogApiScheduler {
     private PublicApiResponse callApi(int pageNo) {
         URI uri = UriComponentsBuilder.fromUriString(apiUrl)
                 .queryParam("serviceKey", serviceKey)
-                .queryParam("upkind", upkind)
                 .queryParam("numOfRows", numOfRows)
                 .queryParam("pageNo", pageNo)
                 .queryParam("_type", "json")
@@ -183,6 +185,7 @@ public class AbandonedDogApiScheduler {
         String careTel = item.getCareTel();
         String shelterRegNo = item.getCareRegNo();
 
+        // 존재하지 않는 보호소 db에 추가
         Shelter shelter = shelterRepository.findByCareNmAndAddress(careNm, careAddr)
                 .orElseGet(() -> {
                     Shelter newShelter = Shelter.builder()
@@ -190,7 +193,6 @@ public class AbandonedDogApiScheduler {
                             .address(careAddr)
                             .tel(careTel)
                             .shelterRegNo(shelterRegNo)
-                            .user(null)
                             .build();
                     return shelterRepository.save(newShelter);
                 });

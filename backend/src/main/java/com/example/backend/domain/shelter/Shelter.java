@@ -15,10 +15,10 @@ public class Shelter {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    // 계정 지정 안되어있으면 admin 계정으로 임시 귀속
-    @OneToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "user_id")
-    private User user;
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "user_id", nullable = true)
+    private User owner;
+
 
     @Column(nullable = false)
     private String careNm; // 보호소 이름

@@ -5,5 +5,8 @@ python-multipart
 
 # 2. AI 및 영상 처리
 ultralytics
-opencv-python
+opencv-python-headless
 numpy
+
+# 3. 유틸리티
+python-dotenv

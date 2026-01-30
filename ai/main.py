@@ -1,3 +1,6 @@
+# Copyright (c) 2024 YourName
+# Licensed under the GNU Affero General Public License v3.0
+
 from fastapi import FastAPI, UploadFile, File, Form, BackgroundTasks
 from fastapi.responses import FileResponse, JSONResponse
 import uvicorn

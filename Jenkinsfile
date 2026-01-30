@@ -99,6 +99,8 @@ pipeline {
                         echo "COOKIE_SAMESITE=None" >> .env
                         """
 
+
+                        sh 'docker rm -f backend-server frontend-server || true'
                         // 2. 배포 실행
                         sh 'docker-compose down || true'
                         sh 'docker-compose up -d --force-recreate'

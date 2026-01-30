@@ -69,6 +69,7 @@ public class SecurityConfig {
                         .requestMatchers(
                                 "/api/auth/**",
                                 "/api/dogs/**",
+                                "/api/faqs/**",
                                 "/api/openvidu/**",
                                 "/oauth2/**",
                                 "/login/**",

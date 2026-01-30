@@ -44,12 +44,12 @@ pipeline {
                     steps {
                         dir('backend') {
                             sh 'chmod +x ./gradlew'
-                            sh './gradlew clean build -x test --refresh-dependencies'
-                            sh 'docker build -t backend-image:latest .'
-                        }
-                    }
-                }
+                            sh './gradlew build -x test'
 
+                            sh 'docker build -t backend-image:latest .'
+                                 }
+                             }
+                         }
                 stage('Frontend Build') {
                     steps {
                         dir('frontend') {

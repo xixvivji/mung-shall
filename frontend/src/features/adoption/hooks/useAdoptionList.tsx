@@ -31,7 +31,7 @@ export default function AdoptionList() {
   const breedParam = filters.breed !== DEFAULT_BREED ? filters.breed : undefined;
 
   useEffect(() => {
-    let cancelled = false;
+    const controller = new AbortController();
     setLoading(true);
     setError(null);
 
@@ -41,27 +41,26 @@ export default function AdoptionList() {
       sort: "happenDt",
       region,
       breed: breedParam,
+      signal: controller.signal,
     })
       .then((result) => {
-        if (!cancelled) {
-          setDogs(result.items);
-          setTotalPages(result.totalPages || 1);
-        }
+        if (controller.signal.aborted) return;
+        setDogs(result.items);
+        setTotalPages(result.totalPages || 1);
       })
       .catch((err) => {
-        if (!cancelled) {
-          const message = err instanceof Error ? err.message : "Failed to load";
-          setError(message);
-        }
+        if (controller.signal.aborted) return;
+        if (err instanceof DOMException && err.name === "AbortError") return;
+        const message = err instanceof Error ? err.message : "Failed to load";
+        setError(message);
       })
       .finally(() => {
-        if (!cancelled) {
-          setLoading(false);
-        }
+        if (controller.signal.aborted) return;
+        setLoading(false);
       });
 
     return () => {
-      cancelled = true;
+      controller.abort();
     };
   }, [page, region, breedParam]);
 

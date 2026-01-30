@@ -16,7 +16,7 @@ pipeline {
                         branches: scm.branches,
                         doGenerateSubmoduleConfigurations: false,
                         extensions: [
-                            // 타임아웃을 120분(2시간)으로 설정
+                            // 타임아웃을 120분으로 설정
                             [$class: 'CloneOption', timeout: 120, shallow: true, depth: 1, noTags: true, reference: ''],
                             [$class: 'CheckoutOption', timeout: 120]
                         ],
@@ -25,15 +25,6 @@ pipeline {
                 }
             }
         }
-
-        // [2단계] AI 모델 다운로드는 잠시 주석 처리
-//         stage('Fetch LFS Files') {
-//             steps {
-//                 script {
-//                     sh 'git lfs pull'
-//                 }
-//             }
-//         }
 
         stage('Build & Docker Image') {
             parallel {
@@ -126,12 +117,12 @@ pipeline {
                         echo "COOKIE_SAMESITE=None" >> .env
                         """
 
+                        // 2. prometheus.yml 파일 생성 (폴더 내부에 생성)
                         sh '''
                         mkdir -p monitoring
-                        # 혹시 폴더로 존재하면 강제 삭제 (에러 원인 제거)
+                        # 기존 파일/폴더 삭제 후 새로 생성 (안전장치)
                         rm -rf monitoring/prometheus.yml
 
-                        # 파일 내용 직접 작성해서 생성
                         cat <<EOF > monitoring/prometheus.yml
 global:
   scrape_interval: 15s
@@ -156,7 +147,6 @@ EOF
                         sh 'docker rm -f backend-server frontend-server || true'
                         sh 'docker-compose down || true'
 
-                        // 모니터링 도구들 포함해서 실행
                         sh 'docker-compose up -d --force-recreate --build backend frontend openvidu mysql redis prometheus grafana node-exporter'
 
                         sh 'docker image prune -f'

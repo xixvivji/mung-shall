@@ -117,15 +117,15 @@ services:
       - app-network
     command: redis-server --appendonly yes
 
-  # 6. Prometheus (모니터링 수집)
+  # 6. Prometheus
   prometheus:
     image: prom/prometheus:latest
     container_name: prometheus
     volumes:
-      - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml
+      - ./monitoring:/etc/prometheus/custom_config
       - prometheus_data:/prometheus
     command:
-      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--config.file=/etc/prometheus/custom_config/prometheus.yml'
       - '--storage.tsdb.retention.time=15d'
     ports:
       - "9090:9090"
@@ -133,7 +133,7 @@ services:
       - app-network
     restart: always
 
-  # 7. Grafana (시각화 대시보드)
+  # 7. Grafana
   grafana:
     image: grafana/grafana:latest
     container_name: grafana
@@ -147,7 +147,7 @@ services:
     depends_on:
       - prometheus
 
-  # 8. Node Exporter (EC2 호스트 리소스 수집)
+  # 8. Node Exporter
   node-exporter:
     image: prom/node-exporter:latest
     container_name: node-exporter

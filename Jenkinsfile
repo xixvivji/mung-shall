@@ -19,7 +19,8 @@ pipeline {
                     doGenerateSubmoduleConfigurations: false,
                     extensions: [
                         // LFS 제외하고 소스만 받으므로 시간 단축됨 (안전장치로 60분 유지)
-                        [$class: 'CloneOption', timeout: 60, shallow: true, depth: 1, noTags: true, reference: '']
+                        [$class: 'CloneOption', timeout: 60, shallow: true, depth: 1, noTags: true, reference: ''],
+                        [$class: 'CheckoutOption', timeout: 60]
                     ],
                     userRemoteConfigs: scm.userRemoteConfigs
                 ])

@@ -128,7 +128,7 @@ services:
       - '--config.file=/etc/prometheus/custom_config/prometheus.yml'
       - '--storage.tsdb.retention.time=15d'
     ports:
-      - "9090:9090"
+      - "9091:9090"
     networks:
       - app-network
     restart: always

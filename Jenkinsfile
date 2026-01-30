@@ -1,20 +1,21 @@
 pipeline {
     agent any
 
-  stage('Checkout') {
-      steps {
-          checkout([
-              $class: 'GitSCM',
-              branches: scm.branches,
-              doGenerateSubmoduleConfigurations: false,
-              extensions: [
+    stages {
+         stage('Checkout') {
+             steps {
 
-                  [$class: 'CloneOption', timeout: 60, shallow: true, depth: 1, noTags: true, reference: '']
-              ],
-              userRemoteConfigs: scm.userRemoteConfigs
-          ])
-      }
-  }
+                 checkout([
+                     $class: 'GitSCM',
+                     branches: scm.branches,
+                     doGenerateSubmoduleConfigurations: false,
+                     extensions: [
+                         [$class: 'CloneOption', timeout: 60, shallow: true, depth: 1, noTags: true, reference: '']
+                     ],
+                     userRemoteConfigs: scm.userRemoteConfigs
+                 ])
+             }
+         }
 
         stage('Build & Docker Image') {
             parallel {

@@ -21,13 +21,16 @@ type DogCardProps = {
   className?: string;
 
   /** 관심 등록 버튼 */
-  favoriteActive?: boolean;
+  favoriteActive: boolean;
   favoriteDisabled?: boolean;
-  onToggleFavorite?: () => void;
+  onToggleFavorite: () => void;
 };
 
 export default function DogCard({
   dog,
+  favoriteActive,
+  favoriteDisabled,
+  onToggleFavorite,
   variant = "link",
   selected = false,
   draggable = false,
@@ -64,14 +67,9 @@ export default function DogCard({
     </>
   );
 
-  const favoriteButton =
-    onToggleFavorite && typeof onToggleFavorite === "function" ? (
-      <FavoriteHeart
-        active={Boolean(favoriteActive)}
-        disabled={favoriteDisabled}
-        onToggle={onToggleFavorite}
-      />
-    ) : null;
+  const favoriteButton = (
+    <FavoriteHeart active={favoriteActive} disabled={favoriteDisabled} onToggle={onToggleFavorite} />
+  );
 
   // ✅ 기존 동작 유지: 입양 리스트에서 쓰는 Link 카드
   if (variant === "link") {

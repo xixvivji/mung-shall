@@ -2,6 +2,7 @@ import imgFallback from "@/assets/images/7d7c0c4fb5f5ec351d4a2c2c80e08bf92b1c3de
 import { Link } from "react-router-dom";
 import { ROUTES } from "@/shared/constants/routes";
 import type { AdoptionDog } from "../types";
+import FavoriteHeart from "@/shared/components/FavoriteHeart";
 
 type DogCardProps = {
   dog: AdoptionDog;
@@ -18,6 +19,11 @@ type DogCardProps = {
 
   /** 외부에서 추가 클래스 주입 */
   className?: string;
+
+  /** 관심 등록 버튼 */
+  favoriteActive?: boolean;
+  favoriteDisabled?: boolean;
+  onToggleFavorite?: () => void;
 };
 
 export default function DogCard({
@@ -29,7 +35,7 @@ export default function DogCard({
   className = "",
 }: DogCardProps) {
   const baseClass = [
-    "group rounded-2xl border bg-white p-4 transition",
+    "group relative rounded-2xl border bg-white transition",
     selected ? "border-[#5f7cf7] ring-2 ring-[#5f7cf7]" : "border-[#eee] hover:border-[#ddd]",
     draggable ? "cursor-grab active:cursor-grabbing" : "",
     className,
@@ -58,19 +64,32 @@ export default function DogCard({
     </>
   );
 
+  const favoriteButton =
+    onToggleFavorite && typeof onToggleFavorite === "function" ? (
+      <FavoriteHeart
+        active={Boolean(favoriteActive)}
+        disabled={favoriteDisabled}
+        onToggle={onToggleFavorite}
+      />
+    ) : null;
+
   // ✅ 기존 동작 유지: 입양 리스트에서 쓰는 Link 카드
   if (variant === "link") {
     return (
-      <Link className={baseClass} to={ROUTES.adoptionDetail(dog.id)}>
-        {content}
-      </Link>
+      <div className={baseClass}>
+        <Link className="block h-full w-full p-4" to={ROUTES.adoptionDetail(dog.id)}>
+          {content}
+        </Link>
+        {favoriteButton}
+      </div>
     );
   }
 
   // ✅ SelectStep용: 이동 없는 div 카드 + draggable 지원
   return (
     <div className={baseClass} draggable={draggable} onDragStart={onDragStart}>
-      {content}
+      <div className="p-4">{content}</div>
+      {favoriteButton}
     </div>
   );
 }

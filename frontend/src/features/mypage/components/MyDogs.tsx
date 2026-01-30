@@ -1,7 +1,12 @@
 import type { MyDog } from "@/features/mypage/types";
+import useAuth from "@/features/auth/hooks/useAuth";
+import useFavoriteDogs, { resolveFavoriteErrorMessage } from "@/features/adoption/hooks/useFavoriteDogs";
+import AlertModal from "@/shared/components/AlertModal";
+import FavoriteHeart from "@/shared/components/FavoriteHeart";
+import { useAlertModal } from "@/shared/hooks/useAlertModal";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/shared/ui/tabs";
 import { Badge } from "@/shared/ui/badge";
-import { Heart, MapPin } from "lucide-react";
+import { MapPin } from "lucide-react";
 import { ImageWithFallback } from "@/shared/ui/figma/ImageWithFallback";
 
 type Props = {
@@ -81,10 +86,44 @@ const dummyDogs: { interest: DogCard[]; applied: DogCard[]; completed: DogCard[]
 };
 
 export function MyDogs({ dogs }: Props) {
+  const { user } = useAuth();
+  const { openAlert, alertProps } = useAlertModal();
+  const { favoriteDogs, pendingIds, toggleFavorite, isFavorite, loading } = useFavoriteDogs();
+
+  const interestDogs = user
+    ? favoriteDogs.map((dog) => ({
+        id: String(dog.dogId),
+        name: dog.noticeNo ?? dog.desertionNo ?? dog.kindNm ?? `Dog #${dog.dogId}`,
+        breed: dog.kindNm ?? "알 수 없음",
+        age: dog.age ?? "-",
+        gender: "미상",
+        location: dog.careNm ?? "-",
+        image: dog.imageUrl ?? "",
+      }))
+    : dummyDogs.interest;
+
+  const view = {
+    ...dummyDogs,
+    interest: interestDogs,
+  };
+
+  const handleToggleFavorite = async (dogId: string | number) => {
+    const result = await toggleFavorite(dogId);
+    if (result.status === "unauthenticated") {
+      openAlert({ title: "로그인 필요", message: "로그인이 필요합니다." });
+      return;
+    }
+    if (result.status === "error") {
+      openAlert({ title: "관심 등록 실패", message: resolveFavoriteErrorMessage(result.error) });
+    }
+  };
+
+  const showInterestLoading = Boolean(user) && loading;
+  const showInterestEmpty = Boolean(user) && !loading && view.interest.length === 0;
   // ✅ 지금은 MyDog에 상세 필드가 없으니, 비어있지 않아도 더미로 보여주고 싶으면 여기서 매핑하면 됨.
   // 현재는 “UI 유지” 목적이라 더미 데이터를 그대로 사용.
   // 추후 백엔드 붙이면 dummyDogs 대신 실제 dogs를 interest/applied/completed로 분류해서 넣으면 됨.
-  const view = dummyDogs;
+  void dogs;
 
   return (
     <div className="bg-white rounded-2xl p-8 shadow-sm border border-gray-100">
@@ -104,33 +143,41 @@ export function MyDogs({ dogs }: Props) {
         </TabsList>
 
         <TabsContent value="interest">
-          <div className="grid grid-cols-3 gap-6">
-            {view.interest.map((dog) => (
-              <div key={dog.id} className="group cursor-pointer">
-                <div className="relative aspect-square rounded-xl overflow-hidden mb-3">
-                  <ImageWithFallback
-                    src={dog.image}
-                    alt={dog.name}
-                    className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-                  />
-                  <button
-                    type="button"
-                    className="absolute top-3 right-3 w-10 h-10 rounded-full bg-white/90 flex items-center justify-center hover:bg-white"
-                  >
-                    <Heart className="w-5 h-5 text-red-500 fill-red-500" />
-                  </button>
-                </div>
-                <h3 className="font-medium text-gray-900 mb-1">{dog.name}</h3>
-                <p className="text-sm text-gray-500 mb-1">
-                  {dog.breed} · {dog.age} · {dog.gender}
-                </p>
-                <div className="flex items-center gap-1 text-sm text-gray-400">
-                  <MapPin className="w-4 h-4" />
-                  <span>{dog.location}</span>
-                </div>
-              </div>
-            ))}
-          </div>
+          {showInterestLoading ? (
+            <div className="text-center py-12 text-gray-400">Loading...</div>
+          ) : showInterestEmpty ? (
+            <div className="text-center py-12 text-gray-400">?? ??? ???? ????.</div>
+          ) : (
+            <div className="grid grid-cols-3 gap-6">
+              {view.interest.map((dog) => {
+                const id = String(dog.id);
+                return (
+                  <div key={dog.id} className="group cursor-pointer">
+                    <div className="relative aspect-square rounded-xl overflow-hidden mb-3">
+                      <ImageWithFallback
+                        src={dog.image}
+                        alt={dog.name}
+                        className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                      />
+                      <FavoriteHeart
+                        active={isFavorite(id)}
+                        disabled={pendingIds.has(id)}
+                        onToggle={() => handleToggleFavorite(id)}
+                      />
+                    </div>
+                    <h3 className="font-medium text-gray-900 mb-1">{dog.name}</h3>
+                    <p className="text-sm text-gray-500 mb-1">
+                      {dog.breed} ? {dog.age} ? {dog.gender}
+                    </p>
+                    <div className="flex items-center gap-1 text-sm text-gray-400">
+                      <MapPin className="w-4 h-4" />
+                      <span>{dog.location}</span>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
         </TabsContent>
 
         <TabsContent value="applied">
@@ -164,6 +211,7 @@ export function MyDogs({ dogs }: Props) {
           <div className="text-center py-12 text-gray-400">아직 입양 완료된 강아지가 없습니다</div>
         </TabsContent>
       </Tabs>
+      <AlertModal {...alertProps} />
     </div>
   );
 }

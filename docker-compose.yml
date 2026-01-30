@@ -16,19 +16,20 @@ services:
     depends_on:
       - backend
 
-  ai-server:
-    build:
-      context: ./ai   # ./ai 폴더 안의 Dockerfile을 쓰겠다는 뜻
-    container_name: ai-server
-    ports:
-      - "8000:8000"   # 외부에서 테스트할 때 필요 (배포 시엔 보안상 닫아도 됨)
-    volumes:
-      - ./ai/model:/app/model # [중요] 모델 파일이 크면 볼륨으로 연결 (선택)
-    networks:
-      - app-network
-    restart: always
+  # [AI Server - 잠시 주석 유지]
+  # ai-server:
+  #   build:
+  #     context: ./ai
+  #   container_name: ai-server
+  #   ports:
+  #     - "8000:8000"
+  #   volumes:
+  #     - ./ai/model:/app/model
+  #   networks:
+  #     - app-network
+  #   restart: always
 
-  # 2. Spring Boot 백엔드
+  # 2. Spring Boot Backend
   backend:
     container_name: backend-server
     image: backend-image:latest
@@ -38,17 +39,11 @@ services:
       - SPRING_DATASOURCE_URL=jdbc:mysql://mysql-container:3306/mydb?useSSL=false&allowPublicKeyRetrieval=true&characterEncoding=UTF-8
       - SPRING_DATASOURCE_USERNAME=root
       - SPRING_DATASOURCE_PASSWORD=${DB_ROOT_PASSWORD}
-
-      # Redis 설정
       - SPRING_DATA_REDIS_HOST=${REDIS_HOST}
       - SPRING_DATA_REDIS_PORT=${REDIS_PORT}
       - SPRING_DATA_REDIS_PASSWORD=${REDIS_PASSWORD}
-
-      # OpenVidu 설정 환경변수 주입
       - OPENVIDU_URL=${OPENVIDU_URL}
       - OPENVIDU_SECRET=${OPENVIDU_SECRET}
-
-      # JWT 및 OAuth 설정
       - JWT_SECRET=${JWT_SECRET}
       - JWT_ACCESS_EXP_MIN=${JWT_ACCESS_EXP_MIN}
       - JWT_REFRESH_EXP_DAYS=${JWT_REFRESH_EXP_DAYS}
@@ -58,23 +53,16 @@ services:
       - KAKAO_CLIENT_SECRET=${KAKAO_CLIENT_SECRET}
       - NAVER_CLIENT_ID=${NAVER_CLIENT_ID}
       - NAVER_CLIENT_SECRET=${NAVER_CLIENT_SECRET}
-
       - DOMAIN_URL=${DOMAIN_URL}
-
       - FRONT_OAUTH_REDIRECT_URL=http://13.125.3.38/oauth/callback
       - FRONT_RESET_PASSWORD_URL=http://13.125.3.38/reset-password
-
       - COOKIE_SECURE=${COOKIE_SECURE}
       - COOKIE_SAMESITE=${COOKIE_SAMESITE}
       - MAIL_USERNAME=${MAIL_USERNAME}
       - MAIL_PASSWORD=${MAIL_PASSWORD}
-
-      #  S3 접속 정보 추가
       - S3_ACCESS_KEY=${S3_ACCESS_KEY}
       - S3_SECRET_KEY=${S3_SECRET_KEY}
       - S3_BUCKET_NAME=${S3_BUCKET_NAME}
-
-     # GMS API Key
       - GMS_KEY=${GMS_KEY}
     networks:
       - app-network
@@ -83,9 +71,9 @@ services:
       - mysql
       - redis
       - openvidu
-      - ai-server
+      # - ai-server
 
-  # 3. OpenVidu Server (화상회의 엔진)
+  # 3. OpenVidu Server
   openvidu:
     image: openvidu/openvidu-dev:2.29.0
     container_name: openvidu-server
@@ -129,9 +117,54 @@ services:
       - app-network
     command: redis-server --appendonly yes
 
+  # 6. Prometheus (모니터링 수집)
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: prometheus
+    volumes:
+      - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml
+      - prometheus_data:/prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.retention.time=15d'
+    ports:
+      - "9090:9090"
+    networks:
+      - app-network
+    restart: always
+
+  # 7. Grafana (시각화 대시보드)
+  grafana:
+    image: grafana/grafana:latest
+    container_name: grafana
+    ports:
+      - "3000:3000"
+    volumes:
+      - grafana_data:/var/lib/grafana
+    networks:
+      - app-network
+    restart: always
+    depends_on:
+      - prometheus
+
+  # 8. Node Exporter (EC2 호스트 리소스 수집)
+  node-exporter:
+    image: prom/node-exporter:latest
+    container_name: node-exporter
+    command:
+      - '--path.rootfs=/host'
+    pid: host
+    restart: always
+    volumes:
+      - '/:/host:ro,rslave'
+    networks:
+      - app-network
+
 volumes:
   mysql_data:
   redis_data:
+  prometheus_data:
+  grafana_data:
 
 networks:
   app-network:

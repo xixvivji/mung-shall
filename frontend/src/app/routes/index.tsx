@@ -15,6 +15,7 @@ import BoardDetailPage from "@/features/board/pages/BoardDetailPage";
 import BoardCreatePage from "@/features/board/pages/BoardCreatePage";
 import BoardEditPage from "@/features/board/pages/BoardEditPage";
 import FAQPage from "@/pages/faq";
+import UiTestPage from "@/pages/uitest";
 
 export default function AppRoutes() {
   return (
@@ -36,6 +37,7 @@ export default function AppRoutes() {
           <Route path="/center" element={<CenterPage />} />
           <Route path="/faq" element={<FAQPage />} />
           <Route path="*" element={<NotFoundPage />} />
+          <Route path="/uitest" element={<UiTestPage />} />
         </Route>
       </Routes>
     </BrowserRouter>

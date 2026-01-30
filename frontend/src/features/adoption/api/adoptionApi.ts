@@ -28,6 +28,7 @@ type FetchAdoptionParams = {
   sexCd?: string;
   processState?: string;
   breed?: string;
+  signal?: AbortSignal;
 };
 
 type FetchAdoptionResult = {
@@ -108,6 +109,7 @@ export async function fetchAdoptionList({
   sexCd,
   processState,
   breed,
+  signal,
 }: FetchAdoptionParams = {}): Promise<FetchAdoptionResult> {
   const params = new URLSearchParams();
   params.set("page", String(page));
@@ -134,7 +136,9 @@ export async function fetchAdoptionList({
   }
   const controller = inflightController;
   try {
-    const data = await api<DogsResponse>(requestPath, { signal: controller?.signal });
+    const data = await api<DogsResponse>(requestPath, {
+      signal: signal ?? controller?.signal,
+    });
     return {
       items: data.content.map((dog) => ({
         id: String(dog.dogId),

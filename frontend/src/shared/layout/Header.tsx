@@ -65,7 +65,7 @@ export default function Header() {
 
             {/* TODO: 라우트가 있으면 ROUTES.faq / ROUTES.contacts 로 바꿔줘 */}
             <NavLink
-              to={ROUTES.home}
+              to={ROUTES.faq}
               className={({ isActive }) => `${linkBase} ${linkState}`}
               style={{ fontVariationSettings: "'wdth' 100" }}
             >

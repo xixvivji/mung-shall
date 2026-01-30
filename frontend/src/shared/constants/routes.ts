@@ -11,4 +11,5 @@ export const ROUTES = {
   signup: "/auth/signup",
   mypage: "/mypage",
   center: "/center",
+  faq: "/faq"
 };

@@ -14,6 +14,7 @@ import BoardListPage from "@/features/board/pages/BoardListPage";
 import BoardDetailPage from "@/features/board/pages/BoardDetailPage";
 import BoardCreatePage from "@/features/board/pages/BoardCreatePage";
 import BoardEditPage from "@/features/board/pages/BoardEditPage";
+import FAQPage from "@/pages/faq";
 
 export default function AppRoutes() {
   return (
@@ -33,6 +34,7 @@ export default function AppRoutes() {
           <Route path="/oauth/callback" element={<OAuthCallbackPage />} />
           <Route path="/mypage" element={<MyPage />} />
           <Route path="/center" element={<CenterPage />} />
+          <Route path="/faq" element={<FAQPage />} />
           <Route path="*" element={<NotFoundPage />} />
         </Route>
       </Routes>

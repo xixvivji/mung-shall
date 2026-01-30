@@ -1,75 +1,30 @@
-import { useEffect, useState } from "react";
 import AlertModal from "@/shared/components/AlertModal";
 import { useAlertModal } from "@/shared/hooks/useAlertModal";
-import { ApiError } from "@/shared/api/client";
-import useAuth from "@/features/auth/hooks/useAuth";
-import { getLikedDogs, likeDog, unlikeDog } from "@/features/adoption/api/likeApi";
+import { Button } from "@/shared/ui/button";
+import useFavoriteDogs, { resolveFavoriteErrorMessage } from "@/features/adoption/hooks/useFavoriteDogs";
 
 type Props = {
   dogId: string;
 };
 
-const DEFAULT_ERROR_MESSAGE = "??? ??????. ?? ? ?? ??????.";
-
-function resolveErrorMessage(err: unknown) {
-  if (err instanceof ApiError) {
-    if (err.status === 401 || err.status === 403) return "???? ?????.";
-    if (err.status === 404) return "??? ??? ?? ? ????.";
-    if (err.status >= 500) return DEFAULT_ERROR_MESSAGE;
-    const raw = err.message?.trim();
-    return raw || DEFAULT_ERROR_MESSAGE;
-  }
-  return err instanceof Error ? err.message : DEFAULT_ERROR_MESSAGE;
-}
-
 export default function ActionButtons({ dogId }: Props) {
-  const { user } = useAuth();
   const { openAlert, alertProps } = useAlertModal();
-  const [liked, setLiked] = useState<boolean | null>(null);
-  const [loading, setLoading] = useState(false);
+  const { isFavorite, pendingIds, toggleFavorite } = useFavoriteDogs();
 
-  useEffect(() => {
-    let mounted = true;
-    if (!user) {
-      setLiked(null);
-      return () => {
-        mounted = false;
-      };
-    }
-    getLikedDogs()
-      .then((list) => {
-        if (!mounted) return;
-        const isLiked = list.some((dog) => String(dog.dogId) === String(dogId));
-        setLiked(isLiked);
-      })
-      .catch(() => {
-        if (!mounted) return;
-        setLiked(null);
-      });
-    return () => {
-      mounted = false;
-    };
-  }, [dogId, user]);
+  const id = String(dogId);
+  const liked = isFavorite(id);
+  const pending = pendingIds.has(id);
+  const label = liked ? "관심강아지 해제" : "관심강아지 등록";
+  const pendingLabel = liked ? "관심강아지 해제 중..." : "관심강아지 등록 중...";
 
   const handleToggleLike = async () => {
-    if (!user) {
-      openAlert({ title: "??? ??", message: "???? ?????." });
+    const result = await toggleFavorite(id);
+    if (result.status === "unauthenticated") {
+      openAlert({ title: "로그인 필요", message: "로그인이 필요합니다." });
       return;
     }
-    if (loading) return;
-    setLoading(true);
-    try {
-      if (liked) {
-        await unlikeDog(dogId);
-        setLiked(false);
-      } else {
-        await likeDog(dogId);
-        setLiked(true);
-      }
-    } catch (err) {
-      openAlert({ title: "?? ??", message: resolveErrorMessage(err) });
-    } finally {
-      setLoading(false);
+    if (result.status === "error") {
+      openAlert({ title: "관심 등록 실패", message: resolveFavoriteErrorMessage(result.error) });
     }
   };
 
@@ -78,14 +33,17 @@ export default function ActionButtons({ dogId }: Props) {
       <button className="rounded-md bg-[#3182f6] px-5 py-2 text-sm font-semibold text-white">
         ?? ??
       </button>
-      <button
+      <Button
         type="button"
-        className="rounded-md border border-[#ddd] px-5 py-2 text-sm text-[#333] disabled:opacity-50"
+        variant="outline"
+        className="border-[#ddd] bg-white text-[#333] hover:bg-[#f8f8f8] active:scale-[0.98]"
         onClick={handleToggleLike}
-        disabled={loading}
+        disabled={pending}
+        aria-pressed={liked}
+        aria-busy={pending}
       >
-        {liked ? "? ??" : "???"}
-      </button>
+        {pending ? pendingLabel : label}
+      </Button>
 
       <AlertModal {...alertProps} />
     </div>

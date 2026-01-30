@@ -1,6 +1,7 @@
 package com.example.backend.api.dog.interest;
 
 import com.example.backend.api.dog.dto.DogSummaryResponse;
+import com.example.backend.security.principal.CustomUserPrincipal;
 import com.example.backend.service.dog.interest.UserDogInterestService;
 
 import io.swagger.v3.oas.annotations.Operation;
@@ -10,13 +11,15 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
-import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 import java.util.stream.Collectors;
 
-@Tag(name = "관심 강아지", description = "사용자가 관심 있는 강아지(좋아요) 관련 API")
+// 메서드 3개 @AuthenticationPrincipal Long userId로 userId 받아오기
+@Tag(name = "관심 강아지", description = "사용자가 관심 있는 강아지(좋아요) 관련nch" +
+        " API")
 @RestController
 @RequestMapping("/api")
 @RequiredArgsConstructor
@@ -30,8 +33,10 @@ public class UserDogInterestController {
             @ApiResponse(responseCode = "404", description = "강아지 ID를 찾을 수 없음")
     })
     @PostMapping("/dogs/{dogId}/like")
-    public ResponseEntity<Void> likeDog(@AuthenticationPrincipal Long userId, @PathVariable Long dogId) {
-        userDogInterestService.likeDog(userId, dogId);
+    public ResponseEntity<Void> likeDog(@PathVariable Long dogId, Authentication authentication) {
+        CustomUserPrincipal principal = (CustomUserPrincipal) authentication.getPrincipal();
+
+        userDogInterestService.likeDog(principal.getUserId(), dogId);
         return ResponseEntity.status(HttpStatus.CREATED).build();
     }
 
@@ -41,8 +46,10 @@ public class UserDogInterestController {
             @ApiResponse(responseCode = "404", description = "강아지 ID를 찾을 수 없음")
     })
     @DeleteMapping("/dogs/{dogId}/like")
-    public ResponseEntity<Void> unlikeDog(@AuthenticationPrincipal Long userId, @PathVariable Long dogId) {
-        userDogInterestService.unlikeDog(userId, dogId);
+    public ResponseEntity<Void> unlikeDog(Authentication authentication, @PathVariable Long dogId) {
+        CustomUserPrincipal principal = (CustomUserPrincipal) authentication.getPrincipal();
+
+        userDogInterestService.unlikeDog(principal.getUserId(), dogId);
         return ResponseEntity.noContent().build();
     }
 
@@ -51,8 +58,10 @@ public class UserDogInterestController {
             @ApiResponse(responseCode = "200", description = "좋아요한 강아지 목록 조회 성공")
     })
     @GetMapping("/members/me/liked-dogs")
-    public ResponseEntity<List<DogSummaryResponse>> getLikedDogs(@AuthenticationPrincipal Long userId) {
-        List<DogSummaryResponse> likedDogs = userDogInterestService.getLikedDogs(userId).stream()
+    public ResponseEntity<List<DogSummaryResponse>> getLikedDogs(Authentication authentication) {
+        CustomUserPrincipal principal = (CustomUserPrincipal) authentication.getPrincipal();
+
+        List<DogSummaryResponse> likedDogs = userDogInterestService.getLikedDogs(principal.getUserId()).stream()
                 .map(DogSummaryResponse::fromEntity)
                 .collect(Collectors.toList());
         return ResponseEntity.ok(likedDogs);

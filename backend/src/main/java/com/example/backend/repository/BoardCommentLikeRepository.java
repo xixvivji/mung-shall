@@ -13,6 +13,7 @@ public interface BoardCommentLikeRepository extends JpaRepository<BoardCommentLi
     Optional<BoardCommentLike> findByComment_IdAndUser_UserId(Long commentId, Long userId);
 
     boolean existsByComment_IdAndUser_UserId(Long commentId, Long userId);
+    long countByComment_Id(Long commentId);
 
     List<BoardCommentLike> findByUser_UserIdAndComment_IdIn(Long userId, Collection<Long> commentIds);
 

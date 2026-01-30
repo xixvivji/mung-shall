@@ -15,6 +15,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
+import com.example.backend.service.BoardCommentLikeService;
 
 import java.util.Map;
 
@@ -25,6 +26,7 @@ import java.util.Map;
 public class BoardCommentController {
 
     private final BoardCommentService boardCommentService;
+    private final BoardCommentLikeService boardCommentLikeService;
 
     // 댓글 작성 (댓글/대댓글)
     @Operation(summary = "댓글 작성", description = "게시글에 댓글(대댓글 포함)을 작성합니다.")
@@ -131,4 +133,24 @@ public class BoardCommentController {
 
         throw ApiException.unauthorized("로그인이 필요합니다.");
     }
+
+    @Operation(summary = "댓글 좋아요 토글", description = "특정 댓글에 좋아요를 누르거나 다시 누르면 취소합니다.")
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "토글 성공"),
+            @ApiResponse(responseCode = "401", description = "인증되지 않은 사용자"),
+            @ApiResponse(responseCode = "404", description = "댓글을 찾을 수 없음")
+    })
+    @PostMapping("/comments/{commentId}/likes")
+    public ResponseEntity<?> toggleCommentLike(
+            @Parameter(description = "댓글 ID", required = true)
+            @PathVariable Long commentId
+    ) {
+        Long userId = getUserIdOr401();
+        var result = boardCommentLikeService.toggle(userId, commentId);
+        return ResponseEntity.ok(Map.of(
+                "liked", result.liked(),
+                "likeCount", result.likeCount()
+        ));
+    }
+
 }

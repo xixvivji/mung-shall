@@ -1,6 +1,10 @@
 pipeline {
     agent any
 
+    options {
+            skipDefaultCheckout()
+        }
+
     // [전략] LFS 파일은 처음에 받지 않고(SKIP), 나중에 따로 받아서 타임아웃 방지
     environment {
         GIT_LFS_SKIP_SMUDGE = '1'

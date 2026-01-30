@@ -1,11 +1,12 @@
 import { useMemo, useRef, useState } from "react";
 import { Button } from "@/shared/ui/button";
-import { uploadAdoptionDocument } from "@/features/adoptionApplication/api";
+import { uploadAdoptionDocument } from "@/features/postAdoption/api/postAdoptionApi";
 import type { DocumentType } from "@/features/adoptionApplication/types";
 
 type Props = {
   isEditable: boolean; // 제출 가능 여부(단계에 따른)
   onSubmitSuccess: () => void;
+  adoptionId?: number;
 };
 
 type DocKey = "idCard" | "familyCert" | "lease";
@@ -18,7 +19,7 @@ type UploadStatus = "idle" | "uploading" | "success" | "error";
 
 type UploadState = Record<DocKey, { status: UploadStatus; error?: string }>;
 
-const APPLICATION_ID_KEY = "adoptionApplicationId";
+const ADOPTION_ID_KEY = "adoptionId";
 
 const DOCS: Array<{ key: DocKey; label: string; hint: string; type: DocumentType }> = [
   { key: "idCard", label: "신분증 사본", hint: "주민등록증 또는 운전면허증 사본", type: "ID_CARD" },
@@ -35,7 +36,7 @@ function fileMeta(file: File | null) {
   };
 }
 
-export function DocumentStep({ isEditable, onSubmitSuccess }: Props) {
+export function DocumentStep({ isEditable, onSubmitSuccess, adoptionId }: Props) {
   // 실제 첨부 파일(항목별)
   const [docs, setDocs] = useState<DocsState>({
     idCard: null,
@@ -112,10 +113,10 @@ export function DocumentStep({ isEditable, onSubmitSuccess }: Props) {
   const onSubmit = async () => {
     if (!canSubmitNow) return;
 
-    const rawId = localStorage.getItem(APPLICATION_ID_KEY);
-    const applicationId = rawId ? Number(rawId) : NaN;
-    if (!applicationId) {
-      setSubmitError("입양 신청서 제출 후 문서 업로드가 가능합니다.");
+    const rawId = adoptionId ? String(adoptionId) : localStorage.getItem(ADOPTION_ID_KEY);
+    const storedId = rawId ? Number(rawId) : NaN;
+    if (!storedId) {
+      setSubmitError("Missing adoptionId.");
       return;
     }
 
@@ -142,7 +143,7 @@ export function DocumentStep({ isEditable, onSubmitSuccess }: Props) {
         }
 
         try {
-          await uploadAdoptionDocument(applicationId, doc.type, file);
+          await uploadAdoptionDocument(storedId, doc.type, file);
           setUploadState((prev) => ({
             ...prev,
             [doc.key]: { status: "success" },

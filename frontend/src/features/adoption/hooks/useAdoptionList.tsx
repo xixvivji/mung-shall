@@ -23,10 +23,10 @@ export default function AdoptionList() {
   });
 
   const region = useMemo(() => {
-    if (filters.city !== DEFAULT_CITY) return filters.cityLabel;
-    if (filters.province !== DEFAULT_PROVINCE) return filters.provinceLabel;
+    if (filters.city !== DEFAULT_CITY) return filters.city;
+    if (filters.province !== DEFAULT_PROVINCE) return filters.province;
     return undefined;
-  }, [filters.city, filters.province, filters.cityLabel, filters.provinceLabel]);
+  }, [filters.city, filters.province]);
 
   const breedParam = filters.breed !== DEFAULT_BREED ? filters.breed : undefined;
 

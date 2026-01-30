@@ -1,19 +1,28 @@
 import { useMemo, useRef, useState } from "react";
 import { Button } from "@/shared/ui/button";
+import { uploadEducationCert } from "@/features/postAdoption/api/postAdoptionApi";
 
 type Props = {
   isEditable: boolean;
   onSubmitSuccess: () => void;
+  adoptionId?: number;
 };
 
-export function EducationCertStep({ isEditable, onSubmitSuccess }: Props) {
+export function EducationCertStep({ isEditable, onSubmitSuccess, adoptionId }: Props) {
   const [file, setFile] = useState<File | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [tempFile, setTempFile] = useState<File | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const [educationInstitution, setEducationInstitution] = useState("");
+  const [certificateNumber, setCertificateNumber] = useState("");
+  const [completionDate, setCompletionDate] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState<string | null>(null);
+  const [submitted, setSubmitted] = useState(false);
 
-  const canAttach = true;
-  const canSubmit = isEditable;
+  const canAttach = isEditable && !submitting && !submitted;
+  const canSubmit = isEditable && !submitting && !submitted;
+  const fieldsDisabled = !isEditable || submitting || submitted;
 
   const meta = useMemo(() => {
     if (!file) return null;
@@ -45,6 +54,8 @@ export function EducationCertStep({ isEditable, onSubmitSuccess }: Props) {
 
   const onConfirm = () => {
     setFile(tempFile ?? null);
+    setSubmitted(false);
+    setSubmitError(null);
     closeModal();
   };
 
@@ -66,9 +77,44 @@ export function EducationCertStep({ isEditable, onSubmitSuccess }: Props) {
     e.stopPropagation();
   };
 
-  const handleSubmit = () => {
-    if (!canSubmit || !file) return;
-    onSubmitSuccess();
+  const normalizeCompletionDate = (value: string) => {
+    if (!value) return "";
+    if (value.length === 16) return `${value}:00`;
+    return value;
+  };
+
+  const handleSubmit = async () => {
+    if (!canSubmit) return;
+    if (!adoptionId) {
+      setSubmitError("Missing adoptionId.");
+      return;
+    }
+    if (!file) {
+      setSubmitError("Please attach a certificate file.");
+      return;
+    }
+    if (!educationInstitution.trim() || !certificateNumber.trim() || !completionDate.trim()) {
+      setSubmitError("Please fill out required fields.");
+      return;
+    }
+
+    setSubmitting(true);
+    setSubmitError(null);
+    try {
+      await uploadEducationCert(adoptionId, {
+        educationInstitution: educationInstitution.trim(),
+        certificateNumber: certificateNumber.trim(),
+        completionDate: normalizeCompletionDate(completionDate.trim()),
+        certificateFile: file,
+      });
+      setSubmitted(true);
+      onSubmitSuccess();
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Failed to upload certificate.";
+      setSubmitError(message);
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   return (
@@ -100,6 +146,9 @@ export function EducationCertStep({ isEditable, onSubmitSuccess }: Props) {
               파일을 첨부하면 아래에 표시됩니다.
             </p>
           </div>
+          {submitError ? (
+            <p className="text-xs text-red-600">{submitError}</p>
+          ) : null}
 
           <span
             className={`shrink-0 rounded-full border px-3 py-1 text-xs font-semibold ${
@@ -123,7 +172,10 @@ export function EducationCertStep({ isEditable, onSubmitSuccess }: Props) {
               variant="outline"
               className="rounded-lg"
               disabled={!canAttach}
-              onClick={() => setFile(null)}
+              onClick={() => {
+                setFile(null);
+                setSubmitted(false);
+              }}
             >
               첨부 제거
             </Button>
@@ -144,6 +196,41 @@ export function EducationCertStep({ isEditable, onSubmitSuccess }: Props) {
         </div>
 
         {/* ✅ 제출 버튼은 항상 보이되, canSubmit일 때만 활성 */}
+        <div className="mt-5 grid gap-4 sm:grid-cols-2">
+          <div className="space-y-2">
+            <label className="text-xs font-semibold text-gray-700">Institution</label>
+            <input
+              className="h-10 w-full rounded-[12px] border border-[#E5E7EB] px-3 text-sm text-[#1F2937] placeholder:text-[#6B7280] focus:border-transparent focus:ring-2 focus:ring-[#5B7CFA]"
+              placeholder="?? ??"
+              value={educationInstitution}
+              onChange={(event) => setEducationInstitution(event.target.value)}
+              disabled={fieldsDisabled}
+            />
+          </div>
+
+          <div className="space-y-2">
+            <label className="text-xs font-semibold text-gray-700">Certificate No.</label>
+            <input
+              className="h-10 w-full rounded-[12px] border border-[#E5E7EB] px-3 text-sm text-[#1F2937] placeholder:text-[#6B7280] focus:border-transparent focus:ring-2 focus:ring-[#5B7CFA]"
+              placeholder="??? ??"
+              value={certificateNumber}
+              onChange={(event) => setCertificateNumber(event.target.value)}
+              disabled={fieldsDisabled}
+            />
+          </div>
+
+          <div className="space-y-2 sm:col-span-2">
+            <label className="text-xs font-semibold text-gray-700">Completion Date</label>
+            <input
+              type="datetime-local"
+              className="h-10 w-full rounded-[12px] border border-[#E5E7EB] px-3 text-sm text-[#1F2937] focus:border-transparent focus:ring-2 focus:ring-[#5B7CFA]"
+              value={completionDate}
+              onChange={(event) => setCompletionDate(event.target.value)}
+              disabled={fieldsDisabled}
+            />
+          </div>
+        </div>
+
         <div className="mt-5 space-y-2">
           {!canSubmit && (
             <p className="text-xs text-gray-500">
@@ -157,7 +244,7 @@ export function EducationCertStep({ isEditable, onSubmitSuccess }: Props) {
               disabled={!canSubmit || !file}
               onClick={handleSubmit}   // ✅ 이거 필수
             >
-              업로드 제출
+              {submitting ? "Submitting..." : "Upload"}
             </Button>
           </div>
         </div>

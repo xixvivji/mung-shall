@@ -29,14 +29,14 @@ pipeline {
         }
 
         // [2단계] 여기서만 대용량 파일(AI 모델)을 별도로 다운로드
-        stage('Fetch LFS Files') {
-            steps {
-                script {
-                    echo "📡 LFS 대용량 파일(AI 모델) 다운로드 시작..."
-                    sh 'git lfs pull'
-                }
-            }
-        }
+//         stage('Fetch LFS Files') {
+//             steps {
+//                 script {
+//                     echo "📡 LFS 대용량 파일(AI 모델) 다운로드 시작..."
+//                     sh 'git lfs pull'
+//                 }
+//             }
+//         }
 
         stage('Build & Docker Image') {
             // 서버 사양이 좋으므로 병렬 실행(Parallel) 유지
@@ -135,11 +135,10 @@ pipeline {
                         """
 
                         // 2. 배포 실행
-                        sh 'docker rm -f backend-server frontend-server ai-server || true'
+                        sh 'docker rm -f backend-server frontend-server || true'
                         sh 'docker-compose down || true'
 
-                        // AI 서버 코드 반영을 위해 --build 옵션 유지
-                        sh 'docker-compose up -d --force-recreate --build'
+                       sh 'docker-compose up -d --force-recreate --build backend frontend openvidu mysql redis prometheus grafana node-exporter'
 
                         sh 'docker image prune -f'
                     }

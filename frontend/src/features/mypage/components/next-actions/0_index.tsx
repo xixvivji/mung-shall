@@ -28,6 +28,8 @@ type Props = {
 
   // ✅ 진행 단계도 변경(제출 성공 시 자동 전진)
   onAdvanceStep?: (step: AdoptionStep) => void;
+  onSubmitStep?: (step: AdoptionStep) => Promise<void> | void;
+  adoptionId?: number;
 };
 
 type StepStatus = "completed" | "current" | "pending";
@@ -117,7 +119,14 @@ function prevOf(step: AdoptionStep): AdoptionStep | null {
   return FULL_ORDER[idx - 1];
 }
 
-export function NextActions({ currentStep, selectedStep, onSelectStep, onAdvanceStep }: Props) {
+export function NextActions({
+  currentStep,
+  selectedStep,
+  onSelectStep,
+  onAdvanceStep,
+  onSubmitStep,
+  adoptionId,
+}: Props) {
   // 잠금 트리거(프론트-only): 상담완료 → 1~2 잠금, 심사시작 → 4~5 잠금
   const [consultationConfirmed, setConsultationConfirmed] = useState(false);
   const [reviewStarted, setReviewStarted] = useState(false);
@@ -158,31 +167,37 @@ export function NextActions({ currentStep, selectedStep, onSelectStep, onAdvance
     return null;
   }, [consultationConfirmed, reviewStarted, selectedStep]);
 
-  const advanceTo = (next: AdoptionStep) => {
+  const advanceTo = async (next: AdoptionStep, completedStep?: AdoptionStep) => {
+    if (completedStep && onSubmitStep) {
+      await onSubmitStep(completedStep);
+    }
     onSelectStep?.(next);
     onAdvanceStep?.(next);
   };
 
-  const goNext = (next: AdoptionStep) => {
+  const goNext = (next: AdoptionStep, completedStep?: AdoptionStep) => {
     // ✅ "APPROVAL"로 넘어갈 때만 확인 모달 (문서/계약서 잠금)
     if (next === "APPROVAL") {
       setPendingNextStep(next);
       setIsPreApprovalModalOpen(true);
       return;
     }
-    advanceTo(next);
+    void advanceTo(next, completedStep);
   };
 
   const safeGoNextFromSelected = () => {
     const next = nextOf(selectedStep);
-    if (!next) return;
-    goNext(next);
+    if (!next) {
+      if (onSubmitStep) void onSubmitStep(selectedStep);
+      return;
+    }
+    goNext(next, selectedStep);
   };
 
   const onConsultComplete = () => {
     setConsultationConfirmed(true);
     const next = nextOf("CONSULT");
-    if (next) goNext(next);
+    if (next) goNext(next, "CONSULT");
   };
 
   const onStartReview = () => {
@@ -260,6 +275,7 @@ export function NextActions({ currentStep, selectedStep, onSelectStep, onAdvance
 
       {selectedStep === "EDUCATION_CERT" && (
         <EducationCertStep
+          adoptionId={adoptionId}
           isEditable={isEditable}
           onSubmitSuccess={safeGoNextFromSelected}
         />
@@ -271,6 +287,7 @@ export function NextActions({ currentStep, selectedStep, onSelectStep, onAdvance
 
       {selectedStep === "DOCUMENT" && (
         <DocumentStep
+          adoptionId={adoptionId}
           isEditable={isEditable}
           onSubmitSuccess={safeGoNextFromSelected}
         />
@@ -353,7 +370,7 @@ export function NextActions({ currentStep, selectedStep, onSelectStep, onAdvance
                 className="rounded-xl bg-[#3182F6] px-4 py-2 text-sm text-white"
                 onClick={() => {
                   setIsPreApprovalModalOpen(false);
-                  if (pendingNextStep) advanceTo(pendingNextStep);
+                  if (pendingNextStep) void advanceTo(pendingNextStep, selectedStep);
                   setPendingNextStep(null);
                 }}
               >

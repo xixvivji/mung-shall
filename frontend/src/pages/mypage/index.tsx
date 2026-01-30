@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import {
   AdoptionTimeline,
   MyDogs,
@@ -12,21 +12,35 @@ import CenterPage from "@/pages/center";
 import type { AdoptionStep } from "@/features/mypage/types";
 import { fetchMyInfo } from "@/features/member/api/memberApi";
 import type { MemberMeResponse } from "@/features/member/types";
+import AlertModal from "@/shared/components/AlertModal";
+import { useAlertModal } from "@/shared/hooks/useAlertModal";
 
 function AdopterMyPage() {
-  const { dogs, loading } = useMyPage();
+  const {
+    dogs,
+    loading,
+    adoptionId,
+    adoptionLoading,
+    adoptionError,
+    postAdoptionLoading,
+    postAdoptionError,
+    currentStep: apiCurrentStep,
+    submitStep,
+  } = useMyPage();
   const [memberInfo, setMemberInfo] = useState<MemberMeResponse | null>(null);
+  const { openAlert, alertProps } = useAlertModal();
 
   // ✅ 임시: 진행중 단계 (전/중/후 아무거나 가능) — 이제 state로 관리
-  const [currentStep, setCurrentStep] = useState<AdoptionStep>("SURVEY");
+  const [currentStep, setCurrentStep] = useState<AdoptionStep>(apiCurrentStep ?? "SURVEY");
 
   // ✅ 선택 단계
-  const [selectedStep, setSelectedStep] = useState<AdoptionStep>(currentStep);
+  const [selectedStep, setSelectedStep] = useState<AdoptionStep>(apiCurrentStep ?? "SURVEY");
 
   // (선택) currentStep이 바뀌면 선택 단계도 같이 따라가게
   useEffect(() => {
-    setSelectedStep(currentStep);
-  }, [currentStep]);
+    setCurrentStep(apiCurrentStep ?? "SURVEY");
+    setSelectedStep(apiCurrentStep ?? "SURVEY");
+  }, [apiCurrentStep]);
 
   useEffect(() => {
     let mounted = true;
@@ -46,11 +60,33 @@ function AdopterMyPage() {
     };
   }, []);
 
+  useEffect(() => {
+    if (adoptionError) {
+      openAlert({ title: "입양 과정 오류", message: adoptionError });
+    }
+  }, [adoptionError, openAlert]);
+
+  useEffect(() => {
+    if (postAdoptionError) {
+      openAlert({ title: "입양 후 과정 오류", message: postAdoptionError });
+    }
+  }, [postAdoptionError, openAlert]);
+
   // ✅ NextActions에서 "다음 단계로 진행" 요청했을 때 부모가 갱신
   const advanceTo = (next: AdoptionStep) => {
     setCurrentStep(next);
     setSelectedStep(next);
   };
+
+  const handleSubmitStep = useCallback(
+    async (step: AdoptionStep) => {
+      const result = await submitStep(step);
+      if (result.status === "error") {
+        openAlert({ title: "단계 제출 실패", message: "잠시 후 다시 시도해주세요." });
+      }
+    },
+    [openAlert, submitStep]
+  );
 
   if (loading || !memberInfo) {
     return <div className="px-6 py-16 text-sm text-[#777]">???...</div>;
@@ -61,6 +97,10 @@ function AdopterMyPage() {
       <h1 className="text-2xl font-semibold">마이페이지</h1>
 
       <ProfileSummary user={memberInfo} />
+
+      {(adoptionLoading || postAdoptionLoading) && (
+        <div className="text-sm text-[#777]">Loading...</div>
+      )}
 
       <AdoptionTimeline
         currentStep={currentStep}
@@ -73,11 +113,14 @@ function AdopterMyPage() {
         selectedStep={selectedStep}
         onSelectStep={setSelectedStep}
         onAdvanceStep={advanceTo}
+        onSubmitStep={handleSubmitStep}
+        adoptionId={adoptionId ?? undefined}
       />
 
       <MyDogs dogs={dogs} />
 
       <PostAdoptionTools />
+      <AlertModal {...alertProps} />
     </section>
   );
 }

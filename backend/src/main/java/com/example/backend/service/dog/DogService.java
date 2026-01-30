@@ -9,6 +9,7 @@ import com.example.backend.repository.dog.AbandonedDogSpecification;
 import com.example.backend.repository.dog.DogKindRepository;
 import com.example.backend.repository.UserRepository;
 import com.example.backend.repository.dog.interest.UserDogInterestRepository;
+import com.example.backend.security.principal.CustomUserPrincipal;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -43,11 +44,19 @@ public class DogService {
         // Specification으로 동적 쿼리 생성
         Specification<AbandonedDog> spec = AbandonedDogSpecification.createSpecification(sido, kindNm, sexCd, processState);
         Page<AbandonedDog> dogPage = abandonedDogRepository.findAll(spec, pageable);
-
         Long currentUserId = null;
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+
+
         if (authentication != null && authentication.isAuthenticated() && !"anonymousUser".equals(authentication.getPrincipal())) {
-            currentUserId = (Long) authentication.getPrincipal();
+
+            Object principal = authentication.getPrincipal();
+
+            if (principal instanceof CustomUserPrincipal) {
+                CustomUserPrincipal userPrincipal = (CustomUserPrincipal) principal;
+
+                currentUserId = userPrincipal.getUserId();
+            }
         }
 
         final Long finalCurrentUserId = currentUserId;

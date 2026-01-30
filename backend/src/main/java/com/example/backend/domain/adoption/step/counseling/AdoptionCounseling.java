@@ -1,39 +1,47 @@
 package com.example.backend.domain.adoption.step.counseling;
 
-import com.example.backend.domain.adoption.AdoptionStepInstance;
-import com.example.backend.domain.adoption.enums.CounselingType;
+import com.example.backend.domain.adoption.Adoption;
+import com.example.backend.domain.adoption.enums.AdoptionCounselingStatus;
 import jakarta.persistence.*;
+import lombok.AccessLevel;
+import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
-import lombok.Setter;
 
 import java.time.LocalDateTime;
 
 @Entity
-@Table(name = "adoption_counseling")
 @Getter
-@Setter
-@NoArgsConstructor
+@NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class AdoptionCounseling {
 
     @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @OneToOne(fetch = FetchType.LAZY)
-    @MapsId
-    @JoinColumn(name = "id")
-    private AdoptionStepInstance stepInstance;
-
-    @Enumerated(EnumType.STRING)
-    @Column(nullable = false)
-    private CounselingType counselingType;
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "adoption_id", nullable = false)
+    private Adoption adoption;
 
     @Column(nullable = false)
     private LocalDateTime counselingDate;
 
+    @Enumerated(EnumType.STRING)
     @Column(nullable = false)
-    private String counselingLocation;
+    private AdoptionCounselingStatus status;
 
-    @Column(columnDefinition = "TEXT")
-    private String counselorNotes;
+    @Builder
+    public AdoptionCounseling(Adoption adoption, LocalDateTime counselingDate) {
+        this.adoption = adoption;
+        this.counselingDate = counselingDate;
+        this.status = AdoptionCounselingStatus.SCHEDULED;
+    }
+
+    public void updateCounseling(LocalDateTime counselingDate) {
+        this.counselingDate = counselingDate;
+    }
+
+    public void cancel() {
+        this.status = AdoptionCounselingStatus.CANCELED;
+    }
 }

@@ -45,7 +45,7 @@ public class ShelterPermissionEvaluator {
      * @throws IllegalArgumentException 로그인된 사용자에 매칭되는 보호소가 없는 경우
      */
     private Shelter getShelterFromPrincipal(CustomUserPrincipal principal) {
-        return shelterRepository.findByUserUserId(principal.getUserId())
+        return shelterRepository.findByOwner_UserId(principal.getUserId())
                 .orElseThrow(() -> new IllegalArgumentException("로그인된 사용자에 매칭되는 보호소가 없습니다."));
     }
 

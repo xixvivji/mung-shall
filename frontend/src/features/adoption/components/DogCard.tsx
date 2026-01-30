@@ -3,6 +3,7 @@ import { Link } from "react-router-dom";
 import { ROUTES } from "@/shared/constants/routes";
 import type { AdoptionDog } from "../types";
 import FavoriteHeart from "@/shared/components/FavoriteHeart";
+import useAuth from "@/features/auth/hooks/useAuth";
 
 type DogCardProps = {
   dog: AdoptionDog;
@@ -37,6 +38,7 @@ export default function DogCard({
   onDragStart,
   className = "",
 }: DogCardProps) {
+  const { user } = useAuth();
   const baseClass = [
     "group relative rounded-2xl border bg-white transition",
     selected ? "border-[#5f7cf7] ring-2 ring-[#5f7cf7]" : "border-[#eee] hover:border-[#ddd]",
@@ -67,9 +69,9 @@ export default function DogCard({
     </>
   );
 
-  const favoriteButton = (
+  const favoriteButton = user ? (
     <FavoriteHeart active={favoriteActive} disabled={favoriteDisabled} onToggle={onToggleFavorite} />
-  );
+  ) : null;
 
   // ✅ 기존 동작 유지: 입양 리스트에서 쓰는 Link 카드
   if (variant === "link") {

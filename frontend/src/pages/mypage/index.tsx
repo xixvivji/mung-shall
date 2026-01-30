@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import {
   AdoptionTimeline,
-  MyDogs,
   NextActions,
   PostAdoptionTools,
   ProfileSummary,
@@ -17,7 +16,6 @@ import { useAlertModal } from "@/shared/hooks/useAlertModal";
 
 function AdopterMyPage() {
   const {
-    dogs,
     loading,
     adoptionId,
     adoptionLoading,
@@ -116,8 +114,6 @@ function AdopterMyPage() {
         onSubmitStep={handleSubmitStep}
         adoptionId={adoptionId ?? undefined}
       />
-
-      <MyDogs dogs={dogs} />
 
       <PostAdoptionTools />
       <AlertModal {...alertProps} />

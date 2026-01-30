@@ -4,7 +4,7 @@ pipeline {
     stages {
          stage('Checkout') {
              steps {
-                 // [설정 유지] 타임아웃 60분 + 얕은 복사(Shallow Clone)
+
                  checkout([
                      $class: 'GitSCM',
                      branches: scm.branches,

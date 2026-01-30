@@ -11,6 +11,7 @@ pipeline {
             steps {
                 // [핵심 해결책] 이 블록 안에서는 LFS 파일 다운로드를 강제로 막습니다 (SMUDGE=1)
                 // 이렇게 해야 체크아웃이 가볍게 끝나고 타임아웃이 안 걸립니다.
+                deleteDir() // 깨끗한 상태에서 시작
                 withEnv(['GIT_LFS_SKIP_SMUDGE=1']) {
                     checkout([
                         $class: 'GitSCM',

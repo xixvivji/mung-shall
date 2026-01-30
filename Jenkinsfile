@@ -1,20 +1,21 @@
 pipeline {
     agent any
 
-  stage('Checkout') {
-      steps {
-          checkout([
-              $class: 'GitSCM',
-              branches: scm.branches,
-              doGenerateSubmoduleConfigurations: false,
-              extensions: [
-
-                  [$class: 'CloneOption', timeout: 60, shallow: true, depth: 1, noTags: true, reference: '']
-              ],
-              userRemoteConfigs: scm.userRemoteConfigs
-          ])
-      }
-  }
+    stages {
+         stage('Checkout') {
+             steps {
+                 // [설정 유지] 타임아웃 60분 + 얕은 복사(Shallow Clone)
+                 checkout([
+                     $class: 'GitSCM',
+                     branches: scm.branches,
+                     doGenerateSubmoduleConfigurations: false,
+                     extensions: [
+                         [$class: 'CloneOption', timeout: 60, shallow: true, depth: 1, noTags: true, reference: '']
+                     ],
+                     userRemoteConfigs: scm.userRemoteConfigs
+                 ])
+             }
+         }
 
         stage('Build & Docker Image') {
             parallel {

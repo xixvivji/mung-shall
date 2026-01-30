@@ -1,58 +1,62 @@
 pipeline {
     agent any
 
+    // 1. 젠킨스 기본 체크아웃 비활성화 (우리가 직접 제어하기 위해)
     options {
-            skipDefaultCheckout()
-        }
-
-    // [전략] LFS 파일은 처음에 받지 않고(SKIP), 나중에 따로 받아서 타임아웃 방지
-    environment {
-        GIT_LFS_SKIP_SMUDGE = '1'
+        skipDefaultCheckout()
     }
 
     stages {
         stage('Checkout') {
             steps {
-                checkout([
-                    $class: 'GitSCM',
-                    branches: scm.branches,
-                    doGenerateSubmoduleConfigurations: false,
-                    extensions: [
-                        // LFS 제외하고 소스만 받으므로 시간 단축됨 (안전장치로 60분 유지)
-                        [$class: 'CloneOption', timeout: 60, shallow: true, depth: 1, noTags: true, reference: ''],
-                        [$class: 'CheckoutOption', timeout: 60]
-                    ],
-                    userRemoteConfigs: scm.userRemoteConfigs
-                ])
+                // [핵심 해결책] 이 블록 안에서는 LFS 파일 다운로드를 강제로 막습니다 (SMUDGE=1)
+                // 이렇게 해야 체크아웃이 가볍게 끝나고 타임아웃이 안 걸립니다.
+                withEnv(['GIT_LFS_SKIP_SMUDGE=1']) {
+                    checkout([
+                        $class: 'GitSCM',
+                        branches: scm.branches,
+                        doGenerateSubmoduleConfigurations: false,
+                        extensions: [
+                            // 타임아웃을 120분(2시간)으로 설정 (안전장치)
+                            [$class: 'CloneOption', timeout: 120, shallow: true, depth: 1, noTags: true, reference: ''],
+                            [$class: 'CheckoutOption', timeout: 120]
+                        ],
+                        userRemoteConfigs: scm.userRemoteConfigs
+                    ])
+                }
             }
         }
 
-        // [핵심] 여기서 대용량 모델 파일(best.pt)을 별도로 다운로드
+        // [2단계] 여기서만 대용량 파일(AI 모델)을 별도로 다운로드
         stage('Fetch LFS Files') {
             steps {
                 script {
                     echo "📡 LFS 대용량 파일(AI 모델) 다운로드 시작..."
-                    // 젠킨스 에이전트에 git-lfs가 설치되어 있어야 함 (보통 되어 있음)
                     sh 'git lfs pull'
                 }
             }
         }
 
         stage('Build & Docker Image') {
+            // 서버 사양이 좋으므로 병렬 실행(Parallel) 유지
             parallel {
                 stage('Backend Build') {
                     steps {
                         dir('backend') {
                             sh 'chmod +x ./gradlew'
+                            // [속도 최적화] clean, refresh 제거 -> 변경된 코드만 빠르게 빌드
                             sh './gradlew build -x test'
 
+                            // [필수] 도커 이미지 빌드
                             sh 'docker build -t backend-image:latest .'
-                                 }
-                             }
-                         }
+                        }
+                    }
+                }
+
                 stage('Frontend Build') {
                     steps {
                         dir('frontend') {
+                            // 프론트엔드 이미지 빌드
                             sh 'docker build -t frontend-image:latest .'
                         }
                     }
@@ -133,7 +137,7 @@ pipeline {
                         sh 'docker rm -f backend-server frontend-server ai-server || true'
                         sh 'docker-compose down || true'
 
-                        // [중요 수정] --build 옵션을 추가해야 AI 서버 코드가 수정됐을 때 이미지를 새로 굽습니다!
+                        // AI 서버 코드 반영을 위해 --build 옵션 유지
                         sh 'docker-compose up -d --force-recreate --build'
 
                         sh 'docker image prune -f'

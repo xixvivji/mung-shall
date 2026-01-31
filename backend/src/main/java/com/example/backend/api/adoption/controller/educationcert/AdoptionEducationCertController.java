@@ -2,7 +2,7 @@ package com.example.backend.api.adoption.controller.educationcert;
 
 import com.example.backend.api.adoption.dto.educationcert.AdoptionEducationCertUploadRequest;
 import com.example.backend.api.adoption.dto.educationcert.AdoptionEducationCertResponse;
-import com.example.backend.service.adoption.AdoptionEducationCertService;
+import com.example.backend.service.adoption.educationCert.AdoptionEducationCertService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.media.Content;

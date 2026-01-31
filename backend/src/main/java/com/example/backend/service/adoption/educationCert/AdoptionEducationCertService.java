@@ -1,4 +1,4 @@
-package com.example.backend.service.adoption;
+package com.example.backend.service.adoption.educationCert;
 
 import com.example.backend.api.adoption.dto.educationcert.AdoptionEducationCertResponse;
 import com.example.backend.common.file.FileStorageService;
@@ -59,7 +59,6 @@ public class AdoptionEducationCertService {
 
         String fileUrl;
         try {
-            // Store the file and get its URL/path
             fileUrl = fileStorageService.storeFile(certificateFile, "education-certs"); // Store in 'uploads/education-certs'
         } catch (IOException e) {
             throw new RuntimeException("Failed to store certificate file", e);

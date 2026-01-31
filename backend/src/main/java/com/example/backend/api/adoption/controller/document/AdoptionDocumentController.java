@@ -2,11 +2,9 @@ package com.example.backend.api.adoption.controller.document;
 
 import com.example.backend.api.adoption.dto.document.UploadedDocumentResponse;
 import com.example.backend.domain.adoption.enums.DocumentType;
-import com.example.backend.service.adoption.AdoptionDocumentService;
+import com.example.backend.service.adoption.document.AdoptionDocumentService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
-import io.swagger.v3.oas.annotations.media.Content;
-import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;

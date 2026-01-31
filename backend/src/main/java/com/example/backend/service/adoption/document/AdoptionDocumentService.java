@@ -1,4 +1,4 @@
-package com.example.backend.service.adoption;
+package com.example.backend.service.adoption.document;
 
 import com.example.backend.api.adoption.dto.document.UploadedDocumentResponse;
 import com.example.backend.common.file.FileStorageService;

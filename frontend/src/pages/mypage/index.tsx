@@ -19,10 +19,12 @@ function AdopterMyPage() {
   // ✅ MyPage에서는 입양관리/해야할일을 제거했으므로
   // ✅ PostAdoptionTools에 필요한 post-adoption 데이터만 사용
   const {
+    adoptionId,
     postAdoptionId,
     postAdoption,
     postAdoptionLoading,
     refreshPostAdoption,
+    startPostAdoption,
   } = useMyPage();
 
   useEffect(() => {
@@ -66,9 +68,11 @@ function AdopterMyPage() {
       )}
 
       <PostAdoptionTools
+        adoptionId={adoptionId}
         postAdoptionId={postAdoptionId}
         steps={postAdoption?.steps}
         onRefresh={refreshPostAdoption}
+        onStart={startPostAdoption}
       />
     </section>
   );

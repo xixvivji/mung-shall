@@ -34,7 +34,7 @@ public class DogController {
     @GetMapping
     public ResponseEntity<Page<DogSummaryResponse>> getDogs(
             @Parameter(description = "검색할 시도명 (e.g., '서울특별시')")
-            @RequestParam(required = false) String sido,
+            @RequestParam(required = false) String region,
             @Parameter(description = "검색할 품종명 (e.g., '말티즈')")
             @RequestParam(required = false) String kindNm,
             @Parameter(description = "검색할 성별 코드 (M: 수컷, F: 암컷, Q: 미상)")
@@ -44,7 +44,7 @@ public class DogController {
             @Parameter(description = "페이지 요청 정보 (0-based page, size, sort)")
             @PageableDefault(size = 12, sort = "happenDt", direction = Sort.Direction.DESC) Pageable pageable
     ) {
-        Page<DogSummaryResponse> dogs = dogService.getDogs(sido, kindNm, sexCd, processState, pageable);
+        Page<DogSummaryResponse> dogs = dogService.getDogs(region, kindNm, sexCd, processState, pageable);
         return ResponseEntity.ok(dogs);
     }
 

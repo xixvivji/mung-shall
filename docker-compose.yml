@@ -84,8 +84,8 @@ services:
       - app-network
     environment:
       - OPENVIDU_SECRET=${OPENVIDU_SECRET}
-      - OPENVIDU_PUBLIC_URL=https://openvidu.i14c109.p.ssafy.io
-      - DOMAIN_OR_PUBLIC_IP=openvidu.i14c109.p.ssafy.io
+      - OPENVIDU_PUBLIC_URL=https://i14c109.p.ssafy.io/openvidu
+      - DOMAIN_OR_PUBLIC_IP=i14c109.p.ssafy.io
       - HTTPS_PORT=443
       - HTTP_PORT=0
     volumes:

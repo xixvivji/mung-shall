@@ -7,18 +7,20 @@ import {
   CardContent,
 } from "@/shared/ui/card";
 import { Badge } from "@/shared/ui/badge";
+import { ApiError } from "@/shared/api/client";
 import {
-  fetchShelterApplications,
   fetchShelterApplicationDocuments,
   fetchShelterDocumentBlob,
-  verifyAdoptionStep,
+  getShelterAdopters,
+  getShelterAdoptionDetail,
+  verifyShelterAdoption,
   type ApplicationStatusFilter,
-  type ShelterApplicationSummary,
+  type ApplicationStatus,
+  type ShelterAdopterListItem,
+  type ShelterAdoptionDetail,
   type ShelterApplicationDocument,
 } from "../api/centerApplicationsApi";
 import type { DocumentType } from "@/features/adoptionApplication/types";
-
-type ApplicationStatus = "WAITING" | "APPROVED" | "REJECTED";
 
 const STATUS_FILTERS: Array<{ value: ApplicationStatusFilter; label: string }> = [
   { value: "ALL", label: "전체" },
@@ -67,28 +69,30 @@ function isPdfFile(fileName?: string | null) {
   return fileName.toLowerCase().endsWith(".pdf");
 }
 
-function formatActionError(err: unknown) {
-  const message = err instanceof Error ? err.message : "요청에 실패했습니다.";
-  const lowered = message.toLowerCase();
-  if (
-    lowered.includes("401") ||
-    lowered.includes("403") ||
-    lowered.includes("unauthorized") ||
-    lowered.includes("forbidden")
-  ) {
-    return "권한이 없습니다.";
+function resolveApiErrorMessage(err: unknown, fallback = "요청에 실패했습니다.") {
+  if (err instanceof ApiError) {
+    if (err.status === 401) return "보호소 계정으로 로그인해 주세요.";
+    if (err.status === 403) return "보호소 권한이 없습니다.";
+    if (err.status === 404) return "대상을 찾을 수 없습니다.";
+    if (err.status === 409) return "이미 처리된 항목입니다. 최신 상태를 확인해 주세요.";
+    if (err.status >= 500) return "서버 오류가 발생했습니다. 잠시 후 다시 시도해주세요.";
+    return err.message || fallback;
   }
-  return message || "요청에 실패했습니다.";
+  if (err instanceof Error) return err.message || fallback;
+  return fallback;
 }
 
 export function CenterApplicationsSection() {
-  const [apps, setApps] = React.useState<ShelterApplicationSummary[]>([]);
-  const [selectedId, setSelectedId] = React.useState<number | null>(null);
+  const [apps, setApps] = React.useState<ShelterAdopterListItem[]>([]);
+  const [selectedAdoptionId, setSelectedAdoptionId] = React.useState<number | null>(null);
+  const [detail, setDetail] = React.useState<ShelterAdoptionDetail | null>(null);
   const [documents, setDocuments] = React.useState<ShelterApplicationDocument[]>([]);
   const [filter, setFilter] = React.useState<ApplicationStatusFilter>("ALL");
 
   const [loading, setLoading] = React.useState(false);
   const [listError, setListError] = React.useState<string | null>(null);
+  const [detailLoading, setDetailLoading] = React.useState(false);
+  const [detailError, setDetailError] = React.useState<string | null>(null);
   const [docsLoading, setDocsLoading] = React.useState(false);
   const [docsError, setDocsError] = React.useState<string | null>(null);
 
@@ -110,17 +114,17 @@ export function CenterApplicationsSection() {
       setListError(null);
 
       try {
-        const data = await fetchShelterApplications(activeFilter);
+        const data = await getShelterAdopters(activeFilter);
         setApps(data);
-        setSelectedId((prev) => {
-          if (prev && data.some((item) => item.applicationId === prev)) return prev;
-          return data[0]?.applicationId ?? null;
+        setSelectedAdoptionId((prev) => {
+          if (prev && data.some((item) => item.adoptionId === prev)) return prev;
+          return data[0]?.adoptionId ?? null;
         });
         return data;
       } catch (err) {
         setApps([]);
-        setSelectedId(null);
-        setListError(err instanceof Error ? err.message : "신청 목록을 불러오지 못했습니다.");
+        setSelectedAdoptionId(null);
+        setListError(resolveApiErrorMessage(err, "신청 목록을 불러오지 못했습니다."));
         return [];
       } finally {
         setLoading(false);
@@ -134,7 +138,40 @@ export function CenterApplicationsSection() {
   }, [filter, refreshList]);
 
   React.useEffect(() => {
-    if (!selectedId) {
+    if (!selectedAdoptionId) {
+      setDetail(null);
+      setDetailError(null);
+      return;
+    }
+
+    let active = true;
+    setDetailLoading(true);
+    setDetailError(null);
+
+    getShelterAdoptionDetail(selectedAdoptionId)
+      .then((data) => {
+        if (!active) return;
+        setDetail(data);
+      })
+      .catch((err) => {
+        if (!active) return;
+        setDetail(null);
+        setDetailError(resolveApiErrorMessage(err, "상세 정보를 불러오지 못했습니다."));
+      })
+      .finally(() => {
+        if (!active) return;
+        setDetailLoading(false);
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [selectedAdoptionId]);
+
+  React.useEffect(() => {
+    const applicationId = apps.find((item) => item.adoptionId === selectedAdoptionId)
+      ?.applicationId;
+    if (!applicationId) {
       setDocuments([]);
       setDocsError(null);
       return;
@@ -144,7 +181,7 @@ export function CenterApplicationsSection() {
     setDocsLoading(true);
     setDocsError(null);
 
-    fetchShelterApplicationDocuments(selectedId)
+    fetchShelterApplicationDocuments(applicationId)
       .then((data) => {
         if (!active) return;
         setDocuments(data);
@@ -152,7 +189,7 @@ export function CenterApplicationsSection() {
       .catch((err) => {
         if (!active) return;
         setDocuments([]);
-        setDocsError(err instanceof Error ? err.message : "서류 목록을 불러오지 못했습니다.");
+        setDocsError(resolveApiErrorMessage(err, "서류 목록을 불러오지 못했습니다."));
       })
       .finally(() => {
         if (!active) return;
@@ -162,19 +199,19 @@ export function CenterApplicationsSection() {
     return () => {
       active = false;
     };
-  }, [selectedId]);
+  }, [apps, selectedAdoptionId]);
 
   React.useEffect(() => {
     setPreviewDoc(null);
     setPreviewError(null);
     setPreviewLoading(false);
     setPreviewUrl(null);
-  }, [selectedId]);
+  }, [selectedAdoptionId]);
 
   React.useEffect(() => {
     setActionError(null);
     setActionMessage(null);
-  }, [selectedId, filter]);
+  }, [selectedAdoptionId, filter]);
 
   React.useEffect(() => {
     return () => {
@@ -183,10 +220,11 @@ export function CenterApplicationsSection() {
   }, [previewUrl]);
 
   const selected = React.useMemo(
-    () => apps.find((a) => a.applicationId === selectedId) ?? null,
-    [apps, selectedId]
+    () => apps.find((a) => a.adoptionId === selectedAdoptionId) ?? null,
+    [apps, selectedAdoptionId]
   );
-  const canVerify = selected?.status === "WAITING";
+  const selectedDetail = detail ?? null;
+  const canVerify = (selectedDetail?.status ?? selected?.status) === "WAITING";
   const actionDisabled = actionLoading || !canVerify;
 
   const handleOpen = async (doc: ShelterApplicationDocument) => {
@@ -197,7 +235,7 @@ export function CenterApplicationsSection() {
       window.open(url, "_blank", "noopener");
       window.setTimeout(() => URL.revokeObjectURL(url), 10000);
     } catch (err) {
-      setDocsError(err instanceof Error ? err.message : "파일을 열 수 없습니다.");
+      setDocsError(resolveApiErrorMessage(err, "파일을 열 수 없습니다."));
     }
   };
 
@@ -222,7 +260,7 @@ export function CenterApplicationsSection() {
       });
     } catch (err) {
       setPreviewUrl(null);
-      setPreviewError(err instanceof Error ? err.message : "미리보기를 불러오지 못했습니다.");
+      setPreviewError(resolveApiErrorMessage(err, "미리보기를 불러오지 못했습니다."));
     } finally {
       setPreviewLoading(false);
     }
@@ -230,7 +268,7 @@ export function CenterApplicationsSection() {
 
   const handleApprove = async () => {
     if (!selected || actionLoading) return;
-    if (selected.status !== "WAITING") return;
+    if ((selectedDetail?.status ?? selected.status) !== "WAITING") return;
 
     const confirmed = window.confirm("해당 신청을 승인 처리할까요?");
     if (!confirmed) return;
@@ -240,23 +278,28 @@ export function CenterApplicationsSection() {
     setActionMessage(null);
 
     try {
-      await verifyAdoptionStep(selected.applicationId, {
+      await verifyShelterAdoption(selected.adoptionId, {
         isApproved: true,
         rejectionReason: "",
       });
 
       setApps((prev) =>
         prev.map((item) =>
-          item.applicationId === selected.applicationId
+          item.adoptionId === selected.adoptionId
             ? { ...item, status: "APPROVED" }
             : item
         )
+      );
+      setDetail((prev) =>
+        prev && prev.adoptionId === selected.adoptionId
+          ? { ...prev, status: "APPROVED" }
+          : prev
       );
 
       setActionMessage("승인 처리가 완료되었습니다.");
       await refreshList(filter);
     } catch (err) {
-      setActionError(formatActionError(err));
+      setActionError(resolveApiErrorMessage(err));
     } finally {
       setActionLoading(false);
     }
@@ -278,7 +321,7 @@ export function CenterApplicationsSection() {
 
   const handleReject = async () => {
     if (!selected || actionLoading) return;
-    if (selected.status !== "WAITING") return;
+    if ((selectedDetail?.status ?? selected.status) !== "WAITING") return;
 
     const reason = rejectReason.trim();
     if (!reason) {
@@ -291,17 +334,22 @@ export function CenterApplicationsSection() {
     setActionMessage(null);
 
     try {
-      await verifyAdoptionStep(selected.applicationId, {
+      await verifyShelterAdoption(selected.adoptionId, {
         isApproved: false,
         rejectionReason: reason,
       });
 
       setApps((prev) =>
         prev.map((item) =>
-          item.applicationId === selected.applicationId
+          item.adoptionId === selected.adoptionId
             ? { ...item, status: "REJECTED" }
             : item
         )
+      );
+      setDetail((prev) =>
+        prev && prev.adoptionId === selected.adoptionId
+          ? { ...prev, status: "REJECTED", rejectionReason: reason }
+          : prev
       );
 
       setActionMessage("반려 처리가 완료되었습니다.");
@@ -309,7 +357,7 @@ export function CenterApplicationsSection() {
       setRejectReason("");
       await refreshList(filter);
     } catch (err) {
-      setActionError(formatActionError(err));
+      setActionError(resolveApiErrorMessage(err));
     } finally {
       setActionLoading(false);
     }
@@ -375,13 +423,13 @@ export function CenterApplicationsSection() {
               ) : (
                 <div className="space-y-2">
                   {apps.map((item) => {
-                    const active = item.applicationId === selectedId;
+                    const active = item.adoptionId === selectedAdoptionId;
                     const statusLabel = STATUS_LABELS[item.status as ApplicationStatus] ?? item.status;
                     return (
                       <button
-                        key={item.applicationId}
+                        key={item.adoptionId}
                         type="button"
-                        onClick={() => setSelectedId(item.applicationId)}
+                        onClick={() => setSelectedAdoptionId(item.adoptionId)}
                         className={[
                           "w-full rounded-2xl border p-3 text-left transition",
                           active
@@ -427,6 +475,16 @@ export function CenterApplicationsSection() {
               </div>
             ) : (
               <div className="flex flex-col gap-4">
+                {detailLoading ? (
+                  <div className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-xs text-slate-500">
+                    상세 정보를 불러오는 중...
+                  </div>
+                ) : null}
+                {detailError ? (
+                  <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-xs text-red-600">
+                    {detailError}
+                  </div>
+                ) : null}
                 <div className="flex items-start gap-4">
                   <div className="flex h-20 w-20 items-center justify-center rounded-2xl bg-slate-100 text-xs text-slate-500">
                     No Image
@@ -435,17 +493,25 @@ export function CenterApplicationsSection() {
                   <div className="flex-1">
                     <div className="flex items-center gap-2">
                       <div className="text-base font-semibold text-slate-900">
-                        {selected.applicantName} 신청
+                        {selectedDetail?.applicantName ?? selected.applicantName} 신청
                       </div>
-                      <Badge variant={statusBadgeVariant(selected.status as ApplicationStatus) as any}>
-                        {STATUS_LABELS[selected.status as ApplicationStatus] ?? selected.status}
+                      <Badge
+                        variant={statusBadgeVariant(
+                          (selectedDetail?.status ?? selected.status) as ApplicationStatus
+                        ) as any}
+                      >
+                        {STATUS_LABELS[
+                          (selectedDetail?.status ?? selected.status) as ApplicationStatus
+                        ] ?? (selectedDetail?.status ?? selected.status)}
                       </Badge>
                     </div>
                     <div className="mt-1 text-sm text-slate-700">
-                      {selected.dogKindNm} · desertionNo {selected.dogDesertionNo}
+                      {selectedDetail?.dogKindNm ?? selected.dogKindNm} · desertionNo{" "}
+                      {selectedDetail?.dogDesertionNo ?? selected.dogDesertionNo}
                     </div>
                     <div className="mt-1 text-xs text-slate-500">
-                      연락처 {selected.applicantPhone} · 제출 {formatDateTime(selected.submittedAt)}
+                      연락처 {selectedDetail?.applicantPhone ?? selected.applicantPhone} · 제출{" "}
+                      {formatDateTime(selectedDetail?.submittedAt ?? selected.submittedAt)}
                     </div>
                   </div>
                 </div>

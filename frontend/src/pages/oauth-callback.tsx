@@ -29,7 +29,9 @@ export default function OAuthCallbackPage() {
     fetchMe(accessToken)
       .then((user) => {
         authStore.setUser(user);
-        navigate(ROUTES.mypage, { replace: true });
+        const userType = user?.userType?.toLowerCase();
+        const nextRoute = userType === "shelter" || userType === "center" ? ROUTES.center : ROUTES.mypage;
+        navigate(nextRoute, { replace: true });
       })
       .catch((err) => {
         clearAuthTokens();

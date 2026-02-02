@@ -5,13 +5,16 @@ import { ApiError } from "@/shared/api/client";
 import {
   fetchPostAdoptionStep,
   verifyPostAdoptionStep,
+  completePostAdoptionProcess,
 } from "@/features/postAdoption/api/postAdoptionApi";
 import type { PostAdoptionStep, PostAdoptionStepStatus } from "@/features/mypage/types";
 
 type Props = {
   postAdoptionId?: number | null;
+  adoptionId?: number | null;
   steps?: PostAdoptionStep[];
   onRefresh?: () => void | Promise<void>;
+  onStart?: () => void | Promise<void>;
 };
 
 const STATUS_LABELS: Record<PostAdoptionStepStatus, string> = {
@@ -49,7 +52,13 @@ function resolveApiErrorMessage(error: unknown, fallback: string) {
   return fallback;
 }
 
-export function PostAdoptionTools({ postAdoptionId, steps, onRefresh }: Props) {
+export function PostAdoptionTools({
+  postAdoptionId,
+  adoptionId,
+  steps,
+  onRefresh,
+  onStart,
+}: Props) {
   const [selectedStepId, setSelectedStepId] = useState<number | null>(null);
   const [detail, setDetail] = useState<PostAdoptionStep | null>(null);
   const [detailLoading, setDetailLoading] = useState(false);
@@ -57,6 +66,9 @@ export function PostAdoptionTools({ postAdoptionId, steps, onRefresh }: Props) {
   const [actionLoading, setActionLoading] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
   const [actionMessage, setActionMessage] = useState<string | null>(null);
+  const [completeLoading, setCompleteLoading] = useState(false);
+  const [completeError, setCompleteError] = useState<string | null>(null);
+  const [completeMessage, setCompleteMessage] = useState<string | null>(null);
   const [rejectReason, setRejectReason] = useState("");
 
   const orderedSteps = useMemo(() => {
@@ -79,6 +91,11 @@ export function PostAdoptionTools({ postAdoptionId, steps, onRefresh }: Props) {
     setActionMessage(null);
     setRejectReason("");
   }, [selectedStepId]);
+
+  useEffect(() => {
+    setCompleteError(null);
+    setCompleteMessage(null);
+  }, [postAdoptionId]);
 
   const loadDetail = useCallback(
     async (targetId: number, stepId: number) => {
@@ -153,6 +170,42 @@ export function PostAdoptionTools({ postAdoptionId, steps, onRefresh }: Props) {
     }
   };
 
+  const handleStartProcess = async () => {
+    if (!onStart || !adoptionId) return;
+    setCompleteError(null);
+    setCompleteMessage(null);
+    try {
+      await onStart();
+      if (onRefresh) {
+        await onRefresh();
+      }
+    } catch (err) {
+      setCompleteError(resolveApiErrorMessage(err, "입양 후 프로세스를 시작하지 못했습니다."));
+    }
+  };
+
+  const handleCompleteProcess = async () => {
+    if (!postAdoptionId || completeLoading) return;
+    const confirmed = window.confirm("입양 후 프로세스를 완료 처리할까요?");
+    if (!confirmed) return;
+
+    setCompleteLoading(true);
+    setCompleteError(null);
+    setCompleteMessage(null);
+
+    try {
+      await completePostAdoptionProcess(postAdoptionId);
+      setCompleteMessage("입양 후 프로세스가 완료 처리되었습니다.");
+      if (onRefresh) {
+        await onRefresh();
+      }
+    } catch (err) {
+      setCompleteError(resolveApiErrorMessage(err, "완료 처리에 실패했습니다."));
+    } finally {
+      setCompleteLoading(false);
+    }
+  };
+
   const canVerify = detail
     ? detail.status === "PENDING" || detail.status === "SUBMITTED"
     : false;
@@ -167,6 +220,17 @@ export function PostAdoptionTools({ postAdoptionId, steps, onRefresh }: Props) {
           {!postAdoptionId && (
             <div className="rounded-xl bg-gray-50 p-4 text-sm text-gray-600">
               ?? ? ???? ID? ????. ?? ??? ???.
+              {onStart && adoptionId ? (
+                <div className="mt-3">
+                  <Button
+                    variant="outline"
+                    className="rounded-lg"
+                    onClick={handleStartProcess}
+                  >
+                    입양 후 프로세스 시작
+                  </Button>
+                </div>
+              ) : null}
             </div>
           )}
 
@@ -259,6 +323,16 @@ export function PostAdoptionTools({ postAdoptionId, steps, onRefresh }: Props) {
                   {actionMessage}
                 </div>
               ) : null}
+              {completeError ? (
+                <div className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700">
+                  {completeError}
+                </div>
+              ) : null}
+              {completeMessage ? (
+                <div className="rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs text-emerald-700">
+                  {completeMessage}
+                </div>
+              ) : null}
 
               <div className="mt-2 space-y-2">
                 <label className="text-xs font-semibold text-gray-600">?? ??</label>
@@ -299,8 +373,10 @@ export function PostAdoptionTools({ postAdoptionId, steps, onRefresh }: Props) {
         <Button
           variant="outline"
           className="w-full mt-6 rounded-lg hover:bg-blue-50 hover:text-blue-600 hover:border-blue-300"
+          onClick={handleCompleteProcess}
+          disabled={!postAdoptionId || completeLoading}
         >
-          ?? ??? ??
+          {completeLoading ? "완료 처리 중..." : "전체 완료 처리"}
         </Button>
       </div>
 

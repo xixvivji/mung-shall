@@ -54,6 +54,11 @@ type RawAdoptionDetail = {
   steps?: RawAdoptionStepInstance[];
 };
 
+type RawAdoptionCreateResponse = {
+  id?: number;
+  adoptionId?: number;
+};
+
 type StepVerificationPayload = {
   isApproved: boolean;
   rejectionReason?: string | null;
@@ -66,6 +71,31 @@ type PostAdoptionCreateRequest = {
 type PostAdoptionStepSubmitRequest = {
   data: string;
 };
+
+type UnknownRecord = Record<string, unknown>;
+
+const isRecord = (value: unknown): value is UnknownRecord =>
+  typeof value === "object" && value !== null && !Array.isArray(value);
+
+const toNumber = (value: unknown): number | null => {
+  if (typeof value === "number" && Number.isFinite(value)) return value;
+  if (typeof value === "string" && value.trim() !== "") {
+    const num = Number(value);
+    return Number.isFinite(num) ? num : null;
+  }
+  return null;
+};
+
+function resolveAdoptionId(data: unknown): number | null {
+  if (typeof data === "number") return data;
+  if (!isRecord(data)) return null;
+  return (
+    toNumber(data.id) ??
+    toNumber(data.adoptionId) ??
+    toNumber(data.adoption_id) ??
+    null
+  );
+}
 
 function normalizePostAdoptionStep(raw: RawPostAdoptionStep): PostAdoptionStep | null {
   if (!raw || typeof raw !== "object") return null;
@@ -131,6 +161,17 @@ export async function fetchAdoptionDetail(adoptionId: number): Promise<AdoptionD
           .filter((step): step is AdoptionStepInstance => Boolean(step))
       : [],
   };
+}
+
+export async function createAdoptionProcess(): Promise<number> {
+  const data = await api<RawAdoptionCreateResponse | unknown>(`/adoptions/`, {
+    method: "POST",
+  });
+  const id = resolveAdoptionId(data);
+  if (!id) {
+    throw new Error("Failed to resolve adoptionId from create response.");
+  }
+  return id;
 }
 
 export async function startPostAdoptionProcess(adoptionId: number): Promise<PostAdoptionProcess> {

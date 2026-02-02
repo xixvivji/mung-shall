@@ -167,9 +167,11 @@ function AdopterMyPage() {
       {postAdoptionLoading && <div className="text-sm text-[#777]">Loading...</div>}
 
       <PostAdoptionTools
+        adoptionId={adoptionId}
         postAdoptionId={postAdoptionId}
         steps={postAdoption?.steps}
         onRefresh={refreshPostAdoption}
+        onStart={startPostAdoption}
       />
     </section>
   );

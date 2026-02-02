@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { AdoptionDetail, AdoptionStep, MyDog, PostAdoptionProcess, PostAdoptionStep } from "../types";
 import { fetchMyDogs } from "../api/mypageApi";
 import {
@@ -46,7 +46,7 @@ function resolveStepKey(name?: string, stepOrder?: number | null): AdoptionStep 
 export default function useMyPage() {
   const [dogs, setDogs] = useState<MyDog[]>([]);
   const [loading, setLoading] = useState(true);
-  const [adoptionId] = useState<number | null>(() => {
+  const [adoptionId, setAdoptionId] = useState<number | null>(() => {
     const raw = localStorage.getItem(ADOPTION_ID_KEY);
     const value = raw ? Number(raw) : NaN;
     return Number.isFinite(value) && value > 0 ? value : null;
@@ -62,6 +62,7 @@ export default function useMyPage() {
   const [postAdoption, setPostAdoption] = useState<PostAdoptionProcess | null>(null);
   const [postAdoptionLoading, setPostAdoptionLoading] = useState(false);
   const [postAdoptionError, setPostAdoptionError] = useState<string | null>(null);
+  const ensureAdoptionIdAttemptedRef = useRef(false);
 
   useEffect(() => {
     let mounted = true;
@@ -82,6 +83,14 @@ export default function useMyPage() {
       mounted = false;
     };
   }, []);
+
+  useEffect(() => {
+    if (adoptionId) {
+      localStorage.setItem(ADOPTION_ID_KEY, String(adoptionId));
+    } else {
+      localStorage.removeItem(ADOPTION_ID_KEY);
+    }
+  }, [adoptionId]);
 
   const refreshAdoptionDetail = useCallback(async () => {
     if (!adoptionId) return;
@@ -122,6 +131,20 @@ export default function useMyPage() {
     if (!postAdoptionId) return;
     void refreshPostAdoption();
   }, [postAdoptionId, refreshPostAdoption]);
+
+  const ensureAdoptionId = useCallback(async () => {
+    if (adoptionId || ensureAdoptionIdAttemptedRef.current) return;
+    ensureAdoptionIdAttemptedRef.current = true;
+    // `adoptionId`가 없는 것은 오류가 아니라 유효한 상태(예: 아직 입양 신청을 하지 않은 사용자)일 수 있으므로,
+    // 여기서 오류를 설정하지 않습니다. `ManagePage`에서 `adoptionId`의 존재 여부를 확인하여
+    // 적절한 UI를 표시하도록 처리합니다.
+    // setAdoptionError("입양 과정에서 다시 진입해주세요.");
+  }, [adoptionId]);
+
+  useEffect(() => {
+    if (adoptionId) return;
+    void ensureAdoptionId();
+  }, [adoptionId, ensureAdoptionId]);
 
   const startPostAdoption = useCallback(async () => {
     if (!adoptionId) {

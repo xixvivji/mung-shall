@@ -18,6 +18,7 @@ export default function Header() {
     userType === "shelter" || userType === "center"
       ? ROUTES.center
       : ROUTES.mypage;
+  const isAdopter = user && userType !== "shelter" && userType !== "center";
 
   const handleLogout = async () => {
     await logout();

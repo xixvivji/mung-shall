@@ -5,10 +5,11 @@ export type CommentItem = {
     content: string;
 
     authorName?: string;
-
     authorId?: number;
 
     createdAt?: string;
+    updatedAt?: string;
+
     parentCommentId?: number | null;
 
     likeCount?: number;
@@ -31,6 +32,8 @@ type RawComment = {
     parentCommentId?: unknown;
 
     writer?: unknown;
+    writerId?: unknown;
+
     content?: unknown;
 
     createdAt?: unknown;
@@ -42,10 +45,10 @@ type RawComment = {
     likedByMe?: unknown;
 };
 
-const toNumber = (v: unknown, fallback = 0) => {
+const toNumber = (v: unknown): number | undefined => {
     if (typeof v === "number") return v;
     if (typeof v === "string" && v.trim() && !Number.isNaN(Number(v))) return Number(v);
-    return fallback;
+    return undefined;
 };
 
 const toString = (v: unknown, fallback = "") => {
@@ -54,36 +57,56 @@ const toString = (v: unknown, fallback = "") => {
     return fallback;
 };
 
+const toBoolean = (v: unknown): boolean | undefined => {
+    if (typeof v === "boolean") return v;
+    if (typeof v === "number") return v !== 0;
+    if (typeof v === "string") {
+        const s = v.trim().toLowerCase();
+        if (s === "true") return true;
+        if (s === "false") return false;
+    }
+    return undefined;
+};
+
+const normalizeParentId = (v: unknown): number | null => {
+    if (v === null || v === undefined) return null;
+    const n = toNumber(v);
+    return typeof n === "number" ? n : null;
+};
+
 function normalizeComment(raw: unknown): CommentItem {
-    if (!raw || typeof raw !== "object") return { id: 0, content: "" };
+    if (!raw || typeof raw !== "object") return { id: 0, content: "", replies: [] };
     const c = raw as RawComment;
 
     const item: CommentItem = {
-        id: toNumber(c.id, 0),
-        parentCommentId:
-            c.parentCommentId === null || c.parentCommentId === undefined
-                ? null
-                : toNumber(c.parentCommentId, null as any),
+        id: toNumber(c.id) ?? 0,
+
+        parentCommentId: normalizeParentId(c.parentCommentId),
 
         authorName: toString(c.writer, "익명"),
+        authorId: toNumber(c.writerId),
 
         content: toString(c.content, ""),
         createdAt: toString(c.createdAt, ""),
+        updatedAt: toString(c.updatedAt, ""),
 
-        likeCount: typeof c.likeCount === "number" ? c.likeCount : toNumber(c.likeCount, 0),
-        likedByMe: typeof c.likedByMe === "boolean" ? c.likedByMe : Boolean(c.likedByMe),
+        likeCount: toNumber(c.likeCount) ?? 0,
+        likedByMe: toBoolean(c.likedByMe) ?? false,
+
+        replies: [],
     };
 
     if (Array.isArray(c.replies)) {
         item.replies = c.replies.map(normalizeComment);
-    } else {
-        item.replies = [];
     }
 
     return item;
 }
 
-export async function fetchBoardCommentsPage(boardId: string, params?: { page?: number; size?: number }) {
+export async function fetchBoardCommentsPage(
+    boardId: string,
+    params?: { page?: number; size?: number }
+): Promise<CommentPageResponse> {
     const search = new URLSearchParams();
     if (params?.page !== undefined) search.set("page", String(params.page));
     if (params?.size !== undefined) search.set("size", String(params.size));
@@ -93,28 +116,39 @@ export async function fetchBoardCommentsPage(boardId: string, params?: { page?: 
 
     const data = await api<any>(url, { method: "GET" });
 
-    const content = Array.isArray(data?.content) ? data.content : [];
-    const normalized = content.map(normalizeComment);
+    const contentRaw = Array.isArray(data?.content) ? data.content : [];
+    const normalized = contentRaw.map(normalizeComment);
 
-    const result: CommentPageResponse = {
+    const totalPages = toNumber(data?.totalPages);
+    const totalElements = toNumber(data?.totalElements);
+    const page = toNumber(data?.page);
+    const size = toNumber(data?.size);
+
+    const last = toBoolean(data?.last);
+    const hasNext = typeof last === "boolean" ? !last : undefined;
+
+    return {
         content: normalized,
-        page: typeof data?.page === "number" ? data.page : undefined,
-        size: typeof data?.size === "number" ? data.size : undefined,
-        totalPages: typeof data?.totalPages === "number" ? data.totalPages : undefined,
-        totalElements: typeof data?.totalElements === "number" ? data.totalElements : undefined,
-
-        hasNext: typeof data?.last === "boolean" ? !data.last : undefined,
+        page,
+        size,
+        totalPages,
+        totalElements,
+        hasNext,
     };
-
-    return result;
 }
 
-export async function fetchBoardComments(boardId: string, params?: { page?: number; size?: number }) {
+export async function fetchBoardComments(
+    boardId: string,
+    params?: { page?: number; size?: number }
+) {
     const data = await fetchBoardCommentsPage(boardId, params);
     return Array.isArray(data?.content) ? data.content : [];
 }
 
-export async function createBoardComment(boardId: string, payload: { content: string; parentCommentId?: number | null }) {
+export async function createBoardComment(
+    boardId: string,
+    payload: { content: string; parentCommentId?: number | null }
+) {
     return api(`/boards/${boardId}/comments`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -125,7 +159,9 @@ export async function createBoardComment(boardId: string, payload: { content: st
     });
 }
 
-export async function toggleCommentLike(commentId: number): Promise<{ likedByMe: boolean; likeCount: number }> {
+export async function toggleCommentLike(
+    commentId: number
+): Promise<{ likedByMe: boolean; likeCount: number }> {
     const data = await api<any>(`/comments/${commentId}/likes`, { method: "POST" });
 
     return {

@@ -1,9 +1,12 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Link, useSearchParams } from "react-router-dom";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import BoardList from "../components/BoardList";
 import Pagination from "@/features/adoption/components/Pagination";
 import { fetchBoardList, toBoardApiError } from "../api/boardApi";
 import type { BoardSummary } from "../types";
+import { authStore } from "@/features/auth/store/authStore";
+import AlertModal from "@/shared/components/AlertModal";
+import { useAlertModal } from "@/shared/hooks/useAlertModal";
 
 type BoardCategoryFilter = "ALL" | "FREE" | "REVIEW";
 type BoardSort = "createdAt" | "viewCount";
@@ -26,8 +29,30 @@ function parseSort(params: URLSearchParams): BoardSort {
     return raw === "viewCount" ? "viewCount" : "createdAt";
 }
 
+function canWriteReview(me: any): boolean {
+    if (!me) return false;
+
+    const userType = typeof me.userType === "string" ? me.userType.toLowerCase() : "";
+    const role = typeof me.role === "string" ? me.role.toLowerCase() : "";
+    const accountType = typeof me.accountType === "string" ? me.accountType.toLowerCase() : "";
+
+    const isAdopterFlag =
+        me.isAdopter === true || me.adopter === true || me.adoptionCompleted === true;
+
+    const isAdopterByString =
+        userType === "adopter" ||
+        role === "adopter" ||
+        accountType === "adopter" ||
+        userType === "adopted" ||
+        role === "adopted";
+
+    return Boolean(isAdopterFlag || isAdopterByString);
+}
+
 export default function BoardListPage() {
     const [searchParams, setSearchParams] = useSearchParams();
+    const navigate = useNavigate();
+    const { openAlert, alertProps } = useAlertModal();
 
     const [items, setItems] = useState<BoardSummary[]>([]);
     const [loading, setLoading] = useState(true);
@@ -42,6 +67,11 @@ export default function BoardListPage() {
     const q = searchParams.get("q") ?? "";
     const category = useMemo(() => parseCategory(searchParams), [searchParams]);
     const sort = useMemo(() => parseSort(searchParams), [searchParams]);
+
+    const [me, setMe] = useState(() => authStore.getSnapshot());
+    useEffect(() => {
+        return authStore.subscribe(() => setMe(authStore.getSnapshot()));
+    }, []);
 
     useEffect(() => {
         setQuery(q);
@@ -147,6 +177,33 @@ export default function BoardListPage() {
     const tabActive = "bg-[#111827] text-white border-[#111827]";
     const tabInactive = "bg-white text-[#111827] border-[#E5E7EB] hover:bg-[#F7F8FA]";
 
+    const handleClickWrite = useCallback(() => {
+        const targetCategory: "FREE" | "REVIEW" =
+            category === "ALL" ? "FREE" : category;
+
+        if (targetCategory === "REVIEW") {
+            if (!me) {
+                openAlert({
+                    title: "로그인 필요",
+                    message: "후기 게시글 작성은 로그인 후 가능합니다.",
+                });
+                navigate("/auth/login", { replace: true });
+                return;
+            }
+
+            if (!canWriteReview(me)) {
+                openAlert({
+                    title: "작성 권한 없음",
+                    message: "후기 게시글은 입양 완료자(입양자)만 작성할 수 있습니다.",
+                });
+                setCategoryFilter("REVIEW");
+                return;
+            }
+        }
+
+        navigate(`/boards/new?category=${targetCategory}`);
+    }, [category, me, navigate, openAlert, setCategoryFilter]);
+
     return (
         <section className="bg-[#F7F8FA]">
             <div className="mx-auto max-w-[1440px] px-8 py-12">
@@ -156,13 +213,13 @@ export default function BoardListPage() {
                     <div className="flex flex-wrap items-center justify-between gap-4">
                         <h1 className="text-[32px] font-bold text-[#1F2937]">게시판</h1>
 
-                        <Link
-                            to={`/boards/new?category=${category === "ALL" ? "FREE" : category}`}
+                        <button
+                            type="button"
+                            onClick={handleClickWrite}
                             className="h-12 rounded-[12px] bg-[#5B7CFA] px-6 text-sm font-semibold text-white transition hover:brightness-95"
                         >
                             글쓰기
-                        </Link>
-
+                        </button>
                     </div>
                 </div>
 
@@ -204,7 +261,9 @@ export default function BoardListPage() {
                         <span className="text-sm text-[#6B7280]">정렬</span>
                         <select
                             value={sort}
-                            onChange={(e) => setSortFilter(e.target.value === "viewCount" ? "viewCount" : "createdAt")}
+                            onChange={(e) =>
+                                setSortFilter(e.target.value === "viewCount" ? "viewCount" : "createdAt")
+                            }
                             className="h-10 rounded-[12px] border border-[#E5E7EB] bg-white px-3 text-sm text-[#111827] outline-none"
                         >
                             <option value="createdAt">최신순</option>
@@ -243,6 +302,8 @@ export default function BoardListPage() {
                     />
                 </div>
             </div>
+
+            <AlertModal {...alertProps} />
         </section>
     );
 }

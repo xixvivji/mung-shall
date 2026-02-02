@@ -64,14 +64,14 @@ export default function BoardDetailPage() {
 
     const boardOwnerId = useMemo(() => {
         if (!detail) return null;
-        const v = (detail as any).authorId;
+        const v = detail.authorId;
         return typeof v === "number" ? v : null;
     }, [detail]);
 
     const isOwner = useMemo(() => {
         if (!me || !detail) return false;
-        if (typeof (detail as any).authorId !== "number") return false;
-        return me.userId === (detail as any).authorId;
+        if (typeof detail.authorId !== "number") return false;
+        return me.userId === detail.authorId;
     }, [detail, me]);
 
     useEffect(() => {
@@ -112,6 +112,7 @@ export default function BoardDetailPage() {
     const handleDelete = useCallback(async () => {
         if (!id || deleting) return;
         setDeleting(true);
+
         try {
             await deleteBoard(id);
             navigate("/boards");
@@ -204,22 +205,22 @@ export default function BoardDetailPage() {
 
                 setComments((prev) =>
                     prev.map((c) => {
-                        // 루트 댓글 자체 좋아요
+                        // 루트 좋아요
                         if (c.id === commentId) {
                             return { ...c, likedByMe: result.likedByMe, likeCount: result.likeCount };
                         }
 
-                        // replies에 있는지 확인
-                        const replies = Array.isArray((c as any).replies) ? (c as any).replies : null;
-                        if (!replies) return c;
+                        // 대댓글 좋아요 (depth 1)
+                        const replies = Array.isArray(c.replies) ? c.replies : [];
+                        if (replies.length === 0) return c;
 
-                        const nextReplies = replies.map((r: CommentItem) =>
+                        const nextReplies = replies.map((r) =>
                             r.id === commentId
                                 ? { ...r, likedByMe: result.likedByMe, likeCount: result.likeCount }
                                 : r
                         );
 
-                        return { ...(c as any), replies: nextReplies };
+                        return { ...c, replies: nextReplies };
                     })
                 );
             } catch (err) {
@@ -289,40 +290,30 @@ export default function BoardDetailPage() {
     const isMyComment = useCallback(
         (c: CommentItem) => {
             if (!me) return false;
-            const authorId = (c as any).authorId;
+            const authorId = c.authorId;
             return typeof authorId === "number" && me.userId === authorId;
         },
         [me]
     );
 
+    // 백엔드가 replies 트리로 내려주므로: 루트는 parentCommentId == null 기준
     const commentTree = useMemo(() => {
-        const hasRepliesField = comments.some((c) => Array.isArray((c as any).replies));
-        if (hasRepliesField) {
-            return comments
-                .filter((c) => !c.parentCommentId)
-                .map((c) => ({
-                    ...c,
-                    replies: Array.isArray((c as any).replies) ? (c as any).replies : [],
-                }));
-        }
-
-        const map = new Map<number, CommentItem & { replies: CommentItem[] }>();
-        comments.forEach((c) => {
-            map.set(c.id, { ...c, replies: [] });
-        });
-
-        const roots: (CommentItem & { replies: CommentItem[] })[] = [];
-        map.forEach((c) => {
-            const pid = c.parentCommentId ?? null;
-            if (pid && map.has(pid)) {
-                map.get(pid)!.replies.push(c);
-            } else if (!pid) {
-                roots.push(c);
-            }
-        });
-
-        return roots;
+        return comments
+            .filter((c) => c.parentCommentId == null)
+            .map((c) => ({
+                ...c,
+                replies: Array.isArray(c.replies) ? c.replies : [],
+            }));
     }, [comments]);
+
+    const totalCommentCount = useMemo(() => {
+        let count = 0;
+        for (const c of commentTree) {
+            count += 1;
+            if (Array.isArray(c.replies)) count += c.replies.length;
+        }
+        return count;
+    }, [commentTree]);
 
     return (
         <section className="bg-[#F7F8FA]">
@@ -353,9 +344,9 @@ export default function BoardDetailPage() {
                                 {detail.content}
                             </div>
 
-                            {/* 수정/삭제 (authorId가 없으면 서버에서 막히게 버튼은 보여줌) */}
+                            {/* 수정/삭제: 작성자만 노출 */}
                             <div className="flex flex-wrap gap-3">
-                                {(isOwner || boardOwnerId === null) && (
+                                {isOwner && (
                                     <Link
                                         to={`/boards/${id}/edit`}
                                         className="h-12 rounded-[12px] border border-[#E5E7EB] bg-white px-6 text-sm font-semibold text-[#1F2937] transition hover:bg-[#F7F8FA]"
@@ -364,7 +355,7 @@ export default function BoardDetailPage() {
                                     </Link>
                                 )}
 
-                                {(isOwner || boardOwnerId === null) && (
+                                {isOwner && (
                                     <AlertDialog open={deleteOpen} onOpenChange={setDeleteOpen}>
                                         <button
                                             type="button"
@@ -397,6 +388,7 @@ export default function BoardDetailPage() {
                                     </AlertDialog>
                                 )}
 
+                                {/* 작성자 아닌 경우 안내 */}
                                 {boardOwnerId !== null && !isOwner ? (
                                     <div className="self-center text-xs text-[#9CA3AF]">
                                         작성자만 수정/삭제할 수 있습니다.
@@ -408,7 +400,7 @@ export default function BoardDetailPage() {
                             <div className="mt-8 border-t border-[#E5E7EB] pt-6">
                                 <div className="flex items-center justify-between">
                                     <h3 className="text-lg font-bold text-[#1F2937]">댓글</h3>
-                                    <span className="text-sm text-[#6B7280]">{comments.length}개</span>
+                                    <span className="text-sm text-[#6B7280]">{totalCommentCount}개</span>
                                 </div>
 
                                 {/* 댓글 작성 */}
@@ -504,7 +496,9 @@ export default function BoardDetailPage() {
                                                         <button
                                                             type="button"
                                                             className="text-sm font-semibold text-[#2563EB] hover:underline"
-                                                            onClick={() => setReplyOpenFor((prev) => (prev === c.id ? null : c.id))}
+                                                            onClick={() =>
+                                                                setReplyOpenFor((prev) => (prev === c.id ? null : c.id))
+                                                            }
                                                         >
                                                             {replyOpenFor === c.id ? "답글 닫기" : "답글 달기"}
                                                         </button>
@@ -590,9 +584,9 @@ export default function BoardDetailPage() {
                                                 </div>
 
                                                 {/* 대댓글 */}
-                                                {Array.isArray((c as any).replies) && (c as any).replies.length > 0 && (
+                                                {Array.isArray(c.replies) && c.replies.length > 0 && (
                                                     <div className="space-y-3 pl-6">
-                                                        {(c as any).replies.map((r: CommentItem) => (
+                                                        {c.replies.map((r: CommentItem) => (
                                                             <div
                                                                 key={r.id}
                                                                 className="rounded-[12px] border border-[#E5E7EB] bg-white p-4"
@@ -673,7 +667,9 @@ export default function BoardDetailPage() {
 
                                                                 <AlertDialog
                                                                     open={deleteCommentOpenFor === r.id}
-                                                                    onOpenChange={(open) => setDeleteCommentOpenFor(open ? r.id : null)}
+                                                                    onOpenChange={(open) =>
+                                                                        setDeleteCommentOpenFor(open ? r.id : null)
+                                                                    }
                                                                 >
                                                                     <AlertDialogContent className="rounded-[16px] border border-[#E5E7EB]">
                                                                         <AlertDialogHeader>

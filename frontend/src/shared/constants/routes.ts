@@ -12,4 +12,5 @@ export const ROUTES = {
   mypage: "/mypage",
   center: "/center",
   faq: "/faq",
+  manage: "/manage",
 };

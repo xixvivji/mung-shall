@@ -14,7 +14,7 @@ import {
 } from "@/shared/ui/alert-dialog";
 import { deleteBoard, fetchBoardDetail, toBoardApiError } from "../api/boardApi";
 import type { BoardDetail } from "../types";
-import { createBoardComment, fetchBoardComments } from "../api/commentApi";
+import { createBoardComment, fetchBoardComments, toggleCommentLike } from "../api/commentApi";
 import type { CommentItem } from "../api/commentApi";
 
 export default function BoardDetailPage() {
@@ -36,11 +36,14 @@ export default function BoardDetailPage() {
   const [commentText, setCommentText] = useState("");
   const [commentSubmitting, setCommentSubmitting] = useState(false);
 
+  // 대댓글 UI 상태
   const [replyOpenFor, setReplyOpenFor] = useState<number | null>(null); // 어떤 댓글에 답글창 열렸는지
   const [replyTextById, setReplyTextById] = useState<Record<number, string>>({});
   const [replySubmittingFor, setReplySubmittingFor] = useState<number | null>(null);
 
-
+  // =========================
+  // 1) 게시글 상세 로드
+  // =========================
   useEffect(() => {
     let cancelled = false;
 
@@ -76,6 +79,9 @@ export default function BoardDetailPage() {
     };
   }, [id, openAlert]);
 
+  // =========================
+  // 2) 게시글 삭제
+  // =========================
   const handleDelete = useCallback(async () => {
     if (!id || deleting) return;
     setDeleting(true);
@@ -95,6 +101,9 @@ export default function BoardDetailPage() {
     }
   }, [deleting, id, navigate, openAlert]);
 
+  // =========================
+  // 3) 댓글 로드
+  // =========================
   const loadComments = useCallback(async () => {
     if (!id) return;
     setCommentLoading(true);
@@ -114,6 +123,9 @@ export default function BoardDetailPage() {
     loadComments();
   }, [loadComments]);
 
+  // =========================
+  // 4) 일반 댓글 작성
+  // =========================
   const handleSubmitComment = useCallback(async () => {
     if (!id) return;
     const content = commentText.trim();
@@ -135,6 +147,9 @@ export default function BoardDetailPage() {
     }
   }, [commentSubmitting, commentText, id, loadComments, openAlert]);
 
+  // =========================
+  // 5) 대댓글 작성
+  // =========================
   const handleSubmitReply = useCallback(
       async (parentId: number) => {
         if (!id) return;
@@ -162,8 +177,52 @@ export default function BoardDetailPage() {
       [id, loadComments, openAlert, replySubmittingFor, replyTextById]
   );
 
+  // =========================
+  // 6) ✅ 좋아요 토글 (댓글/대댓글 공통)
+  // =========================
+  const handleToggleLike = useCallback(
+      async (commentId: number) => {
+        try {
+          const result = await toggleCommentLike(commentId);
+
+          // flat 형태(부모/자식 모두 comments 배열에 있을 때) 갱신
+          setComments((prev) =>
+              prev.map((c) =>
+                  c.id === commentId
+                      ? { ...c, likedByMe: result.likedByMe, likeCount: result.likeCount }
+                      : c
+              )
+          );
+
+          // replies 형태(트리 내부)까지 갱신
+          setComments((prev) =>
+              prev.map((c) => {
+                const replies = Array.isArray((c as any).replies) ? (c as any).replies : null;
+                if (!replies) return c;
+
+                const nextReplies = replies.map((r: CommentItem) =>
+                    r.id === commentId
+                        ? { ...r, likedByMe: result.likedByMe, likeCount: result.likeCount }
+                        : r
+                );
+
+                return { ...(c as any), replies: nextReplies };
+              })
+          );
+        } catch (err) {
+          openAlert({
+            title: "좋아요 실패",
+            message: "로그인이 필요하거나 요청이 실패했습니다.",
+          });
+        }
+      },
+      [openAlert]
+  );
+
+  // =========================
+  // 7) 댓글/대댓글 트리 구성
+  // =========================
   const commentTree = useMemo(() => {
-    // replies가 이미 있는 형태면 root + replies 그대로 쓰기
     const hasRepliesField = comments.some((c) => Array.isArray((c as any).replies));
     if (hasRepliesField) {
       return comments
@@ -174,7 +233,6 @@ export default function BoardDetailPage() {
           }));
     }
 
-    // flat 형태면 parentCommentId로 트리 구성
     const map = new Map<number, CommentItem & { replies: CommentItem[] }>();
     comments.forEach((c) => {
       map.set(c.id, { ...c, replies: [] });
@@ -190,7 +248,6 @@ export default function BoardDetailPage() {
       }
     });
 
-    // 답글은 작성 시간순/등록순이 필요하면 여기서 정렬 가능
     return roots;
   }, [comments]);
 
@@ -211,9 +268,7 @@ export default function BoardDetailPage() {
                 <div className="space-y-6">
                   {/* 게시글 제목/메타 */}
                   <div className="space-y-2">
-                    <h2 className="text-2xl font-semibold text-[#1F2937]">
-                      {detail.title}
-                    </h2>
+                    <h2 className="text-2xl font-semibold text-[#1F2937]">{detail.title}</h2>
                     <div className="text-sm text-[#6B7280]">
                       {detail.authorName} · {detail.createdAt}
                       {detail.updatedAt ? ` · 수정 ${detail.updatedAt}` : ""}
@@ -251,6 +306,7 @@ export default function BoardDetailPage() {
                       </div>
                     </div>
 
+                    {/* 댓글 목록 */}
                     <div className="mt-6 space-y-4">
                       {commentLoading ? (
                           <div className="text-sm text-[#6B7280]">댓글 불러오는 중...</div>
@@ -265,7 +321,19 @@ export default function BoardDetailPage() {
                                 <div className="rounded-[12px] border border-[#E5E7EB] p-4">
                                   <div className="flex items-center justify-between text-xs text-[#6B7280]">
                                     <span>{c.authorName ?? "익명"}</span>
-                                    <span>{c.createdAt ?? ""}</span>
+
+                                    <div className="flex items-center gap-3">
+                                      <button
+                                          type="button"
+                                          onClick={() => handleToggleLike(c.id)}
+                                          className="text-xs font-semibold text-[#111827] hover:underline"
+                                          aria-label="comment-like"
+                                      >
+                                        {c.likedByMe ? "❤️" : "🤍"} {c.likeCount ?? 0}
+                                      </button>
+
+                                      <span>{c.createdAt ?? ""}</span>
+                                    </div>
                                   </div>
 
                                   <div className="mt-2 whitespace-pre-line text-sm text-[#1F2937]">
@@ -315,6 +383,7 @@ export default function BoardDetailPage() {
                                   )}
                                 </div>
 
+                                {/* 대댓글 */}
                                 {Array.isArray((c as any).replies) && (c as any).replies.length > 0 && (
                                     <div className="space-y-3 pl-6">
                                       {(c as any).replies.map((r: CommentItem) => (
@@ -324,8 +393,21 @@ export default function BoardDetailPage() {
                                           >
                                             <div className="flex items-center justify-between text-xs text-[#6B7280]">
                                               <span>{r.authorName ?? "익명"}</span>
-                                              <span>{r.createdAt ?? ""}</span>
+
+                                              <div className="flex items-center gap-3">
+                                                <button
+                                                    type="button"
+                                                    onClick={() => handleToggleLike(r.id)}
+                                                    className="text-xs font-semibold text-[#111827] hover:underline"
+                                                    aria-label="reply-like"
+                                                >
+                                                  {r.likedByMe ? "❤️" : "🤍"} {r.likeCount ?? 0}
+                                                </button>
+
+                                                <span>{r.createdAt ?? ""}</span>
+                                              </div>
                                             </div>
+
                                             <div className="mt-2 whitespace-pre-line text-sm text-[#1F2937]">
                                               {r.content}
                                             </div>
@@ -349,6 +431,7 @@ export default function BoardDetailPage() {
             >
               목록으로
             </Link>
+
             <Link
                 to={`/boards/${id}/edit`}
                 className="h-12 rounded-[12px] border border-[#E5E7EB] bg-white px-6 text-sm font-semibold text-[#1F2937] transition hover:bg-[#F7F8FA]"
@@ -364,6 +447,7 @@ export default function BoardDetailPage() {
               >
                 삭제
               </button>
+
               <AlertDialogContent className="rounded-[16px] border border-[#E5E7EB]">
                 <AlertDialogHeader>
                   <AlertDialogTitle>게시글 삭제</AlertDialogTitle>

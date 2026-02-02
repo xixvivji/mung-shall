@@ -1,4 +1,4 @@
-version: '3.8'
+﻿version: '3.8'
 
 services:
   # 1. Frontend (Nginx + React)
@@ -8,7 +8,6 @@ services:
     ports:
       - "80:80"
       - "443:443"
-      - "5443:5443"
     volumes:
       - /etc/letsencrypt:/etc/letsencrypt:ro
     networks:
@@ -16,19 +15,6 @@ services:
     restart: always
     depends_on:
       - backend
-
-  # [AI Server - ?�시 주석 ?��?]
-  # ai-server:
-  #   build:
-  #     context: ./ai
-  #   container_name: ai-server
-  #   ports:
-  #     - "8000:8000"
-  #   volumes:
-  #     - ./ai/model:/app/model
-  #   networks:
-  #     - app-network
-  #   restart: always
 
   # 2. Spring Boot Backend
   backend:
@@ -71,26 +57,82 @@ services:
     depends_on:
       - mysql
       - redis
-      - openvidu
-      # - ai-server
+      - openvidu-server
 
-  # 3. OpenVidu Server
-  openvidu:
-    image: openvidu/openvidu-dev:2.29.0
+  # 3. OpenVidu Server (Production)
+  openvidu-server:
+    image: openvidu/openvidu-server:2.32.1
     container_name: openvidu-server
-    restart: always
-    networks:
-      - app-network
-    environment:
-      - OPENVIDU_SECRET=${OPENVIDU_SECRET}
-      - OPENVIDU_PUBLIC_URL=https://i14c109.p.ssafy.io:5443
-      - DOMAIN_OR_PUBLIC_IP=i14c109.p.ssafy.io
-      - HTTPS_PORT=443
-      - HTTP_PORT=0
+    restart: on-failure
+    network_mode: host
+    entrypoint: ['/usr/local/bin/entrypoint.sh']
     volumes:
+      - ./openvidu/coturn:/run/secrets/coturn
       - /var/run/docker.sock:/var/run/docker.sock
+      - /etc/letsencrypt/live/i14c109.p.ssafy.io:/opt/openvidu/owncert:ro
+    env_file:
+      - .env
+    environment:
+      - SERVER_SSL_ENABLED=true
+      - SERVER_PORT=5443
+      - KMS_URIS=["ws://localhost:8888/kurento"]
+      - COTURN_IP=${COTURN_IP:-auto-ipv4}
+      - COTURN_PORT=${COTURN_PORT:-3478}
+    logging:
+      options:
+        max-size: "${DOCKER_LOGS_MAX_SIZE:-100M}"
 
-  # 4. MySQL
+  # 4. KMS
+  kms:
+    image: ${KMS_IMAGE:-kurento/kurento-media-server:7.3.0}
+    container_name: kms
+    restart: always
+    network_mode: host
+    ulimits:
+      core: -1
+      nofile:
+        soft: 65536
+        hard: 65536
+    volumes:
+      - /opt/openvidu/kms-crashes:/opt/openvidu/kms-crashes
+      - /opt/openvidu/kurento-logs:/opt/openvidu/kurento-logs
+    environment:
+      - KMS_MIN_PORT=40000
+      - KMS_MAX_PORT=57000
+      - GST_DEBUG=${KMS_DOCKER_ENV_GST_DEBUG:-}
+      - KURENTO_LOG_FILE_SIZE=${KMS_DOCKER_ENV_KURENTO_LOG_FILE_SIZE:-100}
+      - KURENTO_LOGS_PATH=/opt/openvidu/kurento-logs
+    logging:
+      options:
+        max-size: "${DOCKER_LOGS_MAX_SIZE:-100M}"
+
+  # 5. Coturn
+  coturn:
+    image: openvidu/openvidu-coturn:2.32.1
+    container_name: openvidu-coturn
+    restart: on-failure
+    ports:
+      - "${COTURN_PORT:-3478}:${COTURN_PORT:-3478}/tcp"
+      - "${COTURN_PORT:-3478}:${COTURN_PORT:-3478}/udp"
+    env_file:
+      - .env
+    volumes:
+      - ./openvidu/coturn:/run/secrets/coturn
+    command:
+      - --log-file=stdout
+      - --listening-port=${COTURN_PORT:-3478}
+      - --fingerprint
+      - --min-port=${COTURN_MIN_PORT:-57001}
+      - --max-port=${COTURN_MAX_PORT:-65535}
+      - --realm=openvidu
+      - --verbose
+      - --use-auth-secret
+      - --static-auth-secret=$${COTURN_SHARED_SECRET_KEY}
+    logging:
+      options:
+        max-size: "${DOCKER_LOGS_MAX_SIZE:-100M}"
+
+  # 6. MySQL
   mysql:
     container_name: mysql-container
     image: mysql:8.0.23
@@ -105,7 +147,7 @@ services:
       - app-network
     command: --character-set-server=utf8mb4 --collation-server=utf8mb4_unicode_ci
 
-  # 5. Redis
+  # 7. Redis
   redis:
     container_name: redis-container
     image: redis:alpine
@@ -117,7 +159,7 @@ services:
       - app-network
     command: redis-server --appendonly yes
 
-  # 6. Prometheus
+  # 8. Prometheus
   prometheus:
     image: prom/prometheus:latest
     container_name: prometheus
@@ -133,7 +175,7 @@ services:
       - app-network
     restart: always
 
-  # 7. Grafana
+  # 9. Grafana
   grafana:
     image: grafana/grafana:latest
     container_name: grafana
@@ -147,7 +189,7 @@ services:
     depends_on:
       - prometheus
 
-  # 8. Node Exporter
+  # 10. Node Exporter
   node-exporter:
     image: prom/node-exporter:latest
     container_name: node-exporter

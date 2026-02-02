@@ -78,9 +78,16 @@ pipeline {
                         sh """
                         # --- OpenVidu ---
                         echo "OPENVIDU_SECRET=${OV_SECRET}" > .env
-                        echo "OPENVIDU_URL=http://openvidu-server:443" >> .env
+                        echo "OPENVIDU_URL=https://i14c109.p.ssafy.io:5443" >> .env
                         echo "OPENVIDU_PUBLIC_URL=https://i14c109.p.ssafy.io:5443" >> .env
                         echo "DOMAIN_OR_PUBLIC_IP=i14c109.p.ssafy.io" >> .env
+                        echo "OPENVIDU_CERTIFICATE_TYPE=owncert" >> .env
+                        echo "COTURN_SHARED_SECRET_KEY=${OV_SECRET}" >> .env
+                        echo "COTURN_IP=auto-ipv4" >> .env
+                        echo "COTURN_PORT=3478" >> .env
+                        echo "OPENVIDU_RECORDING_PATH=/opt/openvidu/recordings" >> .env
+                        echo "OPENVIDU_RECORDING_CUSTOM_LAYOUT=/opt/openvidu/custom-layout" >> .env
+                        echo "OPENVIDU_CDR_PATH=/opt/openvidu/cdr" >> .env
 
                         # --- DB / JWT ---
                         echo "DB_ROOT_PASSWORD=${DB_PW}" >> .env

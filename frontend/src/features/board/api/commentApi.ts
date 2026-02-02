@@ -66,8 +66,6 @@ export async function createBoardComment(
 }
 
 export async function toggleCommentLike(commentId: number | string): Promise<ToggleLikeResponse> {
-    // 백엔드가 /api/comments/{id}/likes 라면
-    // 프론트 api client가 baseURL에 /api를 붙이는 구조이므로 여기서는 /comments로 시작
     const data = await api<any>(`/comments/${commentId}/likes`, {
         method: "POST",
     });

@@ -7,11 +7,11 @@ import type {
 } from "../types";
 
 export type BoardApiErrorType =
-  | "unauthenticated"
-  | "forbidden"
-  | "not_found"
-  | "server_error"
-  | "unknown";
+    | "unauthenticated"
+    | "forbidden"
+    | "not_found"
+    | "server_error"
+    | "unknown";
 
 export class BoardApiError extends Error {
   status: number;
@@ -139,25 +139,32 @@ function normalizeDetail(raw: unknown): BoardDetail {
 export async function fetchBoardList(params?: {
   page?: number;
   size?: number;
-  q?: string;
-  category?: string;
+  q?: string;            // UI용 검색어
+  category?: string;     // FREE/REVIEW
+  sort?: "createdAt" | "viewCount";
 }): Promise<{ items: BoardSummary[]; totalPages?: number }> {
   try {
     const search = new URLSearchParams();
     if (params?.page !== undefined) search.set("page", String(params.page));
     if (params?.size !== undefined) search.set("size", String(params.size));
-    if (params?.q) search.set("q", params.q);
+
+    if (params?.q) search.set("keyword", params.q);
+
     if (params?.category) search.set("category", params.category);
+
+    if (params?.sort) search.set("sort", params.sort);
 
     const query = search.toString();
     const data = await api<BoardListResponse>(`/boards${query ? `?${query}` : ""}`);
+
     const rawItems = Array.isArray(data.items)
-      ? data.items
-      : Array.isArray(data.content)
-      ? data.content
-      : Array.isArray(data as unknown)
-      ? (data as unknown[])
-      : [];
+        ? data.items
+        : Array.isArray(data.content)
+            ? data.content
+            : Array.isArray(data as unknown)
+                ? (data as unknown[])
+                : [];
+
     const items = rawItems.map((item, index) => normalizeSummary(item, index));
     const totalPages = typeof data.totalPages === "number" ? data.totalPages : undefined;
     return { items, totalPages };
@@ -189,8 +196,8 @@ export async function createBoard(payload: BoardCreateRequest): Promise<{ id: st
 }
 
 export async function updateBoard(
-  id: string | number,
-  payload: BoardUpdateRequest
+    id: string | number,
+    payload: BoardUpdateRequest
 ): Promise<void> {
   try {
     await api<void>(`/boards/${id}`, {

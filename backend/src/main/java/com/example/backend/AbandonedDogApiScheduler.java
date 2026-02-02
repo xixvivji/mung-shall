@@ -150,6 +150,7 @@ public class AbandonedDogApiScheduler {
     private PublicApiResponse callApi(int pageNo) {
         URI uri = UriComponentsBuilder.fromUriString(apiUrl)
                 .queryParam("serviceKey", serviceKey)
+                .queryParam("upkind", upkind)
                 .queryParam("numOfRows", numOfRows)
                 .queryParam("pageNo", pageNo)
                 .queryParam("_type", "json")

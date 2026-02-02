@@ -1,6 +1,7 @@
 package com.example.backend.service.dog;
 
 import com.example.backend.api.dog.dto.DogDetailResponse;
+import com.example.backend.api.dog.dto.DogStatusCountResponse;
 import com.example.backend.api.dog.dto.DogSummaryResponse;
 import com.example.backend.domain.dog.AbandonedDog;
 import com.example.backend.domain.dog.DogKind;
@@ -87,6 +88,20 @@ public class DogService {
     public List<String> getAllDogKinds() {
         return dogKindRepository.findAll().stream()
                 .map(DogKind::getName)
+                .collect(Collectors.toList());
+    }
+
+    /**
+     * 각 유기견 상태별 개수를 조회합니다.
+     * @return List<DogStatusCountResponse> 각 상태별 개수 목록
+     */
+    public List<DogStatusCountResponse> getDogStatusCounts() {
+        List<Object[]> results = abandonedDogRepository.countDogsByProcessState();
+        return results.stream()
+                .map(result -> DogStatusCountResponse.builder()
+                        .status((String) result[0])
+                        .count((Long) result[1])
+                        .build())
                 .collect(Collectors.toList());
     }
 }

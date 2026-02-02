@@ -12,6 +12,7 @@ import com.example.backend.domain.dog.AbandonedDog;
 import com.example.backend.domain.user.User;
 import com.example.backend.repository.adoption.AdoptionRepository;
 import com.example.backend.repository.adoption.AdoptionStepDefRepository;
+import com.example.backend.repository.adoption.AdoptionStepInstanceRepository;
 import com.example.backend.repository.UserRepository;
 import com.example.backend.repository.dog.AbandonedDogRepository;
 import lombok.RequiredArgsConstructor;
@@ -28,6 +29,7 @@ public class AdoptionService {
 
     private final AdoptionRepository adoptionRepository;
     private final AdoptionStepDefRepository adoptionStepDefRepository;
+    private final AdoptionStepInstanceRepository adoptionStepInstanceRepository;
     private final UserRepository userRepository;
     private final AbandonedDogRepository abandonedDogRepository;
 
@@ -155,6 +157,26 @@ public class AdoptionService {
                     .steps(stepResponses)
                     .build();
         }
+
+    public AdoptionStepInstanceResponse getAdoptionStepInstanceDetail(Long adoptionId, Long stepInstanceId) {
+        AdoptionStepInstance stepInstance = (AdoptionStepInstance) adoptionStepInstanceRepository.findByIdAndAdoptionId(stepInstanceId, adoptionId)
+                .orElseThrow(() -> new IllegalArgumentException("ID에 해당하는 입양 단계를 찾을 수 없습니다: " + stepInstanceId));
+
+        return AdoptionStepInstanceResponse.builder()
+                .id(stepInstance.getId())
+                .stepDef(AdoptionStepDefResponse.builder()
+                        .id(stepInstance.getStepDef().getId())
+                        .stepOrder(stepInstance.getStepDef().getStepOrder())
+                        .stepName(stepInstance.getStepDef().getStepName())
+                        .description(stepInstance.getStepDef().getDescription())
+                        .build())
+                .status(stepInstance.getStatus())
+                .submittedAt(stepInstance.getSubmittedAt())
+                .approvedAt(stepInstance.getApprovedAt())
+                .completedAt(stepInstance.getCompletedAt())
+                .rejectionReason(stepInstance.getRejectionReason())
+                .build();
+    }
 
     }
 

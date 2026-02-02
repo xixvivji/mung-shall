@@ -135,7 +135,10 @@ export default function useMyPage() {
   const ensureAdoptionId = useCallback(async () => {
     if (adoptionId || ensureAdoptionIdAttemptedRef.current) return;
     ensureAdoptionIdAttemptedRef.current = true;
-    setAdoptionError("입양 과정에서 다시 진입해주세요.");
+    // `adoptionId`가 없는 것은 오류가 아니라 유효한 상태(예: 아직 입양 신청을 하지 않은 사용자)일 수 있으므로,
+    // 여기서 오류를 설정하지 않습니다. `ManagePage`에서 `adoptionId`의 존재 여부를 확인하여
+    // 적절한 UI를 표시하도록 처리합니다.
+    // setAdoptionError("입양 과정에서 다시 진입해주세요.");
   }, [adoptionId]);
 
   useEffect(() => {

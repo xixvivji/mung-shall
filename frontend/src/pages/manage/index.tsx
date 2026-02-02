@@ -1,11 +1,12 @@
 import { useCallback, useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { AdoptionTimeline, NextActions, useMyPage } from "@/features/mypage";
 import type { AdoptionStep } from "@/features/mypage/types";
 import AlertModal from "@/shared/components/AlertModal";
 import { useAlertModal } from "@/shared/hooks/useAlertModal";
 import useAuth from "@/features/auth/hooks/useAuth";
 import { ROUTES } from "@/shared/constants/routes";
+import { Button } from "@/shared/ui/button";
 
 /**
  * 입양자(Adopter) 전용 입양 관리 페이지 컴포넌트.
@@ -36,13 +37,6 @@ function AdopterManagePage() {
     setSelectedStep(apiCurrentStep ?? "SURVEY");
   }, [apiCurrentStep]);
 
-  // adoptionError 처리
-  useEffect(() => {
-    if (adoptionError) {
-      openAlert({ title: "입양 과정 오류", message: adoptionError });
-    }
-  }, [adoptionError, openAlert]);
-
   // ✅ NextActions에서 "다음 단계로 진행" 요청했을 때
   const advanceTo = (next: AdoptionStep) => {
     setCurrentStep(next);
@@ -59,11 +53,46 @@ function AdopterManagePage() {
     [openAlert, submitStep]
   );
 
+  // API 에러가 발생한 경우
+  if (adoptionError) {
+    return (
+      <section className="mx-auto max-w-[1200px] px-6 py-16 space-y-6">
+        <h1 className="text-2xl font-semibold">입양 관리</h1>
+        <div className="mt-8 rounded-2xl border border-red-200 bg-red-50 p-8 text-center">
+          <h3 className="text-lg font-semibold text-red-800">오류가 발생했습니다</h3>
+          <p className="mt-2 text-sm text-red-600">{adoptionError}</p>
+        </div>
+        <AlertModal {...alertProps} />
+      </section>
+    );
+  }
+
+  // 로딩이 끝나고 adoptionId가 없는 경우 (진행 중인 입양이 없는 상태)
+  if (!adoptionLoading && !adoptionId) {
+    return (
+      <section className="mx-auto max-w-[1200px] px-6 py-16 space-y-6">
+        <h1 className="text-2xl font-semibold">입양 관리</h1>
+        <div className="mt-8 rounded-2xl border border-gray-200 bg-gray-50 p-12 text-center">
+          <h3 className="text-lg font-semibold text-gray-800">진행 중인 입양 절차가 없습니다.</h3>
+          <p className="mt-2 text-sm text-gray-600">
+            마음에 드는 아이를 찾아 입양을 신청하고, 이곳에서 과정을 관리해보세요.
+          </p>
+          <Button asChild className="mt-6 rounded-lg">
+            <Link to={ROUTES.adoption}>유기견 보러가기</Link>
+          </Button>
+        </div>
+        <AlertModal {...alertProps} />
+      </section>
+    );
+  }
+
   return (
     <section className="mx-auto max-w-[1200px] px-6 py-16 space-y-6">
       <h1 className="text-2xl font-semibold">입양 관리</h1>
 
-      {adoptionLoading && <div className="text-sm text-[#777]">Loading...</div>}
+      {adoptionLoading && (
+        <div className="text-sm text-gray-500">입양 정보를 불러오는 중...</div>
+      )}
 
       <AdoptionTimeline
         currentStep={currentStep}
@@ -77,7 +106,7 @@ function AdopterManagePage() {
         onSelectStep={setSelectedStep}
         onAdvanceStep={advanceTo}
         onSubmitStep={handleSubmitStep}
-        adoptionId={adoptionId ?? undefined}
+        adoptionId={adoptionId}
       />
 
       <AlertModal {...alertProps} />

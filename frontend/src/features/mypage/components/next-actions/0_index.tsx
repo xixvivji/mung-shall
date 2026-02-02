@@ -290,7 +290,23 @@ export function NextActions({
       {/* =======================
           B단계 (입양 중)
          ======================= */}
-      {selectedStepN === "CONSULT" && (
+      {selectedStep === "APPLICATION" && (
+        <ApplicationStep
+          adoptionId={adoptionId}
+          isEditable={isEditable}
+          onSubmitSuccess={safeGoNextFromSelected}
+        />
+      )}
+
+      {selectedStep === "EDUCATION_CERT" && (
+        <EducationCertStep
+          adoptionId={adoptionId}
+          isEditable={isEditable}
+          onSubmitSuccess={safeGoNextFromSelected}
+        />
+      )}
+
+      {selectedStep === "CONSULT" && (
         <ConsultStep isEditable={isEditable} onConsultComplete={onConsultComplete} />
       )}
 
@@ -304,6 +320,7 @@ export function NextActions({
 
       {selectedStepN === "CONTRACT" && (
         <ContractStep
+          adoptionId={adoptionId}
           isEditable={isEditable}
           onSubmitSuccess={safeGoNextFromSelected}
         />

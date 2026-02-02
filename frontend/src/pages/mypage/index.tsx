@@ -20,10 +20,13 @@ function AdopterMyPage() {
     adoptionId,
     adoptionLoading,
     adoptionError,
+    postAdoptionId,
+    postAdoption,
     postAdoptionLoading,
     postAdoptionError,
     currentStep: apiCurrentStep,
     submitStep,
+    refreshPostAdoption,
   } = useMyPage();
   const [memberInfo, setMemberInfo] = useState<MemberMeResponse | null>(null);
   const { openAlert, alertProps } = useAlertModal();
@@ -115,7 +118,11 @@ function AdopterMyPage() {
         adoptionId={adoptionId ?? undefined}
       />
 
-      <PostAdoptionTools />
+      <PostAdoptionTools
+        postAdoptionId={postAdoptionId}
+        steps={postAdoption?.steps}
+        onRefresh={refreshPostAdoption}
+      />
       <AlertModal {...alertProps} />
     </section>
   );

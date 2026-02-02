@@ -2,6 +2,7 @@ import { api } from "@/shared/api/client";
 import type { DocumentType } from "@/features/adoptionApplication/types";
 import type {
   AdoptionDetail,
+  AdoptionContractResponse,
   AdoptionDocumentResponse,
   AdoptionStepInstance,
   AdoptionStepStatus,
@@ -214,6 +215,29 @@ export async function uploadEducationCert(
 
 export async function deleteEducationCert(adoptionId: number): Promise<void> {
   await api<void>(`/adoptions/${adoptionId}/education-cert`, { method: "DELETE" });
+}
+
+export async function getAdoptionContract(
+  adoptionId: number
+): Promise<AdoptionContractResponse> {
+  return api<AdoptionContractResponse>(`/adoptions/${adoptionId}/contract`);
+}
+
+export async function uploadAdoptionContract(
+  adoptionId: number,
+  file: File
+): Promise<AdoptionContractResponse> {
+  const formData = new FormData();
+  formData.append("contractFile", file);
+
+  return api<AdoptionContractResponse>(`/adoptions/${adoptionId}/contract`, {
+    method: "POST",
+    body: formData,
+  });
+}
+
+export async function deleteAdoptionContract(adoptionId: number): Promise<void> {
+  await api<void>(`/adoptions/${adoptionId}/contract`, { method: "DELETE" });
 }
 
 export async function fetchAdoptionDocuments(

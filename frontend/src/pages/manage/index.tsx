@@ -1,5 +1,5 @@
-import { useCallback, useEffect, useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { Link, useNavigate, useParams } from "react-router-dom";
 import { AdoptionTimeline, NextActions, useMyPage } from "@/features/mypage";
 import type { AdoptionStep } from "@/features/mypage/types";
 import AlertModal from "@/shared/components/AlertModal";
@@ -13,13 +13,19 @@ import { Button } from "@/shared/ui/button";
  * useMyPage 훅을 사용하여 입양 프로세스 데이터를 가져오고 관리합니다.
  */
 function AdopterManagePage() {
+  const { adoptionId: adoptionIdFromUrl } = useParams<{ adoptionId: string }>();
+  const numericId = useMemo(() => {
+    const id = Number(adoptionIdFromUrl);
+    return Number.isFinite(id) && id > 0 ? id : null;
+  }, [adoptionIdFromUrl]);
+
   const {
     adoptionId,
     adoptionLoading,
     adoptionError,
     currentStep: apiCurrentStep,
     submitStep,
-  } = useMyPage();
+  } = useMyPage(numericId);
 
   const { openAlert, alertProps } = useAlertModal();
 

@@ -76,10 +76,9 @@ export default function DogDetailPage() {
     setIsApplying(true);
     try {
       const { adoptionId } = await startAdoptionProcess(Number(dogId));
-      localStorage.setItem("adoptionId", String(adoptionId));
       // 성공 시 manage 페이지로 이동하여 절차 진행
       alert("입양 신청이 시작되었습니다. 입양 관리 페이지로 이동합니다.");
-      navigate(ROUTES.manage);
+      navigate(`/manage/${adoptionId}`);
     } catch (err) {
       if (err instanceof ApiError && err.status === 409) {
         // 409 Conflict: 이미 진행 중인 입양 절차가 있는 경우

@@ -18,7 +18,7 @@ pdfjs.GlobalWorkerOptions.workerSrc = new URL(
 type Props = {
   isEditable: boolean;
   onSubmitSuccess: () => void;
-  adoptionId?: number;
+  adoptionId: number;
 };
 
 type FieldKey =
@@ -468,7 +468,7 @@ export function ContractStep({ isEditable, onSubmitSuccess, adoptionId }: Props)
       return;
     }
 
-    loadContract(adoptionId).catch(() => {
+    loadContract(adoptionId!).catch(() => {
       // loadContract handles its own errors
     });
   }, [adoptionId, loadContract]);
@@ -484,11 +484,11 @@ export function ContractStep({ isEditable, onSubmitSuccess, adoptionId }: Props)
     setContractError(null);
 
     try {
-      const data = await uploadAdoptionContract(adoptionId!, selectedFile);
+      const data = await uploadAdoptionContract(adoptionId, selectedFile);
       setContract(data);
       setSelectedFile(null);
       onSubmitSuccess();
-      await loadContract(adoptionId!, { silent: true });
+      await loadContract(adoptionId, { silent: true });
     } catch (err) {
       setContractError(resolveApiErrorMessage(err, "Failed to upload contract."));
     } finally {
@@ -508,11 +508,11 @@ export function ContractStep({ isEditable, onSubmitSuccess, adoptionId }: Props)
       await deleteAdoptionContract(adoptionId);
       setContract(null);
       setSelectedFile(null);
-      await loadContract(adoptionId, { silent: true });
+      await loadContract(adoptionId!, { silent: true });
     } catch (err) {
       setContractError(resolveApiErrorMessage(err, "Failed to delete contract."));
       if (err instanceof ApiError && (err.status === 404 || err.status === 409)) {
-        await loadContract(adoptionId, { silent: true });
+        await loadContract(adoptionId!, { silent: true });
       }
     } finally {
       setDeleting(false);

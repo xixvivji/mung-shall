@@ -164,7 +164,7 @@ export async function fetchAdoptionDetail(adoptionId: number): Promise<AdoptionD
 }
 
 export async function createAdoptionProcess(): Promise<number> {
-  const data = await api<RawAdoptionCreateResponse | unknown>(`/adoptions`, {
+  const data = await api<RawAdoptionCreateResponse | unknown>(`/adoptions/`, {
     method: "POST",
   });
   const id = resolveAdoptionId(data);

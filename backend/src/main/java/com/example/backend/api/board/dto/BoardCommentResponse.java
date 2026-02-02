@@ -9,7 +9,10 @@ import java.util.List;
 public record BoardCommentResponse(
         Long id,
         Long parentCommentId,
+
+        Long writerId,
         String writer,
+
         String content,
         LocalDateTime createdAt,
         LocalDateTime updatedAt,
@@ -21,7 +24,10 @@ public record BoardCommentResponse(
         return new BoardCommentResponse(
                 c.getId(),
                 (c.getParentComment() == null) ? null : c.getParentComment().getId(),
+
+                c.getWriter().getUserId(),
                 c.getWriter().getName(),
+
                 c.getContent(),
                 c.getCreatedAt(),
                 c.getUpdatedAt(),

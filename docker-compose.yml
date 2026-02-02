@@ -8,6 +8,7 @@ services:
     ports:
       - "80:80"
       - "443:443"
+      - "5443:5443"
     volumes:
       - /etc/letsencrypt:/etc/letsencrypt:ro
     networks:
@@ -16,7 +17,7 @@ services:
     depends_on:
       - backend
 
-  # [AI Server - 잠시 주석 유지]
+  # [AI Server - ?�시 주석 ?��?]
   # ai-server:
   #   build:
   #     context: ./ai
@@ -78,13 +79,11 @@ services:
     image: openvidu/openvidu-dev:2.29.0
     container_name: openvidu-server
     restart: always
-    ports:
-      - "4443:443"   # 호스트:컨테이너 (필요없으면 제거 가능)
     networks:
       - app-network
     environment:
       - OPENVIDU_SECRET=${OPENVIDU_SECRET}
-      - OPENVIDU_PUBLIC_URL=https://i14c109.p.ssafy.io/openvidu
+      - OPENVIDU_PUBLIC_URL=https://i14c109.p.ssafy.io:5443
       - DOMAIN_OR_PUBLIC_IP=i14c109.p.ssafy.io
       - HTTPS_PORT=443
       - HTTP_PORT=0

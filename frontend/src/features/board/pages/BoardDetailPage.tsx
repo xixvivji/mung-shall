@@ -14,8 +14,14 @@ import {
 } from "@/shared/ui/alert-dialog";
 import { deleteBoard, fetchBoardDetail, toBoardApiError } from "../api/boardApi";
 import type { BoardDetail } from "../types";
-import { createBoardComment, fetchBoardComments, toggleCommentLike } from "../api/commentApi";
+import {
+  createBoardComment,
+  fetchBoardComments,
+  toggleCommentLike,
+} from "../api/commentApi";
 import type { CommentItem } from "../api/commentApi";
+
+import { authStore } from "@/features/auth/store/authStore";
 
 export default function BoardDetailPage() {
   const { id = "" } = useParams();
@@ -36,14 +42,22 @@ export default function BoardDetailPage() {
   const [commentText, setCommentText] = useState("");
   const [commentSubmitting, setCommentSubmitting] = useState(false);
 
-  // 대댓글 UI 상태
-  const [replyOpenFor, setReplyOpenFor] = useState<number | null>(null); // 어떤 댓글에 답글창 열렸는지
+  const [replyOpenFor, setReplyOpenFor] = useState<number | null>(null);
   const [replyTextById, setReplyTextById] = useState<Record<number, string>>({});
-  const [replySubmittingFor, setReplySubmittingFor] = useState<number | null>(null);
+  const [replySubmittingFor, setReplySubmittingFor] = useState<number | null>(
+      null
+  );
 
-  // =========================
-  // 1) 게시글 상세 로드
-  // =========================
+  const me = useMemo(() => authStore.getSnapshot(), []);
+
+  const isOwner = useMemo(() => {
+    if (!me || !detail) return false;
+
+    const authorId = (detail as any).authorId;
+    return typeof authorId === "number" && me.userId === authorId;
+  }, [detail, me]);
+
+
   useEffect(() => {
     let cancelled = false;
 
@@ -79,9 +93,6 @@ export default function BoardDetailPage() {
     };
   }, [id, openAlert]);
 
-  // =========================
-  // 2) 게시글 삭제
-  // =========================
   const handleDelete = useCallback(async () => {
     if (!id || deleting) return;
     setDeleting(true);
@@ -92,6 +103,8 @@ export default function BoardDetailPage() {
       const boardError = toBoardApiError(err);
       if (boardError.type === "unauthenticated") {
         openAlert({ title: "로그인 필요", message: "로그인이 필요합니다." });
+      } else if (boardError.type === "forbidden") {
+        openAlert({ title: "권한 없음", message: "작성자만 삭제할 수 있습니다." });
       } else {
         openAlert({ title: "삭제 실패", message: boardError.message });
       }
@@ -101,9 +114,6 @@ export default function BoardDetailPage() {
     }
   }, [deleting, id, navigate, openAlert]);
 
-  // =========================
-  // 3) 댓글 로드
-  // =========================
   const loadComments = useCallback(async () => {
     if (!id) return;
     setCommentLoading(true);
@@ -123,9 +133,6 @@ export default function BoardDetailPage() {
     loadComments();
   }, [loadComments]);
 
-  // =========================
-  // 4) 일반 댓글 작성
-  // =========================
   const handleSubmitComment = useCallback(async () => {
     if (!id) return;
     const content = commentText.trim();
@@ -147,9 +154,6 @@ export default function BoardDetailPage() {
     }
   }, [commentSubmitting, commentText, id, loadComments, openAlert]);
 
-  // =========================
-  // 5) 대댓글 작성
-  // =========================
   const handleSubmitReply = useCallback(
       async (parentId: number) => {
         if (!id) return;
@@ -177,32 +181,39 @@ export default function BoardDetailPage() {
       [id, loadComments, openAlert, replySubmittingFor, replyTextById]
   );
 
-  // =========================
-  // 6) ✅ 좋아요 토글 (댓글/대댓글 공통)
-  // =========================
   const handleToggleLike = useCallback(
       async (commentId: number) => {
         try {
           const result = await toggleCommentLike(commentId);
 
-          // flat 형태(부모/자식 모두 comments 배열에 있을 때) 갱신
+          // flat 형태 갱신
           setComments((prev) =>
               prev.map((c) =>
                   c.id === commentId
-                      ? { ...c, likedByMe: result.likedByMe, likeCount: result.likeCount }
+                      ? {
+                        ...c,
+                        likedByMe: result.likedByMe,
+                        likeCount: result.likeCount,
+                      }
                       : c
               )
           );
 
-          // replies 형태(트리 내부)까지 갱신
+          // replies 형태 갱신
           setComments((prev) =>
               prev.map((c) => {
-                const replies = Array.isArray((c as any).replies) ? (c as any).replies : null;
+                const replies = Array.isArray((c as any).replies)
+                    ? (c as any).replies
+                    : null;
                 if (!replies) return c;
 
                 const nextReplies = replies.map((r: CommentItem) =>
                     r.id === commentId
-                        ? { ...r, likedByMe: result.likedByMe, likeCount: result.likeCount }
+                        ? {
+                          ...r,
+                          likedByMe: result.likedByMe,
+                          likeCount: result.likeCount,
+                        }
                         : r
                 );
 
@@ -223,7 +234,9 @@ export default function BoardDetailPage() {
   // 7) 댓글/대댓글 트리 구성
   // =========================
   const commentTree = useMemo(() => {
-    const hasRepliesField = comments.some((c) => Array.isArray((c as any).replies));
+    const hasRepliesField = comments.some((c) =>
+        Array.isArray((c as any).replies)
+    );
     if (hasRepliesField) {
       return comments
           .filter((c) => !c.parentCommentId)
@@ -268,7 +281,9 @@ export default function BoardDetailPage() {
                 <div className="space-y-6">
                   {/* 게시글 제목/메타 */}
                   <div className="space-y-2">
-                    <h2 className="text-2xl font-semibold text-[#1F2937]">{detail.title}</h2>
+                    <h2 className="text-2xl font-semibold text-[#1F2937]">
+                      {detail.title}
+                    </h2>
                     <div className="text-sm text-[#6B7280]">
                       {detail.authorName} · {detail.createdAt}
                       {detail.updatedAt ? ` · 수정 ${detail.updatedAt}` : ""}
@@ -280,10 +295,60 @@ export default function BoardDetailPage() {
                     {detail.content}
                   </div>
 
+                  {/* 작성자만 노출되는 수정/삭제 */}
+                  {isOwner ? (
+                      <div className="flex flex-wrap gap-3">
+                        <Link
+                            to={`/boards/${id}/edit`}
+                            className="h-12 rounded-[12px] border border-[#E5E7EB] bg-white px-6 text-sm font-semibold text-[#1F2937] transition hover:bg-[#F7F8FA]"
+                        >
+                          수정
+                        </Link>
+
+                        <AlertDialog open={deleteOpen} onOpenChange={setDeleteOpen}>
+                          <button
+                              type="button"
+                              className="h-12 rounded-[12px] border border-[#FCA5A5] bg-white px-6 text-sm font-semibold text-[#B91C1C] transition hover:bg-[#FEF2F2]"
+                              onClick={() => setDeleteOpen(true)}
+                          >
+                            삭제
+                          </button>
+
+                          <AlertDialogContent className="rounded-[16px] border border-[#E5E7EB]">
+                            <AlertDialogHeader>
+                              <AlertDialogTitle>게시글 삭제</AlertDialogTitle>
+                              <AlertDialogDescription>
+                                삭제한 게시글은 복구할 수 없습니다. 정말 삭제하시겠어요?
+                              </AlertDialogDescription>
+                            </AlertDialogHeader>
+                            <AlertDialogFooter>
+                              <AlertDialogCancel className="rounded-[12px] border-[#E5E7EB]">
+                                취소
+                              </AlertDialogCancel>
+                              <AlertDialogAction
+                                  className="rounded-[12px] bg-[#EF4444] text-white hover:bg-[#DC2626]"
+                                  onClick={handleDelete}
+                                  disabled={deleting}
+                              >
+                                {deleting ? "삭제 중..." : "삭제"}
+                              </AlertDialogAction>
+                            </AlertDialogFooter>
+                          </AlertDialogContent>
+                        </AlertDialog>
+                      </div>
+                  ) : (
+                      <div className="text-xs text-[#9CA3AF]">
+                        작성자만 수정/삭제할 수 있습니다.
+                      </div>
+                  )}
+
+                  {/* 댓글 영역 */}
                   <div className="mt-8 border-t border-[#E5E7EB] pt-6">
                     <div className="flex items-center justify-between">
                       <h3 className="text-lg font-bold text-[#1F2937]">댓글</h3>
-                      <span className="text-sm text-[#6B7280]">{comments.length}개</span>
+                      <span className="text-sm text-[#6B7280]">
+                    {comments.length}개
+                  </span>
                     </div>
 
                     {/* 댓글 작성 */}
@@ -309,11 +374,15 @@ export default function BoardDetailPage() {
                     {/* 댓글 목록 */}
                     <div className="mt-6 space-y-4">
                       {commentLoading ? (
-                          <div className="text-sm text-[#6B7280]">댓글 불러오는 중...</div>
+                          <div className="text-sm text-[#6B7280]">
+                            댓글 불러오는 중...
+                          </div>
                       ) : commentError ? (
                           <div className="text-sm text-[#d14343]">{commentError}</div>
                       ) : commentTree.length === 0 ? (
-                          <div className="text-sm text-[#6B7280]">첫 댓글을 남겨보세요.</div>
+                          <div className="text-sm text-[#6B7280]">
+                            첫 댓글을 남겨보세요.
+                          </div>
                       ) : (
                           commentTree.map((c) => (
                               <div key={c.id} className="space-y-3">
@@ -345,7 +414,9 @@ export default function BoardDetailPage() {
                                         type="button"
                                         className="text-sm font-semibold text-[#2563EB] hover:underline"
                                         onClick={() => {
-                                          setReplyOpenFor((prev) => (prev === c.id ? null : c.id));
+                                          setReplyOpenFor((prev) =>
+                                              prev === c.id ? null : c.id
+                                          );
                                         }}
                                     >
                                       {replyOpenFor === c.id ? "답글 닫기" : "답글 달기"}
@@ -376,7 +447,9 @@ export default function BoardDetailPage() {
                                               }
                                               className="h-10 rounded-[12px] bg-[#111827] px-4 text-sm font-semibold text-white transition hover:bg-[#0B1220] disabled:opacity-50"
                                           >
-                                            {replySubmittingFor === c.id ? "등록 중..." : "답글 등록"}
+                                            {replySubmittingFor === c.id
+                                                ? "등록 중..."
+                                                : "답글 등록"}
                                           </button>
                                         </div>
                                       </div>
@@ -384,37 +457,39 @@ export default function BoardDetailPage() {
                                 </div>
 
                                 {/* 대댓글 */}
-                                {Array.isArray((c as any).replies) && (c as any).replies.length > 0 && (
-                                    <div className="space-y-3 pl-6">
-                                      {(c as any).replies.map((r: CommentItem) => (
-                                          <div
-                                              key={r.id}
-                                              className="rounded-[12px] border border-[#E5E7EB] bg-white p-4"
-                                          >
-                                            <div className="flex items-center justify-between text-xs text-[#6B7280]">
-                                              <span>{r.authorName ?? "익명"}</span>
+                                {Array.isArray((c as any).replies) &&
+                                    (c as any).replies.length > 0 && (
+                                        <div className="space-y-3 pl-6">
+                                          {(c as any).replies.map((r: CommentItem) => (
+                                              <div
+                                                  key={r.id}
+                                                  className="rounded-[12px] border border-[#E5E7EB] bg-white p-4"
+                                              >
+                                                <div className="flex items-center justify-between text-xs text-[#6B7280]">
+                                                  <span>{r.authorName ?? "익명"}</span>
 
-                                              <div className="flex items-center gap-3">
-                                                <button
-                                                    type="button"
-                                                    onClick={() => handleToggleLike(r.id)}
-                                                    className="text-xs font-semibold text-[#111827] hover:underline"
-                                                    aria-label="reply-like"
-                                                >
-                                                  {r.likedByMe ? "❤️" : "🤍"} {r.likeCount ?? 0}
-                                                </button>
+                                                  <div className="flex items-center gap-3">
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => handleToggleLike(r.id)}
+                                                        className="text-xs font-semibold text-[#111827] hover:underline"
+                                                        aria-label="reply-like"
+                                                    >
+                                                      {r.likedByMe ? "❤️" : "🤍"}{" "}
+                                                      {r.likeCount ?? 0}
+                                                    </button>
 
-                                                <span>{r.createdAt ?? ""}</span>
+                                                    <span>{r.createdAt ?? ""}</span>
+                                                  </div>
+                                                </div>
+
+                                                <div className="mt-2 whitespace-pre-line text-sm text-[#1F2937]">
+                                                  {r.content}
+                                                </div>
                                               </div>
-                                            </div>
-
-                                            <div className="mt-2 whitespace-pre-line text-sm text-[#1F2937]">
-                                              {r.content}
-                                            </div>
-                                          </div>
-                                      ))}
-                                    </div>
-                                )}
+                                          ))}
+                                        </div>
+                                    )}
                               </div>
                           ))
                       )}
@@ -424,6 +499,7 @@ export default function BoardDetailPage() {
             ) : null}
           </div>
 
+          {/* 하단 버튼: 목록으로는 모두에게 노출 */}
           <div className="mt-8 flex flex-wrap gap-3">
             <Link
                 to="/boards"
@@ -431,44 +507,6 @@ export default function BoardDetailPage() {
             >
               목록으로
             </Link>
-
-            <Link
-                to={`/boards/${id}/edit`}
-                className="h-12 rounded-[12px] border border-[#E5E7EB] bg-white px-6 text-sm font-semibold text-[#1F2937] transition hover:bg-[#F7F8FA]"
-            >
-              수정
-            </Link>
-
-            <AlertDialog open={deleteOpen} onOpenChange={setDeleteOpen}>
-              <button
-                  type="button"
-                  className="h-12 rounded-[12px] border border-[#FCA5A5] bg-white px-6 text-sm font-semibold text-[#B91C1C] transition hover:bg-[#FEF2F2]"
-                  onClick={() => setDeleteOpen(true)}
-              >
-                삭제
-              </button>
-
-              <AlertDialogContent className="rounded-[16px] border border-[#E5E7EB]">
-                <AlertDialogHeader>
-                  <AlertDialogTitle>게시글 삭제</AlertDialogTitle>
-                  <AlertDialogDescription>
-                    삭제한 게시글은 복구할 수 없습니다. 정말 삭제하시겠어요?
-                  </AlertDialogDescription>
-                </AlertDialogHeader>
-                <AlertDialogFooter>
-                  <AlertDialogCancel className="rounded-[12px] border-[#E5E7EB]">
-                    취소
-                  </AlertDialogCancel>
-                  <AlertDialogAction
-                      className="rounded-[12px] bg-[#EF4444] text-white hover:bg-[#DC2626]"
-                      onClick={handleDelete}
-                      disabled={deleting}
-                  >
-                    {deleting ? "삭제 중..." : "삭제"}
-                  </AlertDialogAction>
-                </AlertDialogFooter>
-              </AlertDialogContent>
-            </AlertDialog>
           </div>
         </div>
 

@@ -32,11 +32,19 @@ function AdopterMyPage() {
   // ✅ 설문 로딩/에러/데이터
   const [surveyLoading, setSurveyLoading] = useState(false);
   const [surveyError, setSurveyError] = useState<string | null>(null);
-  const [surveyAnswer, setSurveyAnswer] = useState<AdoptionSurveyAnswer | null>(null);
+  const [surveyAnswer, setSurveyAnswer] = useState<AdoptionSurveyAnswer | null>(
+    null
+  );
 
-  // ✅ MyPage에서는 입양관리/해야할일을 제거했으므로
-  // ✅ PostAdoptionTools에 필요한 post-adoption 데이터만 사용
-  const { postAdoptionId, postAdoption, postAdoptionLoading, refreshPostAdoption } = useMyPage();
+  // ✅ PostAdoptionTools에 필요한 값들 (adoptionId, startPostAdoption 포함)
+  const {
+    adoptionId,
+    postAdoptionId,
+    postAdoption,
+    postAdoptionLoading,
+    refreshPostAdoption,
+    startPostAdoption,
+  } = useMyPage();
 
   // 1) 내 정보 로드
   useEffect(() => {
@@ -124,23 +132,33 @@ function AdopterMyPage() {
           <div className="grid grid-cols-1 gap-2 text-sm">
             <div className="flex items-center justify-between rounded-lg bg-gray-50 px-3 py-2">
               <span className="text-[#555]">활동성(휴식 시)</span>
-              <span className="font-semibold">{labelFor("restActivityLevel", surveyAnswer.restActivityLevel)}</span>
+              <span className="font-semibold">
+                {labelFor("restActivityLevel", surveyAnswer.restActivityLevel)}
+              </span>
             </div>
             <div className="flex items-center justify-between rounded-lg bg-gray-50 px-3 py-2">
               <span className="text-[#555]">거주 형태</span>
-              <span className="font-semibold">{labelFor("residenceType", surveyAnswer.residenceType)}</span>
+              <span className="font-semibold">
+                {labelFor("residenceType", surveyAnswer.residenceType)}
+              </span>
             </div>
             <div className="flex items-center justify-between rounded-lg bg-gray-50 px-3 py-2">
               <span className="text-[#555]">외출 시간</span>
-              <span className="font-semibold">{labelFor("houseEmptyTime", surveyAnswer.houseEmptyTime)}</span>
+              <span className="font-semibold">
+                {labelFor("houseEmptyTime", surveyAnswer.houseEmptyTime)}
+              </span>
             </div>
             <div className="flex items-center justify-between rounded-lg bg-gray-50 px-3 py-2">
               <span className="text-[#555]">털 빠짐 허용</span>
-              <span className="font-semibold">{labelFor("furTolerance", surveyAnswer.furTolerance)}</span>
+              <span className="font-semibold">
+                {labelFor("furTolerance", surveyAnswer.furTolerance)}
+              </span>
             </div>
             <div className="flex items-center justify-between rounded-lg bg-gray-50 px-3 py-2">
               <span className="text-[#555]">방문자 빈도</span>
-              <span className="font-semibold">{labelFor("visitorFrequency", surveyAnswer.visitorFrequency)}</span>
+              <span className="font-semibold">
+                {labelFor("visitorFrequency", surveyAnswer.visitorFrequency)}
+              </span>
             </div>
 
             <div className="text-xs text-[#777] mt-1">
@@ -149,7 +167,8 @@ function AdopterMyPage() {
           </div>
         ) : (
           <div className="text-sm text-[#777]">
-            아직 작성한 설문이 없어요. 위 버튼을 눌러 설문을 작성하면 추천을 받을 수 있어요.
+            아직 작성한 설문이 없어요. 위 버튼을 눌러 설문을 작성하면 추천을 받을 수
+            있어요.
           </div>
         )}
       </div>
@@ -164,7 +183,9 @@ function AdopterMyPage() {
         </Link>
       </div>
 
-      {postAdoptionLoading && <div className="text-sm text-[#777]">Loading...</div>}
+      {postAdoptionLoading && (
+        <div className="text-sm text-[#777]">Loading...</div>
+      )}
 
       <PostAdoptionTools
         adoptionId={adoptionId}

@@ -267,9 +267,9 @@ export default function Filters({ breeds, provinces, cities, onChange }: Filters
   const statusOptions: SelectOption[] = useMemo(
     () => [
       { label: DEFAULT_STATUS, value: DEFAULT_STATUS },
-      { label: "입양중", value: "입양중" },
+      { label: "보호중", value: "보호중" },
       { label: "공고중", value: "공고중" },
-      { label: "입양완료", value: "입양완료" },
+      { label: "종료", value: "종료" },
     ],
     []
   );

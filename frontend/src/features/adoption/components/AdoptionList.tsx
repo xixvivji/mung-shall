@@ -3,7 +3,12 @@ import { useSearchParams } from "react-router-dom";
 import { fetchAdoptionList, fetchDogKinds, fetchSigunguList, fetchSidoList } from "../api/adoptionApi";
 import type { AdoptionDog } from "../types";
 import DogGrid from "./DogGrid";
-import Filters, { DEFAULT_BREED, DEFAULT_CITY, DEFAULT_PROVINCE } from "./Filters";
+import Filters, {
+  DEFAULT_CITY,
+  DEFAULT_KIND,
+  DEFAULT_PROVINCE,
+  DEFAULT_STATUS,
+} from "./Filters";
 import Pagination from "./Pagination";
 
 function parsePage1(params: URLSearchParams) {
@@ -31,11 +36,12 @@ export default function AdoptionList() {
   const page0 = currentPage1 - 1;
 
   const [filters, setFilters] = useState({
-    breed: DEFAULT_BREED,
+    kind: DEFAULT_KIND,
     province: DEFAULT_PROVINCE,
     provinceLabel: DEFAULT_PROVINCE,
     city: DEFAULT_CITY,
     cityLabel: DEFAULT_CITY,
+    status: DEFAULT_STATUS,
   });
 
   const region = useMemo(() => {
@@ -44,10 +50,21 @@ export default function AdoptionList() {
     return undefined;
   }, [filters.city, filters.province, filters.cityLabel, filters.provinceLabel]);
 
-  const breedParam = useMemo(
-    () => (filters.breed !== DEFAULT_BREED ? filters.breed : undefined),
-    [filters.breed]
+  const kindParam = useMemo(
+    () => (filters.kind !== DEFAULT_KIND ? filters.kind : undefined),
+    [filters.kind]
   );
+
+  const DOG_STATUS_MAP: Record<string, string> = {
+    입양중: "ADOPTING",
+    공고중: "NOTICE",
+    입양완료: "ADOPTED",
+  };
+
+  const statusParam = useMemo(() => {
+    if (filters.status === DEFAULT_STATUS) return undefined;
+    return DOG_STATUS_MAP[filters.status] ?? undefined;
+  }, [filters.status]);
 
   const goToPage1 = useCallback(
     (nextPage1: number) => {
@@ -65,19 +82,21 @@ export default function AdoptionList() {
 
   const handleFilterChange = useCallback(
     (next: {
-      breed: string;
+      kind: string;
       province: string;
       city: string;
       provinceLabel: string;
       cityLabel: string;
+      status: string;
     }) => {
       setFilters((prev) => {
         const isSame =
-          prev.breed === next.breed &&
+          prev.kind === next.kind &&
           prev.province === next.province &&
           prev.city === next.city &&
           prev.provinceLabel === next.provinceLabel &&
-          prev.cityLabel === next.cityLabel;
+          prev.cityLabel === next.cityLabel &&
+          prev.status === next.status;
         if (isSame) return prev;
         goToPage1(1); // ? ?? ??? 1????
         return next;
@@ -88,7 +107,7 @@ export default function AdoptionList() {
 
   useEffect(() => {
     let cancelled = false;
-    const fetchKey = JSON.stringify({ page0, region, breedParam });
+    const fetchKey = JSON.stringify({ page0, region, kindParam, statusParam });
     if (fetchKey === lastFetchKeyRef.current) return undefined;
     lastFetchKeyRef.current = fetchKey;
 
@@ -99,7 +118,8 @@ export default function AdoptionList() {
       page: page0,
       size: 12,
       region,
-      breed: breedParam,
+      kindnm: kindParam,
+      processState: statusParam,
     })
       .then((result) => {
         if (cancelled) return;
@@ -120,7 +140,7 @@ export default function AdoptionList() {
     return () => {
       cancelled = true;
     };
-  }, [page0, region, breedParam]);
+  }, [page0, region, kindParam, statusParam]);
 
   useEffect(() => {
     let cancelled = false;

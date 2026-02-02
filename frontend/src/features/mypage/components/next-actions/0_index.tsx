@@ -296,6 +296,7 @@ export function NextActions({
 
       {selectedStep === "CONTRACT" && (
         <ContractStep
+          adoptionId={adoptionId}
           isEditable={isEditable}
           onSubmitSuccess={safeGoNextFromSelected}
         />

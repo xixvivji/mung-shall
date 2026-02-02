@@ -107,6 +107,15 @@ export type EducationCertResponse = {
   certificateFileUrl: string;
 };
 
+export type AdoptionContractResponse = {
+  id: number;
+  stepInstanceId: number;
+  contractFileUrl: string;
+  originalFileName: string;
+  fileSize: number;
+  uploadedAt: string;
+};
+
 export type AdoptionDocumentResponse = {
   id: number;
   documentType: string;

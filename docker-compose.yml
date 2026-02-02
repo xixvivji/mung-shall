@@ -1,7 +1,7 @@
-# docker-compose.yml
 version: '3.8'
 
 services:
+  # 1. Frontend (Nginx + React)
   frontend:
     container_name: frontend-server
     image: frontend-image:latest
@@ -16,6 +16,20 @@ services:
     depends_on:
       - backend
 
+  # [AI Server - 잠시 주석 유지]
+  # ai-server:
+  #   build:
+  #     context: ./ai
+  #   container_name: ai-server
+  #   ports:
+  #     - "8000:8000"
+  #   volumes:
+  #     - ./ai/model:/app/model
+  #   networks:
+  #     - app-network
+  #   restart: always
+
+  # 2. Spring Boot Backend
   backend:
     container_name: backend-server
     image: backend-image:latest
@@ -57,13 +71,15 @@ services:
       - mysql
       - redis
       - openvidu
+      # - ai-server
 
+  # 3. OpenVidu Server
   openvidu:
     image: openvidu/openvidu-dev:2.29.0
     container_name: openvidu-server
     restart: always
     ports:
-      - "4443:4443"
+      - "4443:443"   # 호스트:컨테이너 (필요없으면 제거 가능)
     networks:
       - app-network
     environment:
@@ -75,6 +91,7 @@ services:
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
 
+  # 4. MySQL
   mysql:
     container_name: mysql-container
     image: mysql:8.0.23
@@ -89,6 +106,7 @@ services:
       - app-network
     command: --character-set-server=utf8mb4 --collation-server=utf8mb4_unicode_ci
 
+  # 5. Redis
   redis:
     container_name: redis-container
     image: redis:alpine
@@ -100,6 +118,7 @@ services:
       - app-network
     command: redis-server --appendonly yes
 
+  # 6. Prometheus
   prometheus:
     image: prom/prometheus:latest
     container_name: prometheus
@@ -115,6 +134,7 @@ services:
       - app-network
     restart: always
 
+  # 7. Grafana
   grafana:
     image: grafana/grafana:latest
     container_name: grafana
@@ -128,6 +148,7 @@ services:
     depends_on:
       - prometheus
 
+  # 8. Node Exporter
   node-exporter:
     image: prom/node-exporter:latest
     container_name: node-exporter

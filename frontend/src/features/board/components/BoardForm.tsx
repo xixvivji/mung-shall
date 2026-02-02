@@ -147,6 +147,41 @@ export default function BoardForm({
         }));
     }, []);
 
+    // ✅ 이미지 크게보기 모달(폼에서도 동일 UX)
+    const mediaUrls = useMemo(() => (Array.isArray(values.mediaUrls) ? values.mediaUrls : []), [values.mediaUrls]);
+    const [viewerOpen, setViewerOpen] = useState(false);
+    const [viewerIndex, setViewerIndex] = useState(0);
+
+    const openViewer = useCallback((index: number) => {
+        setViewerIndex(index);
+        setViewerOpen(true);
+    }, []);
+
+    const closeViewer = useCallback(() => setViewerOpen(false), []);
+
+    const goPrev = useCallback(() => {
+        setViewerIndex((prev) => (mediaUrls.length ? (prev - 1 + mediaUrls.length) % mediaUrls.length : 0));
+    }, [mediaUrls.length]);
+
+    const goNext = useCallback(() => {
+        setViewerIndex((prev) => (mediaUrls.length ? (prev + 1) % mediaUrls.length : 0));
+    }, [mediaUrls.length]);
+
+    const currentUrl = mediaUrls[viewerIndex] ?? "";
+
+    useEffect(() => {
+        if (!viewerOpen) return;
+
+        const onKeyDown = (e: KeyboardEvent) => {
+            if (e.key === "Escape") closeViewer();
+            if (e.key === "ArrowLeft") goPrev();
+            if (e.key === "ArrowRight") goNext();
+        };
+
+        window.addEventListener("keydown", onKeyDown);
+        return () => window.removeEventListener("keydown", onKeyDown);
+    }, [viewerOpen, closeViewer, goPrev, goNext]);
+
     return (
         <form className="space-y-8" onSubmit={handleSubmit}>
             <div className="space-y-3">
@@ -237,24 +272,124 @@ export default function BoardForm({
                     {uploadError ? <p className="mt-3 text-xs text-[#ef4444]">{uploadError}</p> : null}
                     {errors.mediaUrls ? <p className="mt-3 text-xs text-[#ef4444]">{errors.mediaUrls}</p> : null}
 
-                    {Array.isArray(values.mediaUrls) && values.mediaUrls.length > 0 ? (
-                        <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4">
-                            {values.mediaUrls.map((url) => (
-                                <div
-                                    key={url}
-                                    className="group relative overflow-hidden rounded-[12px] border border-[#E5E7EB] bg-white"
-                                >
-                                    <img src={url} alt="uploaded" className="h-28 w-full object-cover" />
-                                    <button
-                                        type="button"
-                                        onClick={() => handleRemoveMedia(url)}
-                                        className="absolute right-2 top-2 rounded-full bg-black/60 px-2 py-1 text-xs font-semibold text-white opacity-0 transition group-hover:opacity-100"
+                    {mediaUrls.length > 0 ? (
+                        <>
+                            <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4">
+                                {mediaUrls.map((url, idx) => (
+                                    <div
+                                        key={url}
+                                        className="group relative rounded-[12px] border border-[#E5E7EB] bg-white p-2"
                                     >
-                                        삭제
-                                    </button>
+                                        {/* ✅ 잘림 방지: object-contain + 배경 */}
+                                        <button
+                                            type="button"
+                                            onClick={() => openViewer(idx)}
+                                            className="w-full rounded-[10px] bg-[#F7F8FA] p-2"
+                                            title="클릭해서 크게 보기"
+                                        >
+                                            <img
+                                                src={url}
+                                                alt="uploaded"
+                                                className="h-28 w-full object-contain"
+                                                loading="lazy"
+                                                onError={(e) => {
+                                                    (e.currentTarget as HTMLImageElement).style.display = "none";
+                                                }}
+                                            />
+                                        </button>
+
+                                        <div className="mt-2 flex items-center justify-between">
+                                            <span className="text-xs text-[#6B7280]">{idx + 1} / {mediaUrls.length}</span>
+
+                                            <button
+                                                type="button"
+                                                onClick={() => handleRemoveMedia(url)}
+                                                className="rounded-full bg-black/60 px-2 py-1 text-xs font-semibold text-white opacity-0 transition group-hover:opacity-100"
+                                            >
+                                                삭제
+                                            </button>
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+
+                            {/* ✅ 모달 갤러리 */}
+                            {viewerOpen ? (
+                                <div
+                                    className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4"
+                                    role="dialog"
+                                    aria-modal="true"
+                                    onClick={closeViewer}
+                                >
+                                    <div
+                                        className="relative w-full max-w-[980px] rounded-[16px] bg-white shadow-xl"
+                                        onClick={(e) => e.stopPropagation()}
+                                    >
+                                        <div className="flex items-center justify-between border-b border-[#E5E7EB] px-4 py-3">
+                                            <div className="text-sm font-semibold text-[#111827]">
+                                                첨부 이미지 {viewerIndex + 1} / {mediaUrls.length}
+                                            </div>
+
+                                            <div className="flex items-center gap-2">
+                                                <a
+                                                    href={currentUrl}
+                                                    download
+                                                    target="_blank"
+                                                    rel="noreferrer"
+                                                    className="h-9 rounded-[10px] border border-[#E5E7EB] bg-white px-3 text-sm font-semibold text-[#111827] hover:bg-[#F7F8FA]"
+                                                >
+                                                    다운로드
+                                                </a>
+
+                                                <button
+                                                    type="button"
+                                                    onClick={closeViewer}
+                                                    className="h-9 rounded-[10px] bg-[#111827] px-3 text-sm font-semibold text-white hover:bg-[#0B1220]"
+                                                >
+                                                    닫기
+                                                </button>
+                                            </div>
+                                        </div>
+
+                                        <div className="relative flex items-center justify-center bg-[#0B1220] p-3">
+                                            {mediaUrls.length > 1 ? (
+                                                <button
+                                                    type="button"
+                                                    onClick={goPrev}
+                                                    className="absolute left-3 top-1/2 -translate-y-1/2 rounded-full bg-white/20 px-3 py-2 text-sm font-semibold text-white hover:bg-white/30"
+                                                    aria-label="prev"
+                                                >
+                                                    ◀
+                                                </button>
+                                            ) : null}
+
+                                            <img
+                                                src={currentUrl}
+                                                alt="viewer"
+                                                className="max-h-[72vh] w-auto max-w-full object-contain"
+                                                draggable={false}
+                                            />
+
+                                            {mediaUrls.length > 1 ? (
+                                                <button
+                                                    type="button"
+                                                    onClick={goNext}
+                                                    className="absolute right-3 top-1/2 -translate-y-1/2 rounded-full bg-white/20 px-3 py-2 text-sm font-semibold text-white hover:bg-white/30"
+                                                    aria-label="next"
+                                                >
+                                                    ▶
+                                                </button>
+                                            ) : null}
+                                        </div>
+
+                                        <div className="px-4 py-3 text-xs text-[#6B7280]">
+                                            단축키: <span className="font-semibold">← →</span> 이동,{" "}
+                                            <span className="font-semibold">ESC</span> 닫기
+                                        </div>
+                                    </div>
                                 </div>
-                            ))}
-                        </div>
+                            ) : null}
+                        </>
                     ) : (
                         <p className="mt-3 text-xs text-[#9CA3AF]">첨부된 이미지가 없습니다.</p>
                     )}

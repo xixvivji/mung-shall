@@ -27,6 +27,9 @@ import type { CommentItem } from "../api/commentApi";
 
 import { authStore } from "@/features/auth/store/authStore";
 
+// ✅ 추가
+import { formatDateTime } from "@/shared/utils/datetime";
+
 export default function BoardDetailPage() {
     const { id = "" } = useParams();
     const navigate = useNavigate();
@@ -205,19 +208,15 @@ export default function BoardDetailPage() {
 
                 setComments((prev) =>
                     prev.map((c) => {
-                        // 루트 좋아요
                         if (c.id === commentId) {
                             return { ...c, likedByMe: result.likedByMe, likeCount: result.likeCount };
                         }
 
-                        // 대댓글 좋아요 (depth 1)
                         const replies = Array.isArray(c.replies) ? c.replies : [];
                         if (replies.length === 0) return c;
 
                         const nextReplies = replies.map((r) =>
-                            r.id === commentId
-                                ? { ...r, likedByMe: result.likedByMe, likeCount: result.likeCount }
-                                : r
+                            r.id === commentId ? { ...r, likedByMe: result.likedByMe, likeCount: result.likeCount } : r
                         );
 
                         return { ...c, replies: nextReplies };
@@ -296,7 +295,6 @@ export default function BoardDetailPage() {
         [me]
     );
 
-    // 백엔드가 replies 트리로 내려주므로: 루트는 parentCommentId == null 기준
     const commentTree = useMemo(() => {
         return comments
             .filter((c) => c.parentCommentId == null)
@@ -330,21 +328,16 @@ export default function BoardDetailPage() {
                         <div className="text-sm text-[#d14343]">{error}</div>
                     ) : detail ? (
                         <div className="space-y-6">
-                            {/* 제목/메타 */}
                             <div className="space-y-2">
                                 <h2 className="text-2xl font-semibold text-[#1F2937]">{detail.title}</h2>
                                 <div className="text-sm text-[#6B7280]">
-                                    {detail.authorName} · {detail.createdAt}
-                                    {detail.updatedAt ? ` · 수정 ${detail.updatedAt}` : ""}
+                                    {detail.authorName} · {formatDateTime(detail.createdAt)}
+                                    {detail.updatedAt ? ` · 수정 ${formatDateTime(detail.updatedAt)}` : ""}
                                 </div>
                             </div>
 
-                            {/* 본문 */}
-                            <div className="whitespace-pre-line text-sm leading-7 text-[#1F2937]">
-                                {detail.content}
-                            </div>
+                            <div className="whitespace-pre-line text-sm leading-7 text-[#1F2937]">{detail.content}</div>
 
-                            {/* 수정/삭제: 작성자만 노출 */}
                             <div className="flex flex-wrap gap-3">
                                 {isOwner && (
                                     <Link
@@ -373,9 +366,7 @@ export default function BoardDetailPage() {
                                                 </AlertDialogDescription>
                                             </AlertDialogHeader>
                                             <AlertDialogFooter>
-                                                <AlertDialogCancel className="rounded-[12px] border-[#E5E7EB]">
-                                                    취소
-                                                </AlertDialogCancel>
+                                                <AlertDialogCancel className="rounded-[12px] border-[#E5E7EB]">취소</AlertDialogCancel>
                                                 <AlertDialogAction
                                                     className="rounded-[12px] bg-[#EF4444] text-white hover:bg-[#DC2626]"
                                                     onClick={handleDelete}
@@ -388,22 +379,17 @@ export default function BoardDetailPage() {
                                     </AlertDialog>
                                 )}
 
-                                {/* 작성자 아닌 경우 안내 */}
                                 {boardOwnerId !== null && !isOwner ? (
-                                    <div className="self-center text-xs text-[#9CA3AF]">
-                                        작성자만 수정/삭제할 수 있습니다.
-                                    </div>
+                                    <div className="self-center text-xs text-[#9CA3AF]">작성자만 수정/삭제할 수 있습니다.</div>
                                 ) : null}
                             </div>
 
-                            {/* 댓글 영역 */}
                             <div className="mt-8 border-t border-[#E5E7EB] pt-6">
                                 <div className="flex items-center justify-between">
                                     <h3 className="text-lg font-bold text-[#1F2937]">댓글</h3>
                                     <span className="text-sm text-[#6B7280]">{totalCommentCount}개</span>
                                 </div>
 
-                                {/* 댓글 작성 */}
                                 <div className="mt-4 flex flex-col gap-3">
                   <textarea
                       value={commentText}
@@ -423,7 +409,6 @@ export default function BoardDetailPage() {
                                     </div>
                                 </div>
 
-                                {/* 댓글 목록 */}
                                 <div className="mt-6 space-y-4">
                                     {commentLoading ? (
                                         <div className="text-sm text-[#6B7280]">댓글 불러오는 중...</div>
@@ -434,7 +419,6 @@ export default function BoardDetailPage() {
                                     ) : (
                                         commentTree.map((c) => (
                                             <div key={c.id} className="space-y-3">
-                                                {/* 루트 댓글 */}
                                                 <div className="rounded-[12px] border border-[#E5E7EB] p-4">
                                                     <div className="flex items-center justify-between text-xs text-[#6B7280]">
                                                         <span>{c.authorName ?? "익명"}</span>
@@ -448,11 +432,10 @@ export default function BoardDetailPage() {
                                                             >
                                                                 {c.likedByMe ? "❤️" : "🤍"} {c.likeCount ?? 0}
                                                             </button>
-                                                            <span>{c.createdAt ?? ""}</span>
+                                                            <span>{formatDateTime(c.createdAt)}</span>
                                                         </div>
                                                     </div>
 
-                                                    {/* 수정 모드 */}
                                                     {editOpenFor === c.id ? (
                                                         <div className="mt-3 space-y-2">
                               <textarea
@@ -476,10 +459,7 @@ export default function BoardDetailPage() {
                                                                 <button
                                                                     type="button"
                                                                     onClick={() => handleSubmitEdit(c.id)}
-                                                                    disabled={
-                                                                        editSubmittingFor === c.id ||
-                                                                        !(editTextById[c.id] ?? "").trim()
-                                                                    }
+                                                                    disabled={editSubmittingFor === c.id || !(editTextById[c.id] ?? "").trim()}
                                                                     className="h-10 rounded-[12px] bg-[#111827] px-4 text-sm font-semibold text-white hover:bg-[#0B1220] disabled:opacity-50"
                                                                 >
                                                                     {editSubmittingFor === c.id ? "저장 중..." : "저장"}
@@ -487,23 +467,18 @@ export default function BoardDetailPage() {
                                                             </div>
                                                         </div>
                                                     ) : (
-                                                        <div className="mt-2 whitespace-pre-line text-sm text-[#1F2937]">
-                                                            {c.content}
-                                                        </div>
+                                                        <div className="mt-2 whitespace-pre-line text-sm text-[#1F2937]">{c.content}</div>
                                                     )}
 
                                                     <div className="mt-3 flex flex-wrap items-center gap-3">
                                                         <button
                                                             type="button"
                                                             className="text-sm font-semibold text-[#2563EB] hover:underline"
-                                                            onClick={() =>
-                                                                setReplyOpenFor((prev) => (prev === c.id ? null : c.id))
-                                                            }
+                                                            onClick={() => setReplyOpenFor((prev) => (prev === c.id ? null : c.id))}
                                                         >
                                                             {replyOpenFor === c.id ? "답글 닫기" : "답글 달기"}
                                                         </button>
 
-                                                        {/* 내 댓글이면 수정/삭제 */}
                                                         {isMyComment(c) && editOpenFor !== c.id ? (
                                                             <>
                                                                 <button
@@ -525,7 +500,6 @@ export default function BoardDetailPage() {
                                                         ) : null}
                                                     </div>
 
-                                                    {/* 대댓글 입력 */}
                                                     {replyOpenFor === c.id && (
                                                         <div className="mt-3 space-y-2 rounded-[12px] bg-[#F9FAFB] p-3">
                               <textarea
@@ -543,10 +517,7 @@ export default function BoardDetailPage() {
                                                                 <button
                                                                     type="button"
                                                                     onClick={() => handleSubmitReply(c.id)}
-                                                                    disabled={
-                                                                        replySubmittingFor === c.id ||
-                                                                        !(replyTextById[c.id] ?? "").trim()
-                                                                    }
+                                                                    disabled={replySubmittingFor === c.id || !(replyTextById[c.id] ?? "").trim()}
                                                                     className="h-10 rounded-[12px] bg-[#111827] px-4 text-sm font-semibold text-white transition hover:bg-[#0B1220] disabled:opacity-50"
                                                                 >
                                                                     {replySubmittingFor === c.id ? "등록 중..." : "답글 등록"}
@@ -555,7 +526,6 @@ export default function BoardDetailPage() {
                                                         </div>
                                                     )}
 
-                                                    {/* 댓글 삭제 confirm */}
                                                     <AlertDialog
                                                         open={deleteCommentOpenFor === c.id}
                                                         onOpenChange={(open) => setDeleteCommentOpenFor(open ? c.id : null)}
@@ -568,9 +538,7 @@ export default function BoardDetailPage() {
                                                                 </AlertDialogDescription>
                                                             </AlertDialogHeader>
                                                             <AlertDialogFooter>
-                                                                <AlertDialogCancel className="rounded-[12px] border-[#E5E7EB]">
-                                                                    취소
-                                                                </AlertDialogCancel>
+                                                                <AlertDialogCancel className="rounded-[12px] border-[#E5E7EB]">취소</AlertDialogCancel>
                                                                 <AlertDialogAction
                                                                     className="rounded-[12px] bg-[#EF4444] text-white hover:bg-[#DC2626]"
                                                                     onClick={() => handleDeleteComment(c.id)}
@@ -583,14 +551,10 @@ export default function BoardDetailPage() {
                                                     </AlertDialog>
                                                 </div>
 
-                                                {/* 대댓글 */}
                                                 {Array.isArray(c.replies) && c.replies.length > 0 && (
                                                     <div className="space-y-3 pl-6">
                                                         {c.replies.map((r: CommentItem) => (
-                                                            <div
-                                                                key={r.id}
-                                                                className="rounded-[12px] border border-[#E5E7EB] bg-white p-4"
-                                                            >
+                                                            <div key={r.id} className="rounded-[12px] border border-[#E5E7EB] bg-white p-4">
                                                                 <div className="flex items-center justify-between text-xs text-[#6B7280]">
                                                                     <span>{r.authorName ?? "익명"}</span>
 
@@ -603,7 +567,7 @@ export default function BoardDetailPage() {
                                                                         >
                                                                             {r.likedByMe ? "❤️" : "🤍"} {r.likeCount ?? 0}
                                                                         </button>
-                                                                        <span>{r.createdAt ?? ""}</span>
+                                                                        <span>{formatDateTime(r.createdAt)}</span>
                                                                     </div>
                                                                 </div>
 
@@ -630,10 +594,7 @@ export default function BoardDetailPage() {
                                                                             <button
                                                                                 type="button"
                                                                                 onClick={() => handleSubmitEdit(r.id)}
-                                                                                disabled={
-                                                                                    editSubmittingFor === r.id ||
-                                                                                    !(editTextById[r.id] ?? "").trim()
-                                                                                }
+                                                                                disabled={editSubmittingFor === r.id || !(editTextById[r.id] ?? "").trim()}
                                                                                 className="h-10 rounded-[12px] bg-[#111827] px-4 text-sm font-semibold text-white hover:bg-[#0B1220] disabled:opacity-50"
                                                                             >
                                                                                 {editSubmittingFor === r.id ? "저장 중..." : "저장"}
@@ -641,9 +602,7 @@ export default function BoardDetailPage() {
                                                                         </div>
                                                                     </div>
                                                                 ) : (
-                                                                    <div className="mt-2 whitespace-pre-line text-sm text-[#1F2937]">
-                                                                        {r.content}
-                                                                    </div>
+                                                                    <div className="mt-2 whitespace-pre-line text-sm text-[#1F2937]">{r.content}</div>
                                                                 )}
 
                                                                 {isMyComment(r) && editOpenFor !== r.id ? (
@@ -667,9 +626,7 @@ export default function BoardDetailPage() {
 
                                                                 <AlertDialog
                                                                     open={deleteCommentOpenFor === r.id}
-                                                                    onOpenChange={(open) =>
-                                                                        setDeleteCommentOpenFor(open ? r.id : null)
-                                                                    }
+                                                                    onOpenChange={(open) => setDeleteCommentOpenFor(open ? r.id : null)}
                                                                 >
                                                                     <AlertDialogContent className="rounded-[16px] border border-[#E5E7EB]">
                                                                         <AlertDialogHeader>
@@ -679,9 +636,7 @@ export default function BoardDetailPage() {
                                                                             </AlertDialogDescription>
                                                                         </AlertDialogHeader>
                                                                         <AlertDialogFooter>
-                                                                            <AlertDialogCancel className="rounded-[12px] border-[#E5E7EB]">
-                                                                                취소
-                                                                            </AlertDialogCancel>
+                                                                            <AlertDialogCancel className="rounded-[12px] border-[#E5E7EB]">취소</AlertDialogCancel>
                                                                             <AlertDialogAction
                                                                                 className="rounded-[12px] bg-[#EF4444] text-white hover:bg-[#DC2626]"
                                                                                 onClick={() => handleDeleteComment(r.id)}

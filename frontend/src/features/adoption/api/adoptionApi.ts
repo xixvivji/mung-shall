@@ -27,7 +27,7 @@ type FetchAdoptionParams = {
   region?: string;
   sexCd?: string;
   processState?: string;
-  kindnm?: string;
+  kindNm?: string;
   signal?: AbortSignal;
 };
 
@@ -108,7 +108,7 @@ export async function fetchAdoptionList({
   region,
   sexCd,
   processState,
-  kindnm,
+  kindNm,
   signal,
 }: FetchAdoptionParams = {}): Promise<FetchAdoptionResult> {
   const params = new URLSearchParams();
@@ -122,7 +122,7 @@ export async function fetchAdoptionList({
   if (region) params.set("region", region);
   if (sexCd) params.set("sexCd", sexCd);
   if (processState) params.set("processState", processState);
-  if (kindnm) params.set("kindnm", kindnm);
+  if (kindNm) params.set("kindNm", kindNm);
 
   const requestPath = `/dogs?${params.toString()}`;
   if (inflightKey === requestPath && inflightController) {

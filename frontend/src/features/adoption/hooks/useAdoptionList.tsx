@@ -36,15 +36,19 @@ export default function AdoptionList() {
 
   const kindParam = filters.kind !== DEFAULT_KIND ? filters.kind : undefined;
 
-  const DOG_STATUS_MAP: Record<string, string> = {
-    입양중: "ADOPTING",
-    공고중: "NOTICE",
-    입양완료: "ADOPTED",
+  const PROCESS_STATE_MAP: Record<string, string> = {
+    보호중: "보호중",
+    공고중: "공고중",
+    종료: "종료",
+    입양중: "보호중",
+    입양완료: "종료",
+    반환: "종료",
+    자연사: "종료",
   };
 
   const statusParam = useMemo(() => {
     if (filters.status === DEFAULT_STATUS) return undefined;
-    return DOG_STATUS_MAP[filters.status] ?? undefined;
+    return PROCESS_STATE_MAP[filters.status] ?? undefined;
   }, [filters.status]);
 
   useEffect(() => {
@@ -57,7 +61,7 @@ export default function AdoptionList() {
       size: 12,
       sort: "happenDt",
       region,
-      kindnm: kindParam,
+      kindNm: kindParam,
       processState: statusParam,
       signal: controller.signal,
     })

@@ -1,11 +1,20 @@
-import { useMemo, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { Button } from "@/shared/ui/button";
-import { submitAdoptionApplication } from "@/features/adoptionApplication/api";
-import type { AdoptionApplicationRequest } from "@/features/adoptionApplication/types";
+import {
+  deleteAdoptionApplication,
+  getAdoptionApplication,
+  upsertAdoptionApplication,
+} from "@/features/adoptionApplication/api";
+import type {
+  AdoptionApplicationRequest,
+  AdoptionApplicationResponse,
+} from "@/features/adoptionApplication/types";
+import { ApiError } from "@/shared/api/client";
 
 type Props = {
   isEditable: boolean;
   onSubmitSuccess: () => void;
+  adoptionId?: number;
 };
 
 type Gender = "MALE" | "FEMALE" | "OTHER";
@@ -342,89 +351,331 @@ function pickErrors(all: Errors, prefixes: string[]) {
   return out;
 }
 
-export function ApplicationStep({ isEditable, onSubmitSuccess }: Props) {
+const GENDER_VALUES = ["MALE", "FEMALE", "OTHER"] as const;
+const PET_PREFERENCE_VALUES = ["ADULT_DOG", "PUPPY", "ANY"] as const;
+const RESIDENCE_VALUES = [
+  "MULTI_FAMILY_HOUSE",
+  "SINGLE_FAMILY_HOUSE",
+  "APARTMENT",
+  "STUDIO_APARTMENT",
+  "OTHER",
+] as const;
+const MARITAL_VALUES = ["SINGLE", "MARRIED", "DIVORCED", "OTHER"] as const;
+const MONTHLY_EXPENSE_VALUES = [
+  "RANGE_0_5",
+  "RANGE_5_10",
+  "RANGE_10_20",
+  "RANGE_20_UP",
+  "NOT_SURE",
+] as const;
+
+const DEFAULT_ERROR_MESSAGE = "요청에 실패했습니다. 잠시 후 다시 시도해주세요.";
+
+const createEmptyForm = (): Form => ({
+  name: "",
+  dateOfBirth: "",
+  gender: "",
+  phoneNumber: "",
+  email: "",
+  address: "",
+  detailAddress: "",
+  emergencyContacts: [{ contactName: "", contactPhoneNumber: "", relationship: "" }],
+  petPreference: "",
+  cohabitantAgreement: false,
+  hasCohabitant: true,
+  cohabitantComposition: { numberOfAdults: "", numberOfChildren: "" },
+  cohabitantDetails: [
+    { relationship: "", age: "", hasAllergy: false, adoptionAgreement: false },
+  ],
+  hasCurrentPets: false,
+  currentPetDetails: [
+    {
+      petType: "",
+      breed: "",
+      count: "",
+      age: "",
+      neutered: false,
+      reasonForAdoptingMore: "",
+    },
+  ],
+  hasPastPetExperience: false,
+  pastPetExperiences: [
+    {
+      pastPetType: "",
+      pastPetCount: "",
+      duration: "",
+      isCurrentlyWithYou: false,
+      details: "",
+    },
+  ],
+  residenceType: "",
+  isOwner: false,
+  completedOwnerEducation: false,
+  agreesToLifetimeCommitment: false,
+  agreesToFollowUp: false,
+  job: "",
+  workingHours: "",
+  aloneTimeManagement: "",
+  maritalStatus: "",
+  petLivingSpaceLocation: "",
+  petLivingSpacePhotoUrl: "",
+  monthlyExpenseRange: "",
+  agreesToNeutering: false,
+  motivationForAdoption: "",
+  lifeChangeCopingPlan: "",
+  travelCopingPlan: "",
+  agreesToRegularUpdates: false,
+  additionalQuestions: "",
+});
+
+const toNumberField = (value: unknown): number | "" => {
+  if (typeof value === "number" && Number.isFinite(value)) return value;
+  if (typeof value === "string") {
+    const trimmed = value.trim();
+    if (trimmed === "") return "";
+    const num = Number(trimmed);
+    return Number.isFinite(num) ? num : "";
+  }
+  return "";
+};
+
+const normalizeDate = (value: unknown) => {
+  if (typeof value !== "string") return "";
+  return value.includes("T") ? value.split("T")[0] ?? "" : value;
+};
+
+const asEnum = <T extends string>(
+  value: unknown,
+  allowed: readonly T[],
+  fallback: T | ""
+) => (allowed.includes(value as T) ? (value as T) : fallback);
+
+const resolveApplicationId = (data?: AdoptionApplicationResponse | null) =>
+  data?.applicationId ?? data?.id;
+
+const mapApplicationToForm = (data: AdoptionApplicationResponse | null): Form => {
+  const base = createEmptyForm();
+  if (!data) return base;
+
+  const emergencyContacts =
+    Array.isArray(data.emergencyContacts) && data.emergencyContacts.length > 0
+      ? data.emergencyContacts.map((c) => ({
+          contactName: typeof c.contactName === "string" ? c.contactName : "",
+          contactPhoneNumber:
+            typeof c.contactPhoneNumber === "string" ? c.contactPhoneNumber : "",
+          relationship: typeof c.relationship === "string" ? c.relationship : "",
+        }))
+      : base.emergencyContacts;
+
+  const cohabitantDetails =
+    Array.isArray(data.cohabitantDetails) && data.cohabitantDetails.length > 0
+      ? data.cohabitantDetails.map((d) => ({
+          relationship: typeof d.relationship === "string" ? d.relationship : "",
+          age: toNumberField(d.age),
+          hasAllergy: typeof d.hasAllergy === "boolean" ? d.hasAllergy : false,
+          adoptionAgreement:
+            typeof d.adoptionAgreement === "boolean" ? d.adoptionAgreement : false,
+        }))
+      : base.cohabitantDetails;
+
+  const currentPetDetails =
+    Array.isArray(data.currentPetDetails) && data.currentPetDetails.length > 0
+      ? data.currentPetDetails.map((p) => ({
+          petType: typeof p.petType === "string" ? p.petType : "",
+          breed: typeof p.breed === "string" ? p.breed : "",
+          count: toNumberField(p.count),
+          age: p.age === null || p.age === undefined ? "" : toNumberField(p.age),
+          neutered: typeof p.neutered === "boolean" ? p.neutered : false,
+          reasonForAdoptingMore:
+            typeof p.reasonForAdoptingMore === "string"
+              ? p.reasonForAdoptingMore
+              : "",
+        }))
+      : base.currentPetDetails;
+
+  const pastPetExperiences =
+    Array.isArray(data.pastPetExperiences) && data.pastPetExperiences.length > 0
+      ? data.pastPetExperiences.map((p) => ({
+          pastPetType: typeof p.pastPetType === "string" ? p.pastPetType : "",
+          pastPetCount: toNumberField(p.pastPetCount),
+          duration: typeof p.duration === "string" ? p.duration : "",
+          isCurrentlyWithYou:
+            typeof p.isCurrentlyWithYou === "boolean" ? p.isCurrentlyWithYou : false,
+          details: typeof p.details === "string" ? p.details : "",
+        }))
+      : base.pastPetExperiences;
+
+  const cohabitantComposition =
+    data.cohabitantComposition && typeof data.cohabitantComposition === "object"
+      ? {
+          numberOfAdults: toNumberField(data.cohabitantComposition.numberOfAdults),
+          numberOfChildren: toNumberField(data.cohabitantComposition.numberOfChildren),
+        }
+      : base.cohabitantComposition;
+
+  return {
+    ...base,
+    name: typeof data.name === "string" ? data.name : base.name,
+    dateOfBirth: normalizeDate(data.dateOfBirth),
+    gender: asEnum(data.gender, GENDER_VALUES, base.gender),
+    phoneNumber: typeof data.phoneNumber === "string" ? data.phoneNumber : base.phoneNumber,
+    email: typeof data.email === "string" ? data.email : base.email,
+    address: typeof data.address === "string" ? data.address : base.address,
+    detailAddress: typeof data.detailAddress === "string" ? data.detailAddress : base.detailAddress,
+    emergencyContacts,
+    petPreference: asEnum(data.petPreference, PET_PREFERENCE_VALUES, base.petPreference),
+    cohabitantAgreement:
+      typeof data.cohabitantAgreement === "boolean"
+        ? data.cohabitantAgreement
+        : base.cohabitantAgreement,
+    hasCohabitant:
+      typeof data.hasCohabitant === "boolean" ? data.hasCohabitant : base.hasCohabitant,
+    cohabitantComposition,
+    cohabitantDetails,
+    hasCurrentPets:
+      typeof data.hasCurrentPets === "boolean" ? data.hasCurrentPets : base.hasCurrentPets,
+    currentPetDetails,
+    hasPastPetExperience:
+      typeof data.hasPastPetExperience === "boolean"
+        ? data.hasPastPetExperience
+        : base.hasPastPetExperience,
+    pastPetExperiences,
+    residenceType: asEnum(data.residenceType, RESIDENCE_VALUES, base.residenceType),
+    isOwner: typeof data.isOwner === "boolean" ? data.isOwner : base.isOwner,
+    completedOwnerEducation:
+      typeof data.completedOwnerEducation === "boolean"
+        ? data.completedOwnerEducation
+        : base.completedOwnerEducation,
+    agreesToLifetimeCommitment:
+      typeof data.agreesToLifetimeCommitment === "boolean"
+        ? data.agreesToLifetimeCommitment
+        : base.agreesToLifetimeCommitment,
+    agreesToFollowUp:
+      typeof data.agreesToFollowUp === "boolean"
+        ? data.agreesToFollowUp
+        : base.agreesToFollowUp,
+    job: typeof data.job === "string" ? data.job : base.job,
+    workingHours: typeof data.workingHours === "string" ? data.workingHours : base.workingHours,
+    aloneTimeManagement:
+      typeof data.aloneTimeManagement === "string"
+        ? data.aloneTimeManagement
+        : base.aloneTimeManagement,
+    maritalStatus: asEnum(data.maritalStatus, MARITAL_VALUES, base.maritalStatus),
+    petLivingSpaceLocation:
+      typeof data.petLivingSpaceLocation === "string"
+        ? data.petLivingSpaceLocation
+        : base.petLivingSpaceLocation,
+    petLivingSpacePhotoUrl:
+      typeof data.petLivingSpacePhotoUrl === "string"
+        ? data.petLivingSpacePhotoUrl
+        : base.petLivingSpacePhotoUrl,
+    monthlyExpenseRange: asEnum(
+      data.monthlyExpenseRange,
+      MONTHLY_EXPENSE_VALUES,
+      base.monthlyExpenseRange
+    ),
+    agreesToNeutering:
+      typeof data.agreesToNeutering === "boolean"
+        ? data.agreesToNeutering
+        : base.agreesToNeutering,
+    motivationForAdoption:
+      typeof data.motivationForAdoption === "string"
+        ? data.motivationForAdoption
+        : base.motivationForAdoption,
+    lifeChangeCopingPlan:
+      typeof data.lifeChangeCopingPlan === "string"
+        ? data.lifeChangeCopingPlan
+        : base.lifeChangeCopingPlan,
+    travelCopingPlan:
+      typeof data.travelCopingPlan === "string"
+        ? data.travelCopingPlan
+        : base.travelCopingPlan,
+    agreesToRegularUpdates:
+      typeof data.agreesToRegularUpdates === "boolean"
+        ? data.agreesToRegularUpdates
+        : base.agreesToRegularUpdates,
+    additionalQuestions:
+      typeof data.additionalQuestions === "string"
+        ? data.additionalQuestions
+        : base.additionalQuestions,
+  };
+};
+
+const resolveApiErrorMessage = (err: unknown) => {
+  if (err instanceof ApiError) {
+    if (err.status === 401) return "로그인이 필요합니다.";
+    if (err.status === 403) return "권한이 없습니다.";
+    if (err.status === 404) return "신청서를 찾을 수 없습니다.";
+    if (err.status >= 500) return "서버 오류가 발생했습니다. 잠시 후 다시 시도해주세요.";
+    return err.message || DEFAULT_ERROR_MESSAGE;
+  }
+  if (err instanceof Error) return err.message || DEFAULT_ERROR_MESSAGE;
+  return DEFAULT_ERROR_MESSAGE;
+};
+
+export function ApplicationStep({ isEditable, onSubmitSuccess, adoptionId }: Props) {
   const [open, setOpen] = useState(false);
   const [stepIndex, setStepIndex] = useState(0);
   const [errors, setErrors] = useState<Errors>({});
+  const [loading, setLoading] = useState(false);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [hasExisting, setHasExisting] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [deleting, setDeleting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
 
-  const [form, setForm] = useState<Form>({
-    name: "",
-    dateOfBirth: "",
-    gender: "",
-    phoneNumber: "",
-    email: "",
-    address: "",
-    detailAddress: "",
-
-    emergencyContacts: [{ contactName: "", contactPhoneNumber: "", relationship: "" }],
-
-    petPreference: "",
-    cohabitantAgreement: false,
-    hasCohabitant: true,
-
-    cohabitantComposition: { numberOfAdults: "", numberOfChildren: "" },
-    cohabitantDetails: [
-      { relationship: "", age: "", hasAllergy: false, adoptionAgreement: false },
-    ],
-
-    hasCurrentPets: false,
-    currentPetDetails: [
-      {
-        petType: "",
-        breed: "",
-        count: "",
-        age: "",
-        neutered: false,
-        reasonForAdoptingMore: "",
-      },
-    ],
-
-    hasPastPetExperience: false,
-    pastPetExperiences: [
-      {
-        pastPetType: "",
-        pastPetCount: "",
-        duration: "",
-        isCurrentlyWithYou: false,
-        details: "",
-      },
-    ],
-
-    residenceType: "",
-    isOwner: false,
-    completedOwnerEducation: false,
-    agreesToLifetimeCommitment: false,
-    agreesToFollowUp: false,
-
-    job: "",
-    workingHours: "",
-    aloneTimeManagement: "",
-    maritalStatus: "",
-
-    petLivingSpaceLocation: "",
-    petLivingSpacePhotoUrl: "",
-
-    monthlyExpenseRange: "",
-    agreesToNeutering: false,
-
-    motivationForAdoption: "",
-    lifeChangeCopingPlan: "",
-    travelCopingPlan: "",
-
-    agreesToRegularUpdates: false,
-    additionalQuestions: "",
-  });
+  const [form, setForm] = useState<Form>(createEmptyForm());
 
   const activeStep = STEPS[stepIndex];
   const isLastStep = stepIndex === STEPS.length - 1;
 
   const errorCount = useMemo(() => Object.keys(errors).length, [errors]);
+  const hasAdoptionId = typeof adoptionId === "number" && adoptionId > 0;
 
   function setField<K extends keyof Form>(key: K, value: Form[K]) {
     setForm((prev) => ({ ...prev, [key]: value }));
   }
+
+  useEffect(() => {
+    if (!hasAdoptionId) {
+      setHasExisting(false);
+      setLoadError(null);
+      return;
+    }
+
+    let active = true;
+    setLoading(true);
+    setLoadError(null);
+
+    const safeAdoptionId = adoptionId as number;
+    getAdoptionApplication(safeAdoptionId)
+      .then((data) => {
+        if (!active) return;
+        const nextForm = mapApplicationToForm(data);
+        setForm(nextForm);
+        setHasExisting(Boolean(data && Object.keys(data).length > 0));
+        const savedId = resolveApplicationId(data);
+        if (savedId) {
+          localStorage.setItem(APPLICATION_ID_KEY, String(savedId));
+        }
+      })
+      .catch((err) => {
+        if (!active) return;
+        if (err instanceof ApiError && err.status === 404) {
+          setHasExisting(false);
+          return;
+        }
+        setLoadError(resolveApiErrorMessage(err));
+      })
+      .finally(() => {
+        if (!active) return;
+        setLoading(false);
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [adoptionId, hasAdoptionId]);
 
   /** ====== 전체 검증(최종 저장) ====== */
   function validateAll(next: Form): Errors {
@@ -758,7 +1009,12 @@ export function ApplicationStep({ isEditable, onSubmitSuccess }: Props) {
 
   async function handleFinalSave() {
     if (!isEditable || submitting) return;
+    if (!hasAdoptionId) {
+      setSubmitError("입양 정보가 없습니다. 다시 로그인 후 시도해주세요.");
+      return;
+    }
 
+    const safeAdoptionId = adoptionId as number;
     const s = sanitize(form);
     const all = validateAll(s);
     setErrors(all);
@@ -836,20 +1092,52 @@ export function ApplicationStep({ isEditable, onSubmitSuccess }: Props) {
     };
 
     setSubmitting(true);
-    setSubmitError(null);
-    try {
-      const { applicationId } = await submitAdoptionApplication(payload);
-      localStorage.setItem(APPLICATION_ID_KEY, String(applicationId));
+      setSubmitError(null);
+      try {
+        const response = await upsertAdoptionApplication(safeAdoptionId, payload);
+        const savedId = resolveApplicationId(response);
+        if (savedId) {
+          localStorage.setItem(APPLICATION_ID_KEY, String(savedId));
+        }
+        setHasExisting(true);
 
-      setForm(s);
-      setOpen(false);
-      setStepIndex(0);
-      onSubmitSuccess();
-    } catch (err) {
-      const message = err instanceof Error ? err.message : "제출 중 오류가 발생했습니다.";
-      setSubmitError(message);
+        setForm(s);
+        setOpen(false);
+        setStepIndex(0);
+        onSubmitSuccess();
+      } catch (err) {
+        setSubmitError(resolveApiErrorMessage(err));
     } finally {
       setSubmitting(false);
+    }
+  }
+
+  async function handleDelete() {
+    if (!isEditable || deleting) return;
+    if (!hasAdoptionId) {
+      setSubmitError("입양 정보가 없습니다. 다시 로그인 후 시도해주세요.");
+      return;
+    }
+
+    const confirmed = window.confirm("입양 신청서를 삭제(초기화)할까요?");
+    if (!confirmed) return;
+
+    setDeleting(true);
+    setSubmitError(null);
+
+    try {
+      const safeAdoptionId = adoptionId as number;
+      await deleteAdoptionApplication(safeAdoptionId);
+      localStorage.removeItem(APPLICATION_ID_KEY);
+      setForm(createEmptyForm());
+      setErrors({});
+      setHasExisting(false);
+      setStepIndex(0);
+      setOpen(false);
+    } catch (err) {
+      setSubmitError(resolveApiErrorMessage(err));
+    } finally {
+      setDeleting(false);
     }
   }
 
@@ -1805,6 +2093,17 @@ export function ApplicationStep({ isEditable, onSubmitSuccess }: Props) {
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
             <p className="text-sm font-semibold text-gray-900">입양 신청서</p>
+            <p className="mt-1 text-xs text-gray-500">
+              {!hasAdoptionId
+                ? "입양 정보가 없어 저장/조회할 수 없습니다."
+                : loading
+                  ? "저장된 신청서를 불러오는 중..."
+                  : loadError
+                    ? loadError
+                    : hasExisting
+                      ? "저장된 신청서가 있습니다."
+                      : "저장된 신청서가 없습니다."}
+            </p>
           </div>
 
           <div className="flex items-center gap-2">
@@ -1851,10 +2150,20 @@ export function ApplicationStep({ isEditable, onSubmitSuccess }: Props) {
             </div>
 
             <div className="max-h-[75vh] overflow-y-auto px-6 py-6">
+              {loading ? (
+                <div className="mb-4 rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 text-xs text-gray-600">
+                  신청서를 불러오는 중...
+                </div>
+              ) : null}
+              {loadError ? (
+                <div className="mb-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-xs text-red-600">
+                  {loadError}
+                </div>
+              ) : null}
               {renderStepHeader()}
 
               <div className="mt-6">
-                <fieldset disabled={!isEditable} className="disabled:opacity-70">
+                <fieldset disabled={!isEditable || loading} className="disabled:opacity-70">
                   {renderStepBody()}
                 </fieldset>
               </div>
@@ -1886,13 +2195,25 @@ export function ApplicationStep({ isEditable, onSubmitSuccess }: Props) {
                   </Button>
                 ) : (
                   // ✅ 최종 저장(제출): 파란색 고정
-                  <Button
-                    className="rounded-md bg-[#0064FF] hover:bg-[#0056E6] disabled:opacity-50"
-                    onClick={handleFinalSave}
-                    disabled={submitting}
-                  >
-                    {submitting ? "저장 중..." : "최종 저장"}
-                  </Button>
+                  <>
+                    {hasExisting ? (
+                      <Button
+                        variant="outline"
+                        className="rounded-md border-red-200 text-red-600 hover:bg-red-50"
+                        onClick={handleDelete}
+                        disabled={deleting || submitting}
+                      >
+                        {deleting ? "삭제 중..." : "삭제"}
+                      </Button>
+                    ) : null}
+                    <Button
+                      className="rounded-md bg-[#0064FF] hover:bg-[#0056E6] disabled:opacity-50"
+                      onClick={handleFinalSave}
+                      disabled={submitting || loading}
+                    >
+                      {submitting ? "저장 중..." : "최종 저장"}
+                    </Button>
+                  </>
                 )}
               </div>
             </div>

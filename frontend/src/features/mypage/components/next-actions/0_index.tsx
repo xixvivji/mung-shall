@@ -1,16 +1,10 @@
 import { useMemo, useState } from "react";
-import type {
-  AdoptionBeforeStep,
-  AdoptionInStep,
-  AdoptionAfterStep,
-  AdoptionStep,
-} from "@/features/mypage/types";
+import type { AdoptionStep } from "@/features/mypage/types";
 
-import { SurveyStep } from "./before/SurveyStep";
 import { SelectStep } from "./before/SelectStep";
+import { ApplicationStep } from "./before/ApplicationStep";
+import { EducationCertStep } from "./before/EducationCertStep";
 
-import { ApplicationStep } from "./in/1_ApplicationStep";
-import { EducationCertStep } from "./in/2_EducationCertStep";
 import { ConsultStep } from "./in/3_ConsultStep";
 import { DocumentStep } from "./in/4_DocumentStep";
 import { ContractStep } from "./in/5_ContractStep";
@@ -34,32 +28,37 @@ type Props = {
 
 type StepStatus = "completed" | "current" | "pending";
 
-/** ====== 전체 단계 순서(전/중/후) ====== */
-const BEFORE_ORDER: AdoptionBeforeStep[] = ["PROFILE", "SURVEY", "SELECT"];
-const IN_ORDER: AdoptionInStep[] = [
+/** =========================
+ *  NEW REAL FLOW ORDER
+ *  A(입양 전): PROFILE -> APPLICATION -> EDUCATION_CERT -> SELECT
+ *  B(입양 중): CONSULT -> DOCUMENT -> CONTRACT -> APPROVAL
+ *  C(입양 후): PICKUP -> CARE
+ *
+ *  SURVEY 제거. 다만 들어올 수 있으니 normalize로 방어.
+ *  ========================= */
+
+const FULL_ORDER: AdoptionStep[] = [
+  "PROFILE",
   "APPLICATION",
   "EDUCATION_CERT",
+  "SELECT",
   "CONSULT",
   "DOCUMENT",
   "CONTRACT",
   "APPROVAL",
+  "PICKUP",
+  "CARE",
 ];
-const AFTER_ORDER: AdoptionAfterStep[] = ["PICKUP", "CARE"];
 
-const FULL_ORDER: AdoptionStep[] = [...BEFORE_ORDER, ...IN_ORDER, ...AFTER_ORDER];
-
-function isBeforeStep(step: AdoptionStep): step is AdoptionBeforeStep {
-  return (BEFORE_ORDER as readonly string[]).includes(step);
-}
-function isInStep(step: AdoptionStep): step is AdoptionInStep {
-  return (IN_ORDER as readonly string[]).includes(step);
-}
-function isAfterStep(step: AdoptionStep): step is AdoptionAfterStep {
-  return (AFTER_ORDER as readonly string[]).includes(step);
+/** ✅ SURVEY가 들어오면 APPLICATION로 치환 (이동/상태 계산 안정화) */
+function normalizeStep(step: AdoptionStep): AdoptionStep {
+  if (step === "SURVEY") return "APPLICATION";
+  return step;
 }
 
 function stepIndex(step: AdoptionStep) {
-  return FULL_ORDER.indexOf(step);
+  const s = normalizeStep(step);
+  return FULL_ORDER.indexOf(s);
 }
 
 function getStepStatus(step: AdoptionStep, currentStep: AdoptionStep): StepStatus {
@@ -72,20 +71,20 @@ function getStepStatus(step: AdoptionStep, currentStep: AdoptionStep): StepStatu
 }
 
 function stepLabel(step: AdoptionStep) {
-  switch (step) {
-    // A
+  const s = normalizeStep(step);
+  switch (s) {
     case "PROFILE":
       return "프로필 등록";
-    case "SURVEY":
-      return "입양 성향 설문 작성";
-    case "SELECT":
-      return "입양할 유기견 선택하기";
 
-    // B
+    // A(입양 전)
     case "APPLICATION":
-      return "1단계 · 입양 신청서";
+      return "입양 설문 작성";
     case "EDUCATION_CERT":
-      return "2단계 · 입양 교육 수료증";
+      return "입양 교육";
+    case "SELECT":
+      return "유기견 선택";
+
+    // B(입양 중)
     case "CONSULT":
       return "3단계 · 입양 상담";
     case "DOCUMENT":
@@ -95,14 +94,14 @@ function stepLabel(step: AdoptionStep) {
     case "APPROVAL":
       return "6단계 · 입양 심사";
 
-    // C
+    // C(입양 후)
     case "PICKUP":
       return "반려견 인수";
     case "CARE":
       return "사후 관리";
 
     default:
-      return step;
+      return s;
   }
 }
 
@@ -127,6 +126,9 @@ export function NextActions({
   onSubmitStep,
   adoptionId,
 }: Props) {
+  const currentStepN = useMemo(() => normalizeStep(currentStep), [currentStep]);
+  const selectedStepN = useMemo(() => normalizeStep(selectedStep), [selectedStep]);
+
   // 잠금 트리거(프론트-only): 상담완료 → 1~2 잠금, 심사시작 → 4~5 잠금
   const [consultationConfirmed, setConsultationConfirmed] = useState(false);
   const [reviewStarted, setReviewStarted] = useState(false);
@@ -136,62 +138,71 @@ export function NextActions({
   const [pendingNextStep, setPendingNextStep] = useState<AdoptionStep | null>(null);
 
   const selectedStatus = useMemo(
-    () => getStepStatus(selectedStep, currentStep),
-    [selectedStep, currentStep]
+    () => getStepStatus(selectedStepN, currentStepN),
+    [selectedStepN, currentStepN]
   );
 
-  const isEditable = useMemo(() => {
-    // B단계 잠금 규칙만 적용 (A/C는 기본 편집 가능)
-    if (
-      consultationConfirmed &&
-      (selectedStep === "APPLICATION" || selectedStep === "EDUCATION_CERT")
-    ) {
-      return false;
-    }
-    if (reviewStarted && (selectedStep === "DOCUMENT" || selectedStep === "CONTRACT")) {
-      return false;
-    }
-    return true;
-  }, [consultationConfirmed, reviewStarted, selectedStep]);
+  const isEditableForStep = useMemo(() => {
+    return (step: AdoptionStep) => {
+      const s = normalizeStep(step);
+
+      // ✅ B단계 잠금 규칙만 적용 (A/C는 기본 편집 가능)
+      if (
+        consultationConfirmed &&
+        (s === "APPLICATION" || s === "EDUCATION_CERT")
+      ) {
+        return false;
+      }
+
+      if (reviewStarted && (s === "DOCUMENT" || s === "CONTRACT")) {
+        return false;
+      }
+
+      return true;
+    };
+  }, [consultationConfirmed, reviewStarted]);
+
+  const isEditable = useMemo(() => isEditableForStep(selectedStepN), [isEditableForStep, selectedStepN]);
 
   const lockReason = useMemo(() => {
-    if (
-      consultationConfirmed &&
-      (selectedStep === "APPLICATION" || selectedStep === "EDUCATION_CERT")
-    ) {
+    const s = normalizeStep(selectedStepN);
+
+    if (consultationConfirmed && (s === "APPLICATION" || s === "EDUCATION_CERT")) {
       return "상담이 완료되어 1~2단계는 더 이상 수정할 수 없습니다.";
     }
-    if (reviewStarted && (selectedStep === "DOCUMENT" || selectedStep === "CONTRACT")) {
+    if (reviewStarted && (s === "DOCUMENT" || s === "CONTRACT")) {
       return "심사가 시작되어 4~5단계는 더 이상 수정할 수 없습니다.";
     }
     return null;
-  }, [consultationConfirmed, reviewStarted, selectedStep]);
+  }, [consultationConfirmed, reviewStarted, selectedStepN]);
 
   const advanceTo = async (next: AdoptionStep, completedStep?: AdoptionStep) => {
     if (completedStep && onSubmitStep) {
-      await onSubmitStep(completedStep);
+      await onSubmitStep(normalizeStep(completedStep));
     }
     onSelectStep?.(next);
     onAdvanceStep?.(next);
   };
 
   const goNext = (next: AdoptionStep, completedStep?: AdoptionStep) => {
+    const nn = normalizeStep(next);
+
     // ✅ "APPROVAL"로 넘어갈 때만 확인 모달 (문서/계약서 잠금)
-    if (next === "APPROVAL") {
-      setPendingNextStep(next);
+    if (nn === "APPROVAL") {
+      setPendingNextStep(nn);
       setIsPreApprovalModalOpen(true);
       return;
     }
-    void advanceTo(next, completedStep);
+    void advanceTo(nn, completedStep);
   };
 
   const safeGoNextFromSelected = () => {
-    const next = nextOf(selectedStep);
+    const next = nextOf(selectedStepN);
     if (!next) {
-      if (onSubmitStep) void onSubmitStep(selectedStep);
+      if (onSubmitStep) void onSubmitStep(selectedStepN);
       return;
     }
-    goNext(next, selectedStep);
+    goNext(next, selectedStepN);
   };
 
   const onConsultComplete = () => {
@@ -211,9 +222,17 @@ export function NextActions({
           <h2 className="text-xl text-gray-400">해야 할 일</h2>
           <p className="mt-1 text-sm text-gray-500">
             선택 단계:{" "}
-            <span className="font-semibold text-gray-800">{stepLabel(selectedStep)}</span>
+            <span className="font-semibold text-gray-800">
+              {stepLabel(selectedStepN)}
+            </span>
             <span className="ml-2 text-xs text-gray-400">
-              ({selectedStatus === "current" ? "진행중" : selectedStatus === "completed" ? "완료" : "대기"})
+              (
+              {selectedStatus === "current"
+                ? "진행중"
+                : selectedStatus === "completed"
+                  ? "완료"
+                  : "대기"}
+              )
             </span>
           </p>
         </div>
@@ -236,18 +255,30 @@ export function NextActions({
       {/* =======================
           A단계 (입양 전)
          ======================= */}
-      {selectedStep === "SURVEY" && (
-        <SurveyStep
-          // SurveyStep이 isEditable 받는 구조면 그대로, 아니면 TS 에러 나면 제거
-          // @ts-ignore
+
+      {/* PROFILE 단계용 컴포넌트가 따로 있으면 여기 추가 */}
+      {selectedStepN === "PROFILE" && (
+        <div className="rounded-2xl border border-gray-200 p-6">
+          <p className="text-sm text-gray-600">프로필 등록 단계 UI가 아직 연결되지 않았습니다.</p>
+        </div>
+      )}
+
+      {selectedStepN === "APPLICATION" && (
+        <ApplicationStep
           isEditable={isEditable}
-          // SurveyStep에 onSubmitSuccess가 없으면 무시됨(아래 "다음 단계로" 버튼으로 보완)
-          // @ts-ignore
           onSubmitSuccess={safeGoNextFromSelected}
         />
       )}
 
-      {selectedStep === "SELECT" && (
+      {selectedStepN === "EDUCATION_CERT" && (
+        <EducationCertStep
+          adoptionId={adoptionId}
+          isEditable={isEditable}
+          onSubmitSuccess={safeGoNextFromSelected}
+        />
+      )}
+
+      {selectedStepN === "SELECT" && (
         <SelectStep
           // @ts-ignore
           isEditable={isEditable}
@@ -256,18 +287,12 @@ export function NextActions({
         />
       )}
 
-      {/* PROFILE 단계용 컴포넌트가 따로 있으면 여기 추가해라 */}
-      {selectedStep === "PROFILE" && (
-        <div className="rounded-2xl border border-gray-200 p-6">
-          <p className="text-sm text-gray-600">프로필 등록 단계 UI가 아직 연결되지 않았습니다.</p>
-        </div>
-      )}
-
       {/* =======================
           B단계 (입양 중)
          ======================= */}
       {selectedStep === "APPLICATION" && (
         <ApplicationStep
+          adoptionId={adoptionId}
           isEditable={isEditable}
           onSubmitSuccess={safeGoNextFromSelected}
         />
@@ -285,7 +310,7 @@ export function NextActions({
         <ConsultStep isEditable={isEditable} onConsultComplete={onConsultComplete} />
       )}
 
-      {selectedStep === "DOCUMENT" && (
+      {selectedStepN === "DOCUMENT" && (
         <DocumentStep
           adoptionId={adoptionId}
           isEditable={isEditable}
@@ -293,19 +318,22 @@ export function NextActions({
         />
       )}
 
-      {selectedStep === "CONTRACT" && (
+      {selectedStepN === "CONTRACT" && (
         <ContractStep
+          adoptionId={adoptionId}
           isEditable={isEditable}
           onSubmitSuccess={safeGoNextFromSelected}
         />
       )}
 
-      {selectedStep === "APPROVAL" && <ApprovalStep onStartReview={onStartReview} />}
+      {selectedStepN === "APPROVAL" && (
+        <ApprovalStep onStartReview={onStartReview} />
+      )}
 
       {/* =======================
           C단계 (입양 후)
          ======================= */}
-      {selectedStep === "PICKUP" && (
+      {selectedStepN === "PICKUP" && (
         <PickupStep
           // @ts-ignore
           isEditable={isEditable}
@@ -314,7 +342,7 @@ export function NextActions({
         />
       )}
 
-      {selectedStep === "CARE" && (
+      {selectedStepN === "CARE" && (
         <CareStep
           // @ts-ignore
           isEditable={isEditable}
@@ -323,13 +351,13 @@ export function NextActions({
         />
       )}
 
-      {/* ✅ 어떤 Step이든 "컴포넌트 내부에 제출 버튼이 없을 수 있으니" 안전장치로 NextActions에서 전진 버튼 제공 */}
+      {/* ✅ 어떤 Step이든 "컴포넌트 내부에 제출 버튼이 없을 수 있으니" 안전장치로 전진 버튼 제공 */}
       <div className="mt-8 flex items-center justify-between gap-3">
         <button
           className="rounded-md border border-gray-200 px-4 py-2 text-sm text-gray-700 disabled:opacity-40"
-          disabled={!prevOf(selectedStep)}
+          disabled={!prevOf(selectedStepN)}
           onClick={() => {
-            const prev = prevOf(selectedStep);
+            const prev = prevOf(selectedStepN);
             if (prev) onSelectStep?.(prev);
           }}
         >
@@ -338,7 +366,7 @@ export function NextActions({
 
         <button
           className="rounded-md bg-[#0064FF] hover:bg-[#0056E6] px-4 py-2 text-sm text-white disabled:opacity-40"
-          disabled={!nextOf(selectedStep)}
+          disabled={!nextOf(selectedStepN)}
           onClick={safeGoNextFromSelected}
         >
           다음 단계로
@@ -370,7 +398,7 @@ export function NextActions({
                 className="rounded-xl bg-[#3182F6] px-4 py-2 text-sm text-white"
                 onClick={() => {
                   setIsPreApprovalModalOpen(false);
-                  if (pendingNextStep) void advanceTo(pendingNextStep, selectedStep);
+                  if (pendingNextStep) void advanceTo(pendingNextStep, selectedStepN);
                   setPendingNextStep(null);
                 }}
               >

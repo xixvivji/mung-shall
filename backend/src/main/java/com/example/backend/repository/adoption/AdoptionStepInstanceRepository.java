@@ -11,4 +11,6 @@ import java.util.Optional;
 public interface AdoptionStepInstanceRepository extends JpaRepository<AdoptionStepInstance, Long> {
     List<AdoptionStepInstance> findByAdoptionIdOrderByStepDefStepOrderAsc(Long adoptionId);
     Optional<AdoptionStepInstance> findByAdoptionIdAndStepDefStepOrder(Long adoptionId, Integer stepOrder);
+
+    Optional<Object> findByIdAndAdoptionId(Long stepInstanceId, Long adoptionId);
 }

@@ -1,20 +1,46 @@
 const API_BASE = "/api";
 const ACCESS_TOKEN_KEY = "accessToken";
+const AUTH_USER_KEY = "authUser";
+const REFRESH_WINDOW_MS = 2 * 60 * 1000;
+
+let cachedToken: string | null = null;
+let cachedExpMs: number | null = null;
+let refreshPromise: Promise<string> | null = null;
 
 export function getAccessToken() {
-  return localStorage.getItem(ACCESS_TOKEN_KEY);
+  const token = localStorage.getItem(ACCESS_TOKEN_KEY);
+  if (token !== cachedToken) {
+    cachedToken = token;
+    cachedExpMs = token ? getJwtExpMs(token) : null;
+  }
+  return token;
 }
 
 export function setAccessToken(token: string) {
   localStorage.setItem(ACCESS_TOKEN_KEY, token);
+  cachedToken = token;
+  cachedExpMs = token ? getJwtExpMs(token) : null;
 }
 
 export function clearAccessToken() {
   localStorage.removeItem(ACCESS_TOKEN_KEY);
+  cachedToken = null;
+  cachedExpMs = null;
+}
+
+export function setAuthTokens(accessToken: string) {
+  setAccessToken(accessToken);
+}
+
+export function clearAuthTokens() {
+  clearAccessToken();
+  localStorage.removeItem(AUTH_USER_KEY);
 }
 
 type ApiOptions = RequestInit & {
   skipAuth?: boolean;
+  skipRefresh?: boolean;
+  retry?: boolean;
 };
 
 export class ApiError extends Error {
@@ -28,10 +54,21 @@ export class ApiError extends Error {
 }
 
 export async function api<T>(path: string, options: ApiOptions = {}): Promise<T> {
-  const { skipAuth, credentials, ...init } = options;
+  const { skipAuth, skipRefresh, retry, credentials, ...init } = options;
   const headers = new Headers(init.headers);
   const hasBody = init.body !== undefined;
   const isFormData = typeof FormData !== "undefined" && init.body instanceof FormData;
+
+  if (!skipAuth && !skipRefresh) {
+    const token = getAccessToken();
+    const remainingMs = token ? getTokenRemainingMs(token) : null;
+    if (remainingMs !== null && remainingMs <= REFRESH_WINDOW_MS && remainingMs > 0) {
+      if (import.meta.env.DEV) {
+        console.debug("[auth] token expiring soon", { remainingMs });
+      }
+      await refreshAccessToken();
+    }
+  }
 
   if (hasBody && !isFormData && !headers.has("Content-Type")) {
     headers.set("Content-Type", "application/json");
@@ -71,6 +108,18 @@ export async function api<T>(path: string, options: ApiOptions = {}): Promise<T>
     credentials: shouldIncludeCredentials,
   });
 
+  if (response.status === 401 && !skipAuth && !skipRefresh && !retry && !isRefreshPath(path)) {
+    try {
+      await refreshAccessToken();
+      if (import.meta.env.DEV) {
+        console.debug("[auth] retrying request after refresh", { path });
+      }
+      return api<T>(path, { ...options, retry: true });
+    } catch {
+      // Refresh errors handled in refreshAccessToken.
+    }
+  }
+
   if (!response.ok) {
     const errorText = await response.text();
     let message = errorText || response.statusText;
@@ -102,4 +151,86 @@ function createRequestId() {
     return crypto.randomUUID();
   }
   return `req_${Date.now()}_${Math.random().toString(16).slice(2)}`;
+}
+
+function isRefreshPath(path: string) {
+  return path.startsWith("/auth/refresh");
+}
+
+function getTokenRemainingMs(token: string) {
+  const expMs = token === cachedToken ? cachedExpMs : getJwtExpMs(token);
+  if (!expMs) return null;
+  return expMs - Date.now();
+}
+
+function getJwtExpMs(token: string) {
+  const payload = decodeJwtPayload(token);
+  if (!payload || typeof payload.exp !== "number") return null;
+  return payload.exp * 1000;
+}
+
+function decodeJwtPayload(token: string): { exp?: number } | null {
+  const parts = token.split(".");
+  if (parts.length < 2) return null;
+  try {
+    const base64 = parts[1].replace(/-/g, "+").replace(/_/g, "/");
+    const padded = base64.padEnd(base64.length + ((4 - (base64.length % 4)) % 4), "=");
+    const decoded = atob(padded);
+    return JSON.parse(decoded) as { exp?: number };
+  } catch {
+    return null;
+  }
+}
+
+async function refreshAccessToken(): Promise<string> {
+  if (refreshPromise) return refreshPromise;
+
+  refreshPromise = (async () => {
+    if (import.meta.env.DEV) {
+      console.debug("[auth] refresh start");
+    }
+    const requestId = createRequestId();
+    const response = await fetch(`${API_BASE}/auth/refresh`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "X-Request-Id": requestId,
+      },
+      credentials: "include",
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      if (import.meta.env.DEV) {
+        console.debug("[auth] refresh failed", {
+          status: response.status,
+          errorText,
+        });
+      }
+      if (response.status === 401 || response.status === 403) {
+        clearAuthTokens();
+        if (typeof window !== "undefined") {
+          window.location.assign("/auth/login");
+        }
+      }
+      throw new ApiError(response.status, errorText || response.statusText);
+    }
+
+    const data = (await response.json()) as { accessToken?: string };
+    if (!data.accessToken) {
+      throw new ApiError(500, "Missing accessToken in refresh response.");
+    }
+    setAuthTokens(data.accessToken);
+
+    if (import.meta.env.DEV) {
+      console.debug("[auth] refresh success");
+    }
+    return data.accessToken;
+  })();
+
+  try {
+    return await refreshPromise;
+  } finally {
+    refreshPromise = null;
+  }
 }

@@ -1,12 +1,50 @@
-import { useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Button } from "@/shared/ui/button";
-import { uploadEducationCert } from "@/features/postAdoption/api/postAdoptionApi";
+import { ApiError } from "@/shared/api/client";
+import {
+  deleteEducationCert,
+  fetchEducationCert,
+  uploadEducationCert,
+} from "@/features/postAdoption/api/postAdoptionApi";
+import type { EducationCertResponse } from "@/features/mypage/types";
 
 type Props = {
   isEditable: boolean;
   onSubmitSuccess: () => void;
   adoptionId?: number;
 };
+
+function formatDateTime(value?: string | null) {
+  if (!value) return "-";
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) return value;
+  return parsed.toLocaleString("ko-KR", {
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+}
+
+function normalizeDateTimeInput(value?: string | null) {
+  if (!value) return "";
+  if (value.length >= 16) return value.slice(0, 16);
+  return value;
+}
+
+function resolveApiErrorMessage(error: unknown, fallback: string) {
+  if (error instanceof ApiError) {
+    if (error.status === 401) return "Login required.";
+    if (error.status === 403) return "You do not have permission.";
+    if (error.status === 404) return "Certificate not found.";
+    if (error.status === 409) return "The certificate status has changed. Please refresh.";
+    if (error.status >= 500) return "Server error. Please try again.";
+    return error.message || fallback;
+  }
+  if (error instanceof Error) return error.message || fallback;
+  return fallback;
+}
 
 export function EducationCertStep({ isEditable, onSubmitSuccess, adoptionId }: Props) {
   const [file, setFile] = useState<File | null>(null);
@@ -19,6 +57,10 @@ export function EducationCertStep({ isEditable, onSubmitSuccess, adoptionId }: P
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [submitted, setSubmitted] = useState(false);
+  const [certificate, setCertificate] = useState<EducationCertResponse | null>(null);
+  const [certLoading, setCertLoading] = useState(false);
+  const [certError, setCertError] = useState<string | null>(null);
+  const [deleting, setDeleting] = useState(false);
 
   const canAttach = isEditable && !submitting && !submitted;
   const canSubmit = isEditable && !submitting && !submitted;
@@ -41,6 +83,58 @@ export function EducationCertStep({ isEditable, onSubmitSuccess, adoptionId }: P
       type: tempFile.type || "unknown",
     };
   }, [tempFile]);
+
+  const loadCertificate = useCallback(
+    async (targetId: number, options?: { silent?: boolean }) => {
+      const silent = options?.silent ?? false;
+      if (!silent) {
+        setCertLoading(true);
+      }
+      setCertError(null);
+
+      try {
+        const data = await fetchEducationCert(targetId);
+        setCertificate(data);
+        setSubmitted(true);
+        setFile(null);
+        setTempFile(null);
+        setEducationInstitution(data.educationInstitution ?? "");
+        setCertificateNumber(data.certificateNumber ?? "");
+        setCompletionDate(normalizeDateTimeInput(data.completionDate ?? ""));
+        if (import.meta.env.DEV) {
+          console.debug("[education-cert] fetched", data);
+        }
+      } catch (err) {
+        if (err instanceof ApiError && err.status === 404) {
+          setCertificate(null);
+          setSubmitted(false);
+          setCertError(null);
+        } else {
+          setCertificate(null);
+          setSubmitted(false);
+          setCertError(resolveApiErrorMessage(err, "Failed to load certificate."));
+        }
+      } finally {
+        if (!silent) {
+          setCertLoading(false);
+        }
+      }
+    },
+    []
+  );
+
+  useEffect(() => {
+    if (!adoptionId) {
+      setCertificate(null);
+      setSubmitted(false);
+      setCertError("Missing adoptionId.");
+      return;
+    }
+
+    loadCertificate(adoptionId).catch(() => {
+      // loadCertificate handles its own errors
+    });
+  }, [adoptionId, loadCertificate]);
 
   const openModal = () => {
     if (!canAttach) return;
@@ -77,6 +171,35 @@ export function EducationCertStep({ isEditable, onSubmitSuccess, adoptionId }: P
     e.stopPropagation();
   };
 
+  const handleDelete = async () => {
+    if (!adoptionId || deleting) return;
+    if (!certificate) return;
+
+    const confirmed = window.confirm("Delete the uploaded certificate?");
+    if (!confirmed) return;
+
+    setDeleting(true);
+    setCertError(null);
+    try {
+      await deleteEducationCert(adoptionId);
+      setCertificate(null);
+      setSubmitted(false);
+      setFile(null);
+      setTempFile(null);
+      setEducationInstitution("");
+      setCertificateNumber("");
+      setCompletionDate("");
+      await loadCertificate(adoptionId, { silent: true });
+    } catch (err) {
+      setCertError(resolveApiErrorMessage(err, "Failed to delete certificate."));
+      if (err instanceof ApiError && (err.status === 404 || err.status === 409)) {
+        await loadCertificate(adoptionId, { silent: true });
+      }
+    } finally {
+      setDeleting(false);
+    }
+  };
+
   const normalizeCompletionDate = (value: string) => {
     if (!value) return "";
     if (value.length === 16) return `${value}:00`;
@@ -109,9 +232,9 @@ export function EducationCertStep({ isEditable, onSubmitSuccess, adoptionId }: P
       });
       setSubmitted(true);
       onSubmitSuccess();
+      await loadCertificate(adoptionId, { silent: true });
     } catch (err) {
-      const message = err instanceof Error ? err.message : "Failed to upload certificate.";
-      setSubmitError(message);
+      setSubmitError(resolveApiErrorMessage(err, "Failed to upload certificate."));
     } finally {
       setSubmitting(false);
     }
@@ -135,6 +258,81 @@ export function EducationCertStep({ isEditable, onSubmitSuccess, adoptionId }: P
             <Button className="rounded-lg">교육 링크로 이동</Button>
           </a>
         </div>
+      </div>
+
+      <div className="rounded-2xl border border-gray-200 p-6">
+        <div className="flex items-start justify-between gap-4">
+          <div>
+            <p className="text-sm font-semibold text-gray-900">Education certificate</p>
+            <p className="mt-1 text-sm text-gray-500">
+              Review the uploaded certificate or delete it before re-uploading.
+            </p>
+          </div>
+          {certLoading ? <span className="text-xs text-gray-500">Loading...</span> : null}
+        </div>
+
+        {certError ? <p className="mt-2 text-xs text-red-600">{certError}</p> : null}
+
+        {!adoptionId ? (
+          <p className="mt-4 text-xs text-gray-500">
+            Adoption ID is missing. Please reopen this step from the adoption flow.
+          </p>
+        ) : certificate ? (
+          <div className="mt-4 space-y-3 rounded-xl bg-gray-50 p-4 text-sm text-gray-700">
+            <div>
+              <p className="text-xs font-semibold text-gray-500">Institution</p>
+              <p className="text-sm text-gray-900">{certificate.educationInstitution}</p>
+            </div>
+            <div>
+              <p className="text-xs font-semibold text-gray-500">Certificate No.</p>
+              <p className="text-sm text-gray-900">{certificate.certificateNumber}</p>
+            </div>
+            <div>
+              <p className="text-xs font-semibold text-gray-500">Completion Date</p>
+              <p className="text-sm text-gray-900">
+                {formatDateTime(certificate.completionDate)}
+              </p>
+            </div>
+            {certificate.certificateFileUrl ? (
+              <a
+                className="inline-flex text-xs font-semibold text-blue-600 hover:underline"
+                href={certificate.certificateFileUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                Open certificate file
+              </a>
+            ) : null}
+
+            <div className="pt-2">
+              <Button
+                variant="outline"
+                className="rounded-lg"
+                disabled={!isEditable || deleting}
+                onClick={handleDelete}
+              >
+                {deleting ? "Deleting..." : "Delete"}
+              </Button>
+            </div>
+          </div>
+        ) : (
+          <div className="mt-4 rounded-xl bg-gray-50 p-4 text-sm text-gray-500">
+            No certificate uploaded yet.
+          </div>
+        )}
+
+        {certError && adoptionId ? (
+          <div className="mt-4">
+            <Button
+              variant="outline"
+              className="rounded-lg"
+              onClick={() => loadCertificate(adoptionId)}
+              disabled={certLoading}
+            >
+              Retry
+            </Button>
+          </div>
+        ) : null}
       </div>
 
       {/* ===== 업로드 카드 ===== */}

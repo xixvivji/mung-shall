@@ -11,9 +11,13 @@ const linkState =
 export default function Header() {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
+
   const displayName = user?.name?.trim() || user?.username?.trim();
   const userType = user?.userType?.toLowerCase();
-  const myPageRoute = userType === "shelter" || userType === "center" ? ROUTES.center : ROUTES.mypage;
+  const myPageRoute =
+    userType === "shelter" || userType === "center"
+      ? ROUTES.center
+      : ROUTES.mypage;
 
   const handleLogout = async () => {
     await logout();
@@ -21,14 +25,9 @@ export default function Header() {
   };
 
   return (
-    <header
-      className="sticky top-0 z-50 w-full bg-white"
-      data-name="Header"
-    >
-      {/* bottom border (optional) */}
+    <header className="sticky top-0 z-50 w-full bg-white" data-name="Header">
       <div className="border-b border-[#e5e5e5]">
-        {/* responsive container */}
-        <div className="mx-auto flex h-[102px] w-full max-w-[1440px] items-center justify-between px-6">
+        <div className="mx-auto flex h-[75px] w-full max-w-[1440px] items-center justify-between px-6">
           {/* Logo */}
           <Link to={ROUTES.home} className="flex items-center">
             <img
@@ -42,11 +41,8 @@ export default function Header() {
           <nav aria-label="Primary" className="flex items-center gap-10">
             <NavLink
               to={ROUTES.home}
-              className={({ isActive }) =>
-                `${linkBase} ${linkState}`
-              }
+              className={() => `${linkBase} ${linkState}`}
               style={{ fontVariationSettings: "'wdth' 100" }}
-              data-active={undefined}
             >
               {({ isActive }) => (
                 <span data-active={isActive ? "true" : "false"}>main</span>
@@ -55,18 +51,17 @@ export default function Header() {
 
             <NavLink
               to={ROUTES.adoption}
-              className={({ isActive }) => `${linkBase} ${linkState}`}
+              className={() => `${linkBase} ${linkState}`}
               style={{ fontVariationSettings: "'wdth' 100" }}
             >
               {({ isActive }) => (
-                <span data-active={isActive ? "true" : "false"}>Adoption</span>
+                <span data-active={isActive ? "true" : "false"}>adoption</span>
               )}
             </NavLink>
 
-            {/* TODO: 라우트가 있으면 ROUTES.faq / ROUTES.contacts 로 바꿔줘 */}
             <NavLink
               to={ROUTES.faq}
-              className={({ isActive }) => `${linkBase} ${linkState}`}
+              className={() => `${linkBase} ${linkState}`}
               style={{ fontVariationSettings: "'wdth' 100" }}
             >
               {({ isActive }) => (
@@ -74,19 +69,20 @@ export default function Header() {
               )}
             </NavLink>
 
+            {/* ✅ contacts 제거 → manage 추가 */}
             <NavLink
-              to={ROUTES.home}
-              className={({ isActive }) => `${linkBase} ${linkState}`}
+              to={ROUTES.manage}
+              className={() => `${linkBase} ${linkState}`}
               style={{ fontVariationSettings: "'wdth' 100" }}
             >
               {({ isActive }) => (
-                <span data-active={isActive ? "true" : "false"}>contacts</span>
+                <span data-active={isActive ? "true" : "false"}>manage</span>
               )}
             </NavLink>
 
             <NavLink
               to={ROUTES.boards}
-              className={({ isActive }) => `${linkBase} ${linkState}`}
+              className={() => `${linkBase} ${linkState}`}
               style={{ fontVariationSettings: "'wdth' 100" }}
             >
               {({ isActive }) => (
@@ -100,7 +96,7 @@ export default function Header() {
                   to={myPageRoute}
                   className="text-[14px] font-medium text-[#333] hover:text-black font-['Noto_Sans_KR','Noto Sans KR',sans-serif]"
                 >
-                {displayName}님
+                  {displayName}님
                 </Link>
                 <button
                   type="button"
@@ -113,7 +109,7 @@ export default function Header() {
             ) : (
               <NavLink
                 to={ROUTES.login}
-                className={({ isActive }) => `${linkBase} ${linkState}`}
+                className={() => `${linkBase} ${linkState}`}
                 style={{ fontVariationSettings: "'wdth' 100" }}
               >
                 {({ isActive }) => (

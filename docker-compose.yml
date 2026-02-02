@@ -54,8 +54,8 @@ services:
       - NAVER_CLIENT_ID=${NAVER_CLIENT_ID}
       - NAVER_CLIENT_SECRET=${NAVER_CLIENT_SECRET}
       - DOMAIN_URL=${DOMAIN_URL}
-      - FRONT_OAUTH_REDIRECT_URL=http://13.125.3.38/oauth/callback
-      - FRONT_RESET_PASSWORD_URL=http://13.125.3.38/reset-password
+      - FRONT_OAUTH_REDIRECT_URL=${FRONT_OAUTH_REDIRECT_URL}
+      - FRONT_RESET_PASSWORD_URL=${FRONT_RESET_PASSWORD_URL}
       - COOKIE_SECURE=${COOKIE_SECURE}
       - COOKIE_SAMESITE=${COOKIE_SAMESITE}
       - MAIL_USERNAME=${MAIL_USERNAME}
@@ -78,14 +78,16 @@ services:
     image: openvidu/openvidu-dev:2.29.0
     container_name: openvidu-server
     restart: always
-    network_mode: host
-
+    ports:
+      - "4443:443"   # 호스트:컨테이너 (필요없으면 제거 가능)
+    networks:
+      - app-network
     environment:
       - OPENVIDU_SECRET=${OPENVIDU_SECRET}
-      - OPENVIDU_PUBLIC_URL=${OPENVIDU_PUBLIC_URL}
-      - DOMAIN_OR_PUBLIC_IP=${DOMAIN_OR_PUBLIC_IP}
-      - HTTPS_PORT=4443
-
+      - OPENVIDU_PUBLIC_URL=https://openvidu.i14c109.p.ssafy.io
+      - DOMAIN_OR_PUBLIC_IP=openvidu.i14c109.p.ssafy.io
+      - HTTPS_PORT=443
+      - HTTP_PORT=0
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
 

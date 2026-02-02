@@ -1,10 +1,11 @@
 ﻿import React, { useEffect, useId, useMemo, useRef, useState } from "react";
 
-type DropdownKey = "breed" | "province" | "city" | null;
+type DropdownKey = "kind" | "province" | "city" | "status" | null;
 
-export const DEFAULT_BREED = "모든 품종";
+export const DEFAULT_KIND = "모든 품종";
 export const DEFAULT_PROVINCE = "전체지역";
 export const DEFAULT_CITY = "전체도시";
+export const DEFAULT_STATUS = "전체상태";
 
 function Chevron({ direction = "down" }: { direction?: "down" | "up" }) {
   const rotateClass = direction === "up" ? "rotate-180" : "";
@@ -204,20 +205,22 @@ type FiltersProps = {
   provinces: SelectOption[];
   cities: SelectOption[];
   onChange?: (value: {
-    breed: string;
+    kind: string;
     province: string;
     city: string;
     provinceLabel: string;
     cityLabel: string;
+    status: string;
   }) => void;
 };
 
 export default function Filters({ breeds, provinces, cities, onChange }: FiltersProps) {
   const [open, setOpen] = useState<DropdownKey>(null);
 
-  const [breed, setBreed] = useState<string>(DEFAULT_BREED);
+  const [kind, setKind] = useState<string>(DEFAULT_KIND);
   const [province, setProvince] = useState<string>(DEFAULT_PROVINCE);
   const [city, setCity] = useState<string>(DEFAULT_CITY);
+  const [status, setStatus] = useState<string>(DEFAULT_STATUS);
 
   const normalizedBreeds = useMemo(
     () =>
@@ -231,8 +234,8 @@ export default function Filters({ breeds, provinces, cities, onChange }: Filters
     [breeds]
   );
 
-  const breedOptions: SelectOption[] = useMemo(
-    () => [{ label: DEFAULT_BREED, value: DEFAULT_BREED }, ...normalizedBreeds.map((b) => ({ label: b, value: b }))],
+  const kindOptions: SelectOption[] = useMemo(
+    () => [{ label: DEFAULT_KIND, value: DEFAULT_KIND }, ...normalizedBreeds.map((b) => ({ label: b, value: b }))],
     [normalizedBreeds]
   );
 
@@ -261,6 +264,16 @@ export default function Filters({ breeds, provinces, cities, onChange }: Filters
     return found?.label ?? city;
   }, [cityOptions, city]);
 
+  const statusOptions: SelectOption[] = useMemo(
+    () => [
+      { label: DEFAULT_STATUS, value: DEFAULT_STATUS },
+      { label: "보호중", value: "보호중" },
+      { label: "공고중", value: "공고중" },
+      { label: "종료", value: "종료" },
+    ],
+    []
+  );
+
   // ✅ 도 변경 시 시 초기화(종속 필터)
   useEffect(() => {
     if (province === DEFAULT_PROVINCE) {
@@ -274,13 +287,13 @@ export default function Filters({ breeds, provinces, cities, onChange }: Filters
   }, [province]);
 
   useEffect(() => {
-    const validBreeds = new Set(breedOptions.map((option) => option.value));
-    if (!validBreeds.has(breed)) {
-      setBreed(DEFAULT_BREED);
-      if (open === "breed") setOpen(null);
+    const validKinds = new Set(kindOptions.map((option) => option.value));
+    if (!validKinds.has(kind)) {
+      setKind(DEFAULT_KIND);
+      if (open === "kind") setOpen(null);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [breedOptions]);
+  }, [kindOptions]);
 
   useEffect(() => {
     const validProvinces = new Set(provinceOptions.map((option) => option.value));
@@ -301,6 +314,15 @@ export default function Filters({ breeds, provinces, cities, onChange }: Filters
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [cityOptions]);
 
+  useEffect(() => {
+    const validStatuses = new Set(statusOptions.map((option) => option.value));
+    if (!validStatuses.has(status)) {
+      setStatus(DEFAULT_STATUS);
+      if (open === "status") setOpen(null);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [statusOptions]);
+
   const close = () => setOpen(null);
 
   useEffect(() => {
@@ -314,23 +336,24 @@ export default function Filters({ breeds, provinces, cities, onChange }: Filters
         : cityOptions.find((option) => option.value === city)?.label ?? city;
 
     onChange?.({
-      breed,
+      kind,
       province,
       city,
       provinceLabel: currentProvinceLabel,
       cityLabel: currentCityLabel,
+      status,
     });
-  }, [breed, province, city, onChange, provinceOptions, cityOptions]);
+  }, [kind, province, city, status, onChange, provinceOptions, cityOptions]);
 
   return (
     <div className="mt-2 flex items-start gap-2">
       <AccessibleSelect
         label="품종"
-        value={breed}
-        options={breedOptions}
-        isOpen={open === "breed"}
-        onToggle={() => setOpen((prev) => (prev === "breed" ? null : "breed"))}
-        onSelect={(v) => setBreed(v)}
+        value={kind}
+        options={kindOptions}
+        isOpen={open === "kind"}
+        onToggle={() => setOpen((prev) => (prev === "kind" ? null : "kind"))}
+        onSelect={(v) => setKind(v)}
         onClose={close}
       />
 
@@ -358,6 +381,17 @@ export default function Filters({ breeds, provinces, cities, onChange }: Filters
         onToggle={() => setOpen((prev) => (prev === "city" ? null : "city"))}
         onSelect={(v) => setCity(v)}
         onClose={close}
+      />
+
+      <AccessibleSelect
+        label="상태"
+        value={status}
+        options={statusOptions}
+        isOpen={open === "status"}
+        onToggle={() => setOpen((prev) => (prev === "status" ? null : "status"))}
+        onSelect={(v) => setStatus(v)}
+        onClose={close}
+        widthClass="w-[120px]"
       />
     </div>
   );

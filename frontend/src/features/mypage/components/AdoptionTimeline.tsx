@@ -1,11 +1,6 @@
-import { Check, CheckCircle2, Circle, Lock } from "lucide-react";
+import { Check, CheckCircle2, Lock } from "lucide-react";
 import { useMemo } from "react";
-import type {
-  AdoptionBeforeStep,
-  AdoptionInStep,
-  AdoptionAfterStep,
-  AdoptionStep,
-} from "@/features/mypage/types";
+import type { AdoptionStep } from "@/features/mypage/types";
 
 type StageStatus = "completed" | "current" | "pending";
 type StepStatus = "completed" | "current" | "pending";
@@ -20,64 +15,58 @@ type Stage = {
 };
 
 /** =========================
- *  STEP DEFINITIONS
+ *  NEW FLOW (UI + REAL ORDER)
+ *  A(입양 전): APPLICATION -> EDUCATION_CERT -> SELECT
+ *  B(입양 중): CONSULT -> DOCUMENT -> CONTRACT -> APPROVAL
+ *  C(입양 후): PICKUP -> CARE
+ *
+ *  SURVEY는 플로우/타임라인에서 제거.
+ *  다만 서버에서 SURVEY가 들어올 수 있으니 normalize로 방어.
  *  ========================= */
-
-const BEFORE_ORDER: AdoptionBeforeStep[] = ["SURVEY", "SELECT"];
-const IN_ORDER: AdoptionInStep[] = [
-  "APPLICATION",
-  "EDUCATION_CERT",
-  "CONSULT",
-  "DOCUMENT",
-  "CONTRACT",
-  "APPROVAL",
-];
-const AFTER_ORDER: AdoptionAfterStep[] = ["PICKUP", "CARE"];
-
-const BEFORE_TITLES: { step: AdoptionBeforeStep; title: string }[] = [
-  { step: "SURVEY", title: "성향 설문 작성" },
-  { step: "SELECT", title: "유기견 선택" },
-];
-
-const IN_TITLES: { step: AdoptionInStep; title: string }[] = [
-  { step: "APPLICATION", title: "입양 설문 작성" },
-  { step: "EDUCATION_CERT", title: "입양 교육" },
-  { step: "CONSULT", title: "입양 상담" },
-  { step: "DOCUMENT", title: "개인서류 제출" },
-  { step: "CONTRACT", title: "입양 신청서 작성" },
-  { step: "APPROVAL", title: "심사 신청" },
-];
-
-const AFTER_TITLES: { step: AdoptionAfterStep; title: string }[] = [
-  { step: "PICKUP", title: "반려견 인수" },
-  { step: "CARE", title: "사후 관리" },
-];
 
 const STAGE_INDEX: Record<StageId, number> = { A: 0, B: 1, C: 2 };
 
-function isBeforeStep(step: AdoptionStep): step is AdoptionBeforeStep {
-  return (BEFORE_ORDER as readonly string[]).includes(step);
+const STAGE_STEPS: Record<StageId, AdoptionStep[]> = {
+  A: ["APPLICATION", "EDUCATION_CERT", "SELECT"],
+  B: ["CONSULT", "DOCUMENT", "CONTRACT", "APPROVAL"],
+  C: ["PICKUP", "CARE"],
+};
+
+const STEP_TITLE: Partial<Record<AdoptionStep, string>> = {
+  PROFILE: "프로필 등록",
+
+  // SURVEY: 타임라인에서는 숨기지만, 혹시 current로 들어오면 텍스트 표시용
+  SURVEY: "성향 설문 작성",
+
+  SELECT: "유기견 선택",
+
+  APPLICATION: "입양 설문 작성",
+  EDUCATION_CERT: "입양 교육",
+  CONSULT: "입양 상담",
+  DOCUMENT: "개인서류 제출",
+  CONTRACT: "입양 신청서 작성",
+  APPROVAL: "심사 신청",
+
+  PICKUP: "반려견 인수",
+  CARE: "사후 관리",
+};
+
+function titleOf(step: AdoptionStep) {
+  return STEP_TITLE[step] ?? step;
 }
-function isInStep(step: AdoptionStep): step is AdoptionInStep {
-  return (IN_ORDER as readonly string[]).includes(step);
-}
-function isAfterStep(step: AdoptionStep): step is AdoptionAfterStep {
-  return (AFTER_ORDER as readonly string[]).includes(step);
+
+/** ✅ SURVEY가 들어오면 APPLICATION로 치환 (UI/진행률/상단바 계산 안정화) */
+function normalizeStep(step: AdoptionStep): AdoptionStep {
+  if (step === "SURVEY") return "APPLICATION";
+  return step;
 }
 
 function stageOf(step: AdoptionStep): StageId {
-  if (isBeforeStep(step)) return "A";
-  if (isInStep(step)) return "B";
-  return "C";
-}
-
-function titleOf(step: AdoptionStep) {
-  const b = BEFORE_TITLES.find((x) => x.step === step)?.title;
-  if (b) return b;
-  const i = IN_TITLES.find((x) => x.step === step)?.title;
-  if (i) return i;
-  const a = AFTER_TITLES.find((x) => x.step === step)?.title;
-  return a ?? step;
+  const s = normalizeStep(step);
+  if (STAGE_STEPS.A.includes(s)) return "A";
+  if (STAGE_STEPS.B.includes(s)) return "B";
+  if (STAGE_STEPS.C.includes(s)) return "C";
+  return "A";
 }
 
 function stageHeaderLabel(status: StageStatus) {
@@ -86,22 +75,18 @@ function stageHeaderLabel(status: StageStatus) {
   return "TODO";
 }
 
-function getStepStatusWithinOrder<T extends string>(
-  step: T,
-  currentStep: T,
-  order: readonly T[]
+function getStepStatusInStage(
+  step: AdoptionStep,
+  currentStep: AdoptionStep,
+  stageSteps: AdoptionStep[]
 ): StepStatus {
-  const a = order.indexOf(step);
-  const b = order.indexOf(currentStep);
+  const a = stageSteps.indexOf(step);
+  const b = stageSteps.indexOf(currentStep);
   if (a < 0 || b < 0) return "pending";
   if (a < b) return "completed";
   if (a === b) return "current";
   return "pending";
 }
-
-/** =========================
- *  PROPS
- *  ========================= */
 
 type Props = {
   currentStep: AdoptionStep;
@@ -116,7 +101,10 @@ export function AdoptionTimeline({
   onSelectStep,
   isEditableForStep,
 }: Props) {
-  const currentStageId = useMemo(() => stageOf(currentStep), [currentStep]);
+  const currentStepN = useMemo(() => normalizeStep(currentStep), [currentStep]);
+  const selectedStepN = useMemo(() => normalizeStep(selectedStep), [selectedStep]);
+
+  const currentStageId = useMemo(() => stageOf(currentStepN), [currentStepN]);
 
   const stages: Stage[] = useMemo(() => {
     const makeStageStatus = (id: StageId): StageStatus => {
@@ -131,42 +119,42 @@ export function AdoptionTimeline({
     const statusB = makeStageStatus("B");
     const statusC = makeStageStatus("C");
 
-    const aSubsteps = BEFORE_TITLES.map(({ step, title }) => ({
-      title,
-      stepKey: step as AdoptionStep,
+    const aSubsteps = STAGE_STEPS.A.map((step) => ({
+      title: titleOf(step),
+      stepKey: step,
       status:
         statusA === "completed"
           ? "completed"
           : statusA === "pending"
             ? "pending"
-            : isBeforeStep(currentStep)
-              ? getStepStatusWithinOrder(step, currentStep, BEFORE_ORDER)
+            : currentStageId === "A"
+              ? getStepStatusInStage(step, currentStepN, STAGE_STEPS.A)
               : "pending",
     }));
 
-    const bSubsteps = IN_TITLES.map(({ step, title }) => ({
-      title,
-      stepKey: step as AdoptionStep,
+    const bSubsteps = STAGE_STEPS.B.map((step) => ({
+      title: titleOf(step),
+      stepKey: step,
       status:
         statusB === "completed"
           ? "completed"
           : statusB === "pending"
             ? "pending"
-            : isInStep(currentStep)
-              ? getStepStatusWithinOrder(step, currentStep, IN_ORDER)
+            : currentStageId === "B"
+              ? getStepStatusInStage(step, currentStepN, STAGE_STEPS.B)
               : "pending",
     }));
 
-    const cSubsteps = AFTER_TITLES.map(({ step, title }) => ({
-      title,
-      stepKey: step as AdoptionStep,
+    const cSubsteps = STAGE_STEPS.C.map((step) => ({
+      title: titleOf(step),
+      stepKey: step,
       status:
         statusC === "completed"
           ? "completed"
           : statusC === "pending"
             ? "pending"
-            : isAfterStep(currentStep)
-              ? getStepStatusWithinOrder(step, currentStep, AFTER_ORDER)
+            : currentStageId === "C"
+              ? getStepStatusInStage(step, currentStepN, STAGE_STEPS.C)
               : "pending",
     }));
 
@@ -175,46 +163,28 @@ export function AdoptionTimeline({
       { id: "B", title: "입양 중", status: statusB, substeps: bSubsteps },
       { id: "C", title: "입양 후", status: statusC, substeps: cSubsteps },
     ];
-  }, [currentStep, currentStageId]);
+  }, [currentStageId, currentStepN]);
 
-  // 진행률: "현재 stage 안에서"만 계산 (A/B/C 공통)
+  // ✅ 진행률: "현재 stage 안에서"만 계산
   const progressPct = useMemo(() => {
-    const sid = stageOf(currentStep);
-    if (sid === "A" && isBeforeStep(currentStep)) {
-      const idx = BEFORE_ORDER.indexOf(currentStep);
-      return idx < 0 ? 0 : Math.round(((idx + 1) / BEFORE_ORDER.length) * 100);
-    }
-    if (sid === "B" && isInStep(currentStep)) {
-      const idx = IN_ORDER.indexOf(currentStep);
-      return idx < 0 ? 0 : Math.round(((idx + 1) / IN_ORDER.length) * 100);
-    }
-    if (sid === "C" && isAfterStep(currentStep)) {
-      const idx = AFTER_ORDER.indexOf(currentStep);
-      return idx < 0 ? 0 : Math.round(((idx + 1) / AFTER_ORDER.length) * 100);
-    }
-    return 0;
-  }, [currentStep]);
+    const sid = stageOf(currentStepN);
+    const arr = STAGE_STEPS[sid];
+    const idx = arr.indexOf(currentStepN);
+    if (idx < 0) return 0;
+    return Math.round(((idx + 1) / arr.length) * 100);
+  }, [currentStepN]);
 
-  // ✅ 상단 3단계(원-막대)용 진행 너비 계산
+  // ✅ 상단 3단계(원-막대) 진행 너비 계산
   const topBarWidthPct = useMemo(() => {
-    const seg = 33.333; // A->B, B->C 한 구간 길이(%)
-    const sid = stageOf(currentStep);
+    const seg = 33.333;
+    const sid = stageOf(currentStepN);
 
-    if (sid === "A") {
-      // A 진행: A~B 구간에서만 진행
-      return seg * (progressPct / 100);
-    }
-
-    if (sid === "B") {
-      // ✅ B 진행: A~B는 이미 완료(=seg), B~C 구간에서만 추가 진행
-      return seg + seg * (progressPct / 100);
-    }
-
-    // ✅ C(입양후): 끝까지(=66.666%)
+    if (sid === "A") return seg * (progressPct / 100);
+    if (sid === "B") return seg + seg * (progressPct / 100);
     return seg * 2;
-  }, [currentStep, progressPct]);
+  }, [currentStepN, progressPct]);
 
-  const currentText = useMemo(() => titleOf(currentStep), [currentStep]);
+  const currentText = useMemo(() => titleOf(currentStepN), [currentStepN]);
 
   return (
     <div className="bg-white rounded-2xl p-10 shadow-sm border border-gray-100">
@@ -231,7 +201,6 @@ export function AdoptionTimeline({
 
       {/* 상단 3단계 */}
       <div className="relative mb-12">
-        {/* ✅ 막대는 z-0 (원 뒤) */}
         <div className="absolute left-[16.666%] right-[16.666%] top-[36px] h-[2px] bg-gray-200 z-0" />
         <div
           className="absolute left-[16.666%] top-[36px] h-[2px] bg-[#3182F6] z-0"
@@ -240,7 +209,6 @@ export function AdoptionTimeline({
 
         <div className="grid grid-cols-3 items-start text-center">
           {stages.map((stage) => (
-            // ✅ 원/텍스트는 z-10 (막대 위)
             <div key={stage.id} className="relative z-10 flex flex-col items-center gap-6">
               {stage.status === "completed" && (
                 <div className="w-20 h-20 rounded-full bg-[#3182F6] text-white flex items-center justify-center">
@@ -255,6 +223,7 @@ export function AdoptionTimeline({
               {stage.status === "pending" && (
                 <div className="w-20 h-20 rounded-full border-2 border-gray-200 bg-white flex items-center justify-center" />
               )}
+
               <span
                 className={`text-2xl font-semibold ${
                   stage.status === "current" ? "text-[#3182F6]" : "text-gray-300"
@@ -281,12 +250,10 @@ export function AdoptionTimeline({
                 const isTodo = substep.status !== "completed";
 
                 const stepKey = substep.stepKey;
-
-                // ✅ A/B/C 모두 선택 가능 (stepKey가 있으면)
                 const isSelectable = Boolean(stepKey);
 
-                const isSelected = Boolean(stepKey && stepKey === selectedStep);
-                const isCurrent = Boolean(stepKey && stepKey === currentStep);
+                const isSelected = Boolean(stepKey && stepKey === selectedStepN);
+                const isCurrent = Boolean(stepKey && stepKey === currentStepN);
 
                 const editable = stepKey
                   ? isEditableForStep
@@ -299,7 +266,9 @@ export function AdoptionTimeline({
                   (isTodo ? "bg-[#eef2ff] border-[#c7d2fe]" : "bg-white border-gray-200");
 
                 const selectable = isSelectable ? "cursor-pointer hover:shadow-md" : "";
-                const selectedRing = isSelected ? " ring-2 ring-[#c7d2fe] border-[#3182F6]" : "";
+                const selectedRing = isSelected
+                  ? " ring-2 ring-[#c7d2fe] border-[#3182F6]"
+                  : "";
 
                 const currentBadge = isCurrent
                   ? " ml-auto rounded-full bg-[#3182F6] px-2 py-0.5 text-[11px] font-semibold text-white"
@@ -311,8 +280,15 @@ export function AdoptionTimeline({
                   <CardTag
                     key={`${stage.id}-${index}`}
                     type={isSelectable ? "button" : undefined}
-                    onClick={isSelectable && stepKey ? () => onSelectStep(stepKey) : undefined}
-                    className={baseCard + selectable + selectedRing + (isSelectable ? " w-full text-left" : "")}
+                    onClick={
+                      isSelectable && stepKey ? () => onSelectStep(stepKey) : undefined
+                    }
+                    className={
+                      baseCard +
+                      selectable +
+                      selectedRing +
+                      (isSelectable ? " w-full text-left" : "")
+                    }
                   >
                     <div
                       className={`flex h-5 w-5 items-center justify-center rounded-sm ${
@@ -327,6 +303,13 @@ export function AdoptionTimeline({
                     <span className={`text-sm font-medium ${isDone ? "text-gray-500" : "text-gray-900"}`}>
                       {substep.title}
                     </span>
+
+                    {/* ✅ 편집 불가면 락 아이콘 (선택적으로 표시) */}
+                    {stepKey && !editable && (
+                      <span className="ml-auto text-gray-400">
+                        <Lock className="h-4 w-4" />
+                      </span>
+                    )}
 
                     {isCurrent && <span className={currentBadge}>진행중</span>}
                   </CardTag>

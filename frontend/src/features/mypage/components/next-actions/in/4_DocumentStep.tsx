@@ -1,7 +1,13 @@
-import { useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Button } from "@/shared/ui/button";
-import { uploadAdoptionDocument } from "@/features/postAdoption/api/postAdoptionApi";
+import { ApiError } from "@/shared/api/client";
+import {
+  deleteAdoptionDocument,
+  fetchAdoptionDocuments,
+  uploadAdoptionDocument,
+} from "@/features/postAdoption/api/postAdoptionApi";
 import type { DocumentType } from "@/features/adoptionApplication/types";
+import type { AdoptionDocumentResponse } from "@/features/mypage/types";
 
 type Props = {
   isEditable: boolean; // 제출 가능 여부(단계에 따른)
@@ -36,6 +42,26 @@ function fileMeta(file: File | null) {
   };
 }
 
+function formatFileSize(size: number) {
+  if (!Number.isFinite(size) || size <= 0) return "-";
+  if (size < 1024) return `${size} B`;
+  if (size < 1024 * 1024) return `${Math.round(size / 1024)} KB`;
+  return `${(size / (1024 * 1024)).toFixed(1)} MB`;
+}
+
+function resolveApiErrorMessage(error: unknown, fallback: string) {
+  if (error instanceof ApiError) {
+    if (error.status === 401) return "Login required.";
+    if (error.status === 403) return "You do not have permission.";
+    if (error.status === 404) return "Not found.";
+    if (error.status === 409) return "The document status has changed. Please refresh.";
+    if (error.status >= 500) return "Server error. Please try again.";
+    return error.message || fallback;
+  }
+  if (error instanceof Error) return error.message || fallback;
+  return fallback;
+}
+
 export function DocumentStep({ isEditable, onSubmitSuccess, adoptionId }: Props) {
   // 실제 첨부 파일(항목별)
   const [docs, setDocs] = useState<DocsState>({
@@ -53,6 +79,10 @@ export function DocumentStep({ isEditable, onSubmitSuccess, adoptionId }: Props)
   });
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
+  const [documentList, setDocumentList] = useState<AdoptionDocumentResponse[]>([]);
+  const [docsLoading, setDocsLoading] = useState(false);
+  const [docsError, setDocsError] = useState<string | null>(null);
+  const [deletingId, setDeletingId] = useState<number | null>(null);
 
   // 모달
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -72,6 +102,60 @@ export function DocumentStep({ isEditable, onSubmitSuccess, adoptionId }: Props)
   }, [docs]);
 
   const canSubmitNow = canSubmit && allAttached && !submitting && !isSubmitted;
+
+  const resolveAdoptionId = () => {
+    const rawId =
+      typeof adoptionId === "number" ? String(adoptionId) : localStorage.getItem(ADOPTION_ID_KEY);
+    const parsed = rawId ? Number(rawId) : NaN;
+    return Number.isFinite(parsed) ? parsed : null;
+  };
+
+  const documentLabel = (type: string) =>
+    DOCS.find((doc) => doc.type === type)?.label ?? type;
+
+  const loadDocuments = useCallback(
+    async (targetId: number, options?: { silent?: boolean }) => {
+      const silent = options?.silent ?? false;
+      if (!silent) {
+        setDocsLoading(true);
+      }
+      setDocsError(null);
+
+      try {
+        const data = await fetchAdoptionDocuments(targetId);
+        setDocumentList(data);
+        if (import.meta.env.DEV) {
+          console.debug("[documents] fetched", data);
+        }
+      } catch (err) {
+        if (err instanceof ApiError && err.status === 404) {
+          setDocumentList([]);
+          setDocsError(null);
+        } else {
+          setDocumentList([]);
+          setDocsError(resolveApiErrorMessage(err, "Failed to load documents."));
+        }
+      } finally {
+        if (!silent) {
+          setDocsLoading(false);
+        }
+      }
+    },
+    []
+  );
+
+  useEffect(() => {
+    const targetId = resolveAdoptionId();
+    if (!targetId) {
+      setDocsError("Missing adoptionId.");
+      setDocumentList([]);
+      return;
+    }
+
+    loadDocuments(targetId).catch(() => {
+      // loadDocuments handles its own errors
+    });
+  }, [adoptionId, loadDocuments]);
 
   const openModal = (key: DocKey) => {
     if (!canAttach) return;
@@ -110,11 +194,39 @@ export function DocumentStep({ isEditable, onSubmitSuccess, adoptionId }: Props)
     }));
   };
 
+  const handleDeleteDocument = async (doc: AdoptionDocumentResponse) => {
+    if (!isEditable || deletingId) return;
+    const targetId = resolveAdoptionId();
+    if (!targetId) {
+      setDocsError("Missing adoptionId.");
+      return;
+    }
+
+    const confirmed = window.confirm("Delete this document?");
+    if (!confirmed) return;
+
+    setDeletingId(doc.id);
+    setDocsError(null);
+
+    try {
+      await deleteAdoptionDocument(targetId, doc.id);
+      setDocumentList((prev) => prev.filter((item) => item.id !== doc.id));
+      setSubmittedDocs(null);
+      await loadDocuments(targetId, { silent: true });
+    } catch (err) {
+      setDocsError(resolveApiErrorMessage(err, "Failed to delete document."));
+      if (err instanceof ApiError && (err.status === 404 || err.status === 409)) {
+        await loadDocuments(targetId, { silent: true });
+      }
+    } finally {
+      setDeletingId(null);
+    }
+  };
+
   const onSubmit = async () => {
     if (!canSubmitNow) return;
 
-    const rawId = adoptionId ? String(adoptionId) : localStorage.getItem(ADOPTION_ID_KEY);
-    const storedId = rawId ? Number(rawId) : NaN;
+    const storedId = resolveAdoptionId();
     if (!storedId) {
       setSubmitError("Missing adoptionId.");
       return;
@@ -166,6 +278,7 @@ export function DocumentStep({ isEditable, onSubmitSuccess, adoptionId }: Props)
     } else {
       setSubmittedDocs(docs);
       onSubmitSuccess();
+      await loadDocuments(storedId, { silent: true });
     }
 
     setSubmitting(false);
@@ -185,8 +298,92 @@ export function DocumentStep({ isEditable, onSubmitSuccess, adoptionId }: Props)
     e.stopPropagation();
   };
 
+  const resolvedAdoptionId = resolveAdoptionId();
+
   return (
     <div className="space-y-6">
+      <div className="rounded-2xl border border-gray-200 p-6">
+        <div className="flex items-start justify-between gap-4">
+          <div>
+            <p className="text-sm font-semibold text-gray-900">Uploaded documents</p>
+            <p className="mt-1 text-sm text-gray-500">
+              Review or delete uploaded documents.
+            </p>
+          </div>
+          {docsLoading ? <span className="text-xs text-gray-500">Loading...</span> : null}
+        </div>
+
+        {docsError ? <p className="mt-2 text-xs text-red-600">{docsError}</p> : null}
+
+        {!docsLoading && !docsError && resolvedAdoptionId && documentList.length === 0 ? (
+          <div className="mt-4 rounded-xl bg-gray-50 p-4 text-sm text-gray-500">
+            No uploaded documents yet.
+          </div>
+        ) : null}
+
+        {documentList.length > 0 && (
+          <div className="mt-4 space-y-3">
+            {documentList.map((doc) => (
+              <div key={doc.id} className="rounded-2xl border border-gray-200 p-4">
+                <div className="flex items-start justify-between gap-4">
+                  <div className="min-w-0">
+                    <p className="text-sm font-semibold text-gray-900">
+                      {documentLabel(doc.documentType)}
+                    </p>
+                    <p className="mt-1 truncate text-xs text-gray-500">
+                      {doc.originalFileName}
+                    </p>
+                    {doc.filePath ? (
+                      <a
+                        className="mt-2 inline-flex text-xs font-medium text-blue-600 hover:underline"
+                        href={doc.filePath}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                      >
+                        Open file
+                      </a>
+                    ) : null}
+                  </div>
+
+                  <div className="flex shrink-0 items-center gap-2">
+                    <span className="text-xs text-gray-500">
+                      {formatFileSize(doc.fileSize)}
+                    </span>
+                    <Button
+                      variant="outline"
+                      className="rounded-lg"
+                      disabled={!isEditable || deletingId === doc.id}
+                      onClick={() => handleDeleteDocument(doc)}
+                    >
+                      {deletingId === doc.id ? "Deleting..." : "Delete"}
+                    </Button>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {docsError && resolvedAdoptionId ? (
+          <div className="mt-4">
+            <Button
+              variant="outline"
+              className="rounded-lg"
+              onClick={() => loadDocuments(resolvedAdoptionId)}
+              disabled={docsLoading}
+            >
+              Retry
+            </Button>
+          </div>
+        ) : null}
+
+        {!resolvedAdoptionId ? (
+          <p className="mt-4 text-xs text-gray-500">
+            Adoption ID is missing. Please reopen this step from the adoption flow.
+          </p>
+        ) : null}
+      </div>
+
       <div className="rounded-2xl border border-gray-200 p-6">
         {/* 헤더 */}
         <div className="flex items-start justify-between gap-4">

@@ -1,7 +1,12 @@
 import { useEffect, useMemo, useState } from "react";
 import { fetchAdoptionList, fetchDogKinds, fetchSigunguList, fetchSidoList } from "../api/adoptionApi";
 import DogGrid from "../components/DogGrid";
-import Filters, { DEFAULT_BREED, DEFAULT_CITY, DEFAULT_PROVINCE } from "../components/Filters";
+import Filters, {
+  DEFAULT_CITY,
+  DEFAULT_KIND,
+  DEFAULT_PROVINCE,
+  DEFAULT_STATUS,
+} from "../components/Filters";
 import Pagination from "../components/Pagination";
 import type { AdoptionDog } from "../types";
 
@@ -15,11 +20,12 @@ export default function AdoptionList() {
   const [sidoOptions, setSidoOptions] = useState<{ label: string; value: string }[]>([]);
   const [sigunguOptions, setSigunguOptions] = useState<{ label: string; value: string }[]>([]);
   const [filters, setFilters] = useState({
-    breed: DEFAULT_BREED,
+    kind: DEFAULT_KIND,
     province: DEFAULT_PROVINCE,
     provinceLabel: DEFAULT_PROVINCE,
     city: DEFAULT_CITY,
     cityLabel: DEFAULT_CITY,
+    status: DEFAULT_STATUS,
   });
 
   const region = useMemo(() => {
@@ -28,7 +34,22 @@ export default function AdoptionList() {
     return undefined;
   }, [filters.city, filters.province]);
 
-  const breedParam = filters.breed !== DEFAULT_BREED ? filters.breed : undefined;
+  const kindParam = filters.kind !== DEFAULT_KIND ? filters.kind : undefined;
+
+  const PROCESS_STATE_MAP: Record<string, string> = {
+    보호중: "보호중",
+    공고중: "공고중",
+    종료: "종료",
+    입양중: "보호중",
+    입양완료: "종료",
+    반환: "종료",
+    자연사: "종료",
+  };
+
+  const statusParam = useMemo(() => {
+    if (filters.status === DEFAULT_STATUS) return undefined;
+    return PROCESS_STATE_MAP[filters.status] ?? undefined;
+  }, [filters.status]);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -40,7 +61,8 @@ export default function AdoptionList() {
       size: 12,
       sort: "happenDt",
       region,
-      breed: breedParam,
+      kindNm: kindParam,
+      processState: statusParam,
       signal: controller.signal,
     })
       .then((result) => {
@@ -62,7 +84,7 @@ export default function AdoptionList() {
     return () => {
       controller.abort();
     };
-  }, [page, region, breedParam]);
+  }, [page, region, kindParam, statusParam]);
 
   useEffect(() => {
     let cancelled = false;

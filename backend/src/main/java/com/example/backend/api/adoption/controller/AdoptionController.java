@@ -51,6 +51,20 @@ public class AdoptionController {
         return ResponseEntity.ok(response);
     }
 
+    @Operation(summary = "입양 단계 상세 정보 조회", description = "특정 입양 프로세스의 특정 단계에 대한 상세 정보를 조회합니다.")
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "200", description = "입양 단계 상세 정보 조회 성공",
+                    content = @Content(schema = @Schema(implementation = AdoptionStepInstanceResponse.class))),
+            @ApiResponse(responseCode = "404", description = "해당 입양 프로세스 또는 단계를 찾을 수 없음")
+    })
+    @GetMapping("/{adoptionId}/steps/{stepInstanceId}")
+    public ResponseEntity<AdoptionStepInstanceResponse> getAdoptionStepInstanceDetail(
+            @Parameter(description = "조회할 입양 프로세스 ID") @PathVariable Long adoptionId,
+            @Parameter(description = "조회할 입양 단계 인스턴스 ID") @PathVariable Long stepInstanceId) {
+        AdoptionStepInstanceResponse response = adoptionService.getAdoptionStepInstanceDetail(adoptionId, stepInstanceId);
+        return ResponseEntity.ok(response);
+    }
+
     @Operation(summary = "입양 프로세스 취소", description = "진행 중인 입양 프로세스를 취소합니다.")
     @ApiResponses(value = {
             @ApiResponse(responseCode = "200", description = "입양 프로세스 취소 성공"),

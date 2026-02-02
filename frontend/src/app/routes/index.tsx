@@ -7,6 +7,7 @@ import AdoptionRecommendPage from "@/pages/adoption-recommend";
 import LoginPage from "@/pages/auth/login";
 import SignupPage from "@/pages/auth/signup";
 import MyPage from "@/pages/mypage";
+import ManagePage from "@/pages/manage";
 import CenterPage from "@/pages/center";
 import NotFoundPage from "@/pages/not-found";
 import OAuthCallbackPage from "@/pages/oauth-callback";
@@ -35,6 +36,7 @@ export default function AppRoutes() {
           <Route path="/auth/signup" element={<SignupPage />} />
           <Route path="/oauth/callback" element={<OAuthCallbackPage />} />
           <Route path="/mypage" element={<MyPage />} />
+          <Route path="/manage" element={<ManagePage />} />
           <Route path="/center" element={<CenterPage />} />
           <Route path="/faq" element={<FAQPage />} />
           <Route path="/uitest" element={<UiTestPage />} />

@@ -2,6 +2,7 @@ import { api } from "@/shared/api/client";
 import type { DocumentType } from "@/features/adoptionApplication/types";
 import type {
   AdoptionDetail,
+  AdoptionContractResponse,
   AdoptionDocumentResponse,
   AdoptionStepInstance,
   AdoptionStepStatus,
@@ -53,6 +54,11 @@ type RawAdoptionDetail = {
   steps?: RawAdoptionStepInstance[];
 };
 
+type RawAdoptionCreateResponse = {
+  id?: number;
+  adoptionId?: number;
+};
+
 type StepVerificationPayload = {
   isApproved: boolean;
   rejectionReason?: string | null;
@@ -65,6 +71,31 @@ type PostAdoptionCreateRequest = {
 type PostAdoptionStepSubmitRequest = {
   data: string;
 };
+
+type UnknownRecord = Record<string, unknown>;
+
+const isRecord = (value: unknown): value is UnknownRecord =>
+  typeof value === "object" && value !== null && !Array.isArray(value);
+
+const toNumber = (value: unknown): number | null => {
+  if (typeof value === "number" && Number.isFinite(value)) return value;
+  if (typeof value === "string" && value.trim() !== "") {
+    const num = Number(value);
+    return Number.isFinite(num) ? num : null;
+  }
+  return null;
+};
+
+function resolveAdoptionId(data: unknown): number | null {
+  if (typeof data === "number") return data;
+  if (!isRecord(data)) return null;
+  return (
+    toNumber(data.id) ??
+    toNumber(data.adoptionId) ??
+    toNumber(data.adoption_id) ??
+    null
+  );
+}
 
 function normalizePostAdoptionStep(raw: RawPostAdoptionStep): PostAdoptionStep | null {
   if (!raw || typeof raw !== "object") return null;
@@ -130,6 +161,17 @@ export async function fetchAdoptionDetail(adoptionId: number): Promise<AdoptionD
           .filter((step): step is AdoptionStepInstance => Boolean(step))
       : [],
   };
+}
+
+export async function createAdoptionProcess(): Promise<number> {
+  const data = await api<RawAdoptionCreateResponse | unknown>(`/adoptions/`, {
+    method: "POST",
+  });
+  const id = resolveAdoptionId(data);
+  if (!id) {
+    throw new Error("Failed to resolve adoptionId from create response.");
+  }
+  return id;
 }
 
 export async function startPostAdoptionProcess(adoptionId: number): Promise<PostAdoptionProcess> {
@@ -214,6 +256,29 @@ export async function uploadEducationCert(
 
 export async function deleteEducationCert(adoptionId: number): Promise<void> {
   await api<void>(`/adoptions/${adoptionId}/education-cert`, { method: "DELETE" });
+}
+
+export async function getAdoptionContract(
+  adoptionId: number
+): Promise<AdoptionContractResponse> {
+  return api<AdoptionContractResponse>(`/adoptions/${adoptionId}/contract`);
+}
+
+export async function uploadAdoptionContract(
+  adoptionId: number,
+  file: File
+): Promise<AdoptionContractResponse> {
+  const formData = new FormData();
+  formData.append("contractFile", file);
+
+  return api<AdoptionContractResponse>(`/adoptions/${adoptionId}/contract`, {
+    method: "POST",
+    body: formData,
+  });
+}
+
+export async function deleteAdoptionContract(adoptionId: number): Promise<void> {
+  await api<void>(`/adoptions/${adoptionId}/contract`, { method: "DELETE" });
 }
 
 export async function fetchAdoptionDocuments(

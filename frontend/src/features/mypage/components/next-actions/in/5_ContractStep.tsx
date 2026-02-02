@@ -1,6 +1,13 @@
-import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { Button } from "@/shared/ui/button";
 import { Document, Page, pdfjs } from "react-pdf";
+import { ApiError } from "@/shared/api/client";
+import {
+  deleteAdoptionContract,
+  getAdoptionContract,
+  uploadAdoptionContract,
+} from "@/features/postAdoption/api/postAdoptionApi";
+import type { AdoptionContractResponse } from "@/features/mypage/types";
 
 pdfjs.GlobalWorkerOptions.workerSrc = new URL(
   "pdfjs-dist/build/pdf.worker.min.mjs",
@@ -8,6 +15,12 @@ pdfjs.GlobalWorkerOptions.workerSrc = new URL(
 ).toString();
 
 /* ================== TYPES ================== */
+type Props = {
+  isEditable: boolean;
+  onSubmitSuccess: () => void;
+  adoptionId?: number;
+};
+
 type FieldKey =
   | "name"
   | "birthY"
@@ -71,6 +84,42 @@ const DEFAULT_VALUES: OverlayValues = {
 
 const BASE_WIDTH = 595;
 const BASE_HEIGHT = 842;
+
+function formatFileSize(size: number) {
+  if (!Number.isFinite(size) || size <= 0) return "-";
+  if (size < 1024) return `${size} B`;
+  if (size < 1024 * 1024) return `${Math.round(size / 1024)} KB`;
+  return `${(size / (1024 * 1024)).toFixed(1)} MB`;
+}
+
+function formatDateTime(value?: string | null) {
+  if (!value) return "-";
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) return value;
+  return parsed.toLocaleString("ko-KR", {
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+}
+
+function resolveApiErrorMessage(error: unknown, fallback: string) {
+  if (error instanceof ApiError) {
+    if (error.status === 400) return "Invalid request. Please check the file.";
+    if (error.status === 401) return "Login required.";
+    if (error.status === 403) return "You do not have permission.";
+    if (error.status === 404) return "Contract not found.";
+    if (error.status === 409) return "The contract status has changed. Please refresh.";
+    if (error.status === 413) return "File is too large.";
+    if (error.status === 415) return "Unsupported file type.";
+    if (error.status >= 500) return "Server error. Please try again.";
+    return error.message || fallback;
+  }
+  if (error instanceof Error) return error.message || fallback;
+  return fallback;
+}
 
 /* ================== SIGNATURE PAD ================== */
 function SignaturePad({
@@ -360,10 +409,115 @@ function AdoptionPdfOverlay({
 }
 
 /* ================== STEP ================== */
-export function ContractStep() {
+export function ContractStep({ isEditable, onSubmitSuccess, adoptionId }: Props) {
   const [open, setOpen] = useState(false);
   const [values, setValues] = useState<OverlayValues>(DEFAULT_VALUES);
   const pdfUrl = "/docs/adoption-application.pdf";
+  const [contract, setContract] = useState<AdoptionContractResponse | null>(null);
+  const [contractLoading, setContractLoading] = useState(false);
+  const [contractError, setContractError] = useState<string | null>(null);
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [uploading, setUploading] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const canUpload = isEditable && !!adoptionId && !uploading && !deleting;
+  const selectedMeta = useMemo(() => {
+    if (!selectedFile) return null;
+    return {
+      name: selectedFile.name,
+      size: formatFileSize(selectedFile.size),
+      type: selectedFile.type || "unknown",
+    };
+  }, [selectedFile]);
+
+  const loadContract = useCallback(
+    async (targetId: number, options?: { silent?: boolean }) => {
+      const silent = options?.silent ?? false;
+      if (!silent) {
+        setContractLoading(true);
+      }
+      setContractError(null);
+
+      try {
+        const data = await getAdoptionContract(targetId);
+        setContract(data);
+        if (import.meta.env.DEV) {
+          console.debug("[contract] fetched", data);
+        }
+      } catch (err) {
+        if (err instanceof ApiError && err.status === 404) {
+          setContract(null);
+          setContractError(null);
+        } else {
+          setContract(null);
+          setContractError(resolveApiErrorMessage(err, "Failed to load contract."));
+        }
+      } finally {
+        if (!silent) {
+          setContractLoading(false);
+        }
+      }
+    },
+    []
+  );
+
+  useEffect(() => {
+    if (!adoptionId) {
+      setContract(null);
+      setContractError("Missing adoptionId.");
+      return;
+    }
+
+    loadContract(adoptionId).catch(() => {
+      // loadContract handles its own errors
+    });
+  }, [adoptionId, loadContract]);
+
+  const handleUpload = async () => {
+    if (!canUpload) return;
+    if (!selectedFile) {
+      setContractError("Please select a contract file.");
+      return;
+    }
+
+    setUploading(true);
+    setContractError(null);
+
+    try {
+      const data = await uploadAdoptionContract(adoptionId!, selectedFile);
+      setContract(data);
+      setSelectedFile(null);
+      onSubmitSuccess();
+      await loadContract(adoptionId!, { silent: true });
+    } catch (err) {
+      setContractError(resolveApiErrorMessage(err, "Failed to upload contract."));
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  const handleDelete = async () => {
+    if (!adoptionId || !contract || deleting) return;
+    const confirmed = window.confirm("Delete the contract file?");
+    if (!confirmed) return;
+
+    setDeleting(true);
+    setContractError(null);
+
+    try {
+      await deleteAdoptionContract(adoptionId);
+      setContract(null);
+      setSelectedFile(null);
+      await loadContract(adoptionId, { silent: true });
+    } catch (err) {
+      setContractError(resolveApiErrorMessage(err, "Failed to delete contract."));
+      if (err instanceof ApiError && (err.status === 404 || err.status === 409)) {
+        await loadContract(adoptionId, { silent: true });
+      }
+    } finally {
+      setDeleting(false);
+    }
+  };
 
   // ✅ 뒤 배경 스크롤 막기
   useEffect(() => {
@@ -376,42 +530,173 @@ export function ContractStep() {
   }, [open]);
 
   return (
-    <div>
-      <Button onClick={() => setOpen(true)}>계약서 보기</Button>
+    <div className="space-y-6">
+      <div className="rounded-2xl border border-gray-200 p-6">
+        <div className="flex items-start justify-between gap-4">
+          <div>
+            <p className="text-sm font-semibold text-gray-900">Contract status</p>
+            <p className="mt-1 text-sm text-gray-500">
+              Check the uploaded contract or delete it before re-uploading.
+            </p>
+          </div>
+          {contractLoading ? <span className="text-xs text-gray-500">Loading...</span> : null}
+        </div>
+
+        {contractError ? <p className="mt-2 text-xs text-red-600">{contractError}</p> : null}
+
+        {!adoptionId ? (
+          <p className="mt-4 text-xs text-gray-500">
+            Adoption ID is missing. Please reopen this step from the adoption flow.
+          </p>
+        ) : contract ? (
+          <div className="mt-4 space-y-2 rounded-xl bg-gray-50 p-4 text-sm text-gray-700">
+            <p className="text-sm font-semibold text-gray-900">
+              {contract.originalFileName || "Contract file"}
+            </p>
+            <p className="text-xs text-gray-500">
+              {formatFileSize(contract.fileSize)} - {formatDateTime(contract.uploadedAt)}
+            </p>
+            {contract.contractFileUrl ? (
+              <a
+                className="inline-flex text-xs font-semibold text-blue-600 hover:underline"
+                href={contract.contractFileUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                Open contract file
+              </a>
+            ) : null}
+
+            <div className="pt-2">
+              <Button
+                variant="outline"
+                className="rounded-lg"
+                disabled={!isEditable || deleting}
+                onClick={handleDelete}
+              >
+                {deleting ? "Deleting..." : "Delete"}
+              </Button>
+            </div>
+          </div>
+        ) : (
+          <div className="mt-4 rounded-xl bg-gray-50 p-4 text-sm text-gray-500">
+            No contract uploaded yet.
+          </div>
+        )}
+
+        {contractError && adoptionId ? (
+          <div className="mt-4">
+            <Button
+              variant="outline"
+              className="rounded-lg"
+              onClick={() => loadContract(adoptionId)}
+              disabled={contractLoading}
+            >
+              Retry
+            </Button>
+          </div>
+        ) : null}
+      </div>
+
+      <div className="rounded-2xl border border-gray-200 p-6">
+        <div className="flex items-start justify-between gap-4">
+          <div>
+            <p className="text-sm font-semibold text-gray-900">Upload contract</p>
+            <p className="mt-1 text-sm text-gray-500">
+              Upload a signed contract file (PDF recommended).
+            </p>
+          </div>
+        </div>
+
+        <div className="mt-4 flex flex-wrap items-center gap-3">
+          <Button
+            className="rounded-lg"
+            disabled={!canUpload}
+            onClick={() => fileInputRef.current?.click()}
+          >
+            Select file
+          </Button>
+
+          {selectedFile && (
+            <Button
+              variant="outline"
+              className="rounded-lg"
+              disabled={!canUpload}
+              onClick={() => setSelectedFile(null)}
+            >
+              Remove
+            </Button>
+          )}
+
+          <input
+            ref={fileInputRef}
+            type="file"
+            className="hidden"
+            onChange={(e) => setSelectedFile(e.target.files?.[0] ?? null)}
+            disabled={!canUpload}
+          />
+        </div>
+
+        <div className="mt-4 rounded-xl bg-gray-50 p-4 text-sm">
+          {!selectedMeta ? (
+            <p className="text-gray-500">No file selected.</p>
+          ) : (
+            <div className="space-y-1">
+              <p className="font-medium text-gray-900">{selectedMeta.name}</p>
+              <p className="text-gray-500">
+                {selectedMeta.size} - {selectedMeta.type}
+              </p>
+            </div>
+          )}
+        </div>
+
+        <div className="mt-4 flex flex-wrap gap-3">
+          <Button
+            className="rounded-lg"
+            disabled={!canUpload || !selectedFile}
+            onClick={handleUpload}
+          >
+            {uploading ? "Uploading..." : "Upload"}
+          </Button>
+          <Button variant="outline" className="rounded-lg" onClick={() => setOpen(true)}>
+            View contract form
+          </Button>
+        </div>
+      </div>
 
       {open && (
         <div className="fixed inset-0 z-50 bg-black/40">
-          {/* 전체 화면 스크롤 컨테이너 */}
+          {/* ??? ??? ??????????? */}
           <div className="h-full w-full overflow-y-auto py-8">
             <div className="mx-auto w-[860px] max-w-[calc(100vw-32px)]">
-              {/* 모달 박스: 내부만 스크롤 */}
+              {/* ??? ???: ??????????*/}
               <div className="bg-white rounded-xl shadow-xl max-h-[calc(100vh-4rem)] flex flex-col">
-                {/* 헤더 */}
+                {/* ??? */}
                 <div className="p-6 border-b">
                   <div className="flex items-center justify-between">
                     <div>
-                      <p className="text-lg font-semibold text-gray-900">계약서 보기</p>
+                      <p className="text-lg font-semibold text-gray-900">????????</p>
                       <p className="mt-1 text-sm text-gray-500">
-                        PDF 위에 입력칸을 오버레이로 제공합니다.
+                        PDF ??? ?????? ????????????????
                       </p>
                     </div>
                     <Button variant="outline" className="rounded-lg" onClick={() => setOpen(false)}>
-                      닫기
+                      ???
                     </Button>
                   </div>
                 </div>
 
-                {/* 여기만 스크롤 */}
+                {/* ??????????*/}
                 <div className="p-6 overflow-y-auto">
                   <AdoptionPdfOverlay fileUrl={pdfUrl} values={values} onChange={setValues} />
                 </div>
 
-                {/* 하단 버튼 고정 */}
+                {/* ??? ??? ??? */}
                 <div className="border-t p-4 flex justify-end gap-2 bg-white sticky bottom-0">
                   <Button variant="outline" onClick={() => setValues(DEFAULT_VALUES)}>
-                    초기화
+                    ?????
                   </Button>
-                  <Button onClick={() => setOpen(false)}>닫기</Button>
+                  <Button onClick={() => setOpen(false)}>???</Button>
                 </div>
               </div>
             </div>
@@ -420,4 +705,5 @@ export function ContractStep() {
       )}
     </div>
   );
+
 }

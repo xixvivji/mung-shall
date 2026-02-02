@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { fetchMe } from "@/features/auth/api/authApi";
 import { authStore } from "@/features/auth/store/authStore";
 import { ROUTES } from "@/shared/constants/routes";
-import { clearAccessToken, setAccessToken } from "@/shared/api/client";
+import { clearAuthTokens, setAuthTokens } from "@/shared/api/client";
 
 export default function OAuthCallbackPage() {
   const navigate = useNavigate();
@@ -25,14 +25,14 @@ export default function OAuthCallbackPage() {
       return;
     }
 
-    setAccessToken(accessToken);
+    setAuthTokens(accessToken);
     fetchMe(accessToken)
       .then((user) => {
         authStore.setUser(user);
         navigate(ROUTES.mypage, { replace: true });
       })
       .catch((err) => {
-        clearAccessToken();
+        clearAuthTokens();
         const message = err instanceof Error ? err.message : "소셜 로그인 처리에 실패했습니다.";
         setError(message);
       });

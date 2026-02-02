@@ -10,12 +10,12 @@ import java.util.List;
 
 public class AbandonedDogSpecification {
 
-    public static Specification<AbandonedDog> createSpecification(String sido, String kindNm, String sexCd, String processState) {
+    public static Specification<AbandonedDog> createSpecification(String region, String kindNm, String sexCd, String processState) {
         return (root, query, criteriaBuilder) -> {
             List<Predicate> predicates = new ArrayList<>();
 
-            if (StringUtils.hasText(sido)) {
-                predicates.add(criteriaBuilder.like(root.get("happenPlace"), sido + "%"));
+            if (StringUtils.hasText(region)) {
+                predicates.add(criteriaBuilder.like(root.get("happenPlace"), "%" + region + "%"));
             }
 
             if (StringUtils.hasText(kindNm)) {

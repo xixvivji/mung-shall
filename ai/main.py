@@ -14,17 +14,20 @@ from ultralytics import YOLO
 from collections import defaultdict
 
 # 모듈 임포트
-from pose_analyzer import DogPoseAnalyzer
-from visualizer import DogVisualizer
+from pose_analyze.pose_analyzer import DogPoseAnalyzer
+from pose_analyze.visualizer import DogVisualizer
 
 app = FastAPI()
 
 # ---------------------------------------------------------
 # 1. 모델 로드
 # ---------------------------------------------------------
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+MODEL_PATH = os.path.join(BASE_DIR, "pose_analyze", "model", "best.pt")
+
 print("⏳ Loading YOLO model...")
 try:
-    model = YOLO('model/best.pt') 
+    model = YOLO(MODEL_PATH)
     print("✅ Model loaded successfully! Ready to analyze.")
 except Exception as e:
     print(f"❌ Failed to load model: {e}")

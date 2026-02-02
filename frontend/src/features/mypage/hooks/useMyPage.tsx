@@ -64,6 +64,7 @@ export default function useMyPage() {
   const [postAdoptionLoading, setPostAdoptionLoading] = useState(false);
   const [postAdoptionError, setPostAdoptionError] = useState<string | null>(null);
   const ensureAdoptionIdRef = useRef(false);
+  const ensureAdoptionIdAttemptedRef = useRef(false);
 
   useEffect(() => {
     let mounted = true;
@@ -115,16 +116,13 @@ export default function useMyPage() {
     try {
       const detail = await fetchPostAdoptionProcess(postAdoptionId);
       setPostAdoption(detail);
-      if (!adoptionId && detail.adoptionId) {
-        setAdoptionId(detail.adoptionId);
-      }
     } catch (err) {
       const message = err instanceof Error ? err.message : "Failed to load post-adoption detail.";
       setPostAdoptionError(message);
     } finally {
       setPostAdoptionLoading(false);
     }
-  }, [adoptionId, postAdoptionId]);
+  }, [postAdoptionId]);
 
   useEffect(() => {
     if (!adoptionId) return;
@@ -137,20 +135,12 @@ export default function useMyPage() {
   }, [postAdoptionId, refreshPostAdoption]);
 
   const ensureAdoptionId = useCallback(async () => {
-    if (adoptionId || ensureAdoptionIdRef.current) return;
+    if (adoptionId || ensureAdoptionIdRef.current || ensureAdoptionIdAttemptedRef.current) return;
     ensureAdoptionIdRef.current = true;
+    ensureAdoptionIdAttemptedRef.current = true;
     setAdoptionError(null);
 
     try {
-      if (postAdoptionId) {
-        const detail = await fetchPostAdoptionProcess(postAdoptionId);
-        setPostAdoption(detail);
-        if (detail.adoptionId) {
-          setAdoptionId(detail.adoptionId);
-          return;
-        }
-      }
-
       const createdId = await createAdoptionProcess();
       setAdoptionId(createdId);
     } catch (err) {

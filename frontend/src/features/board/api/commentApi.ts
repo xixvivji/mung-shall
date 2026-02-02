@@ -4,13 +4,14 @@ export type CommentItem = {
     id: number;
     content: string;
     authorName?: string;
+    authorId?: number;
     createdAt?: string;
     parentCommentId?: number | null;
-
     likeCount?: number;
     likedByMe?: boolean;
     replies?: CommentItem[];
 };
+
 
 export type CommentPageResponse = {
     content: CommentItem[];

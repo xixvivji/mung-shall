@@ -26,8 +26,6 @@ import {
 import type { CommentItem } from "../api/commentApi";
 
 import { authStore } from "@/features/auth/store/authStore";
-
-// ✅ 추가
 import { formatDateTime } from "@/shared/utils/datetime";
 
 export default function BoardDetailPage() {
@@ -313,6 +311,46 @@ export default function BoardDetailPage() {
         return count;
     }, [commentTree]);
 
+    // ✅ 첨부 이미지 모달
+    const mediaUrls = useMemo(() => {
+        return Array.isArray(detail?.mediaUrls) ? detail!.mediaUrls! : [];
+    }, [detail]);
+
+    const [viewerOpen, setViewerOpen] = useState(false);
+    const [viewerIndex, setViewerIndex] = useState(0);
+
+    const openViewer = useCallback((index: number) => {
+        setViewerIndex(index);
+        setViewerOpen(true);
+    }, []);
+
+    const closeViewer = useCallback(() => {
+        setViewerOpen(false);
+    }, []);
+
+    const goPrev = useCallback(() => {
+        setViewerIndex((prev) => (mediaUrls.length ? (prev - 1 + mediaUrls.length) % mediaUrls.length : 0));
+    }, [mediaUrls.length]);
+
+    const goNext = useCallback(() => {
+        setViewerIndex((prev) => (mediaUrls.length ? (prev + 1) % mediaUrls.length : 0));
+    }, [mediaUrls.length]);
+
+    const currentUrl = mediaUrls[viewerIndex] ?? "";
+
+    useEffect(() => {
+        if (!viewerOpen) return;
+
+        const onKeyDown = (e: KeyboardEvent) => {
+            if (e.key === "Escape") closeViewer();
+            if (e.key === "ArrowLeft") goPrev();
+            if (e.key === "ArrowRight") goNext();
+        };
+
+        window.addEventListener("keydown", onKeyDown);
+        return () => window.removeEventListener("keydown", onKeyDown);
+    }, [viewerOpen, closeViewer, goPrev, goNext]);
+
     return (
         <section className="bg-[#F7F8FA]">
             <div className="mx-auto max-w-[1440px] px-8 py-12">
@@ -338,37 +376,120 @@ export default function BoardDetailPage() {
 
                             <div className="whitespace-pre-line text-sm leading-7 text-[#1F2937]">{detail.content}</div>
 
-                            {/* 첨부 이미지 */}
-                            {Array.isArray(detail.mediaUrls) && detail.mediaUrls.length > 0 ? (
+                            {/* ✅ 첨부 이미지(잘림 방지 + 모달 크게보기) */}
+                            {mediaUrls.length > 0 ? (
                                 <div className="space-y-3">
                                     <div className="text-sm font-semibold text-[#1F2937]">첨부 이미지</div>
 
-                                    <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4">
-                                        {detail.mediaUrls.map((url, idx) => (
-                                            <a
+                                    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 md:grid-cols-3">
+                                        {mediaUrls.map((url, idx) => (
+                                            <button
                                                 key={`${url}-${idx}`}
-                                                href={url}
-                                                target="_blank"
-                                                rel="noreferrer"
-                                                className="group relative overflow-hidden rounded-[12px] border border-[#E5E7EB] bg-white"
-                                                title="새 창으로 열기"
+                                                type="button"
+                                                onClick={() => openViewer(idx)}
+                                                className="group rounded-[12px] border border-[#E5E7EB] bg-white p-2 text-left"
+                                                title="클릭해서 크게 보기"
                                             >
-                                                <img
-                                                    src={url}
-                                                    alt={`board-media-${idx}`}
-                                                    className="h-40 w-full object-cover transition group-hover:scale-[1.02]"
-                                                    loading="lazy"
-                                                    onError={(e) => {
-                                                        // 깨진 이미지 대비
-                                                        (e.currentTarget as HTMLImageElement).style.display = "none";
-                                                    }}
-                                                />
-                                                <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/50 to-transparent p-2 text-xs font-semibold text-white opacity-0 transition group-hover:opacity-100">
-                                                    새 창으로 보기
+                                                <div className="flex items-center justify-center rounded-[10px] bg-[#F7F8FA] p-2">
+                                                    <img
+                                                        src={url}
+                                                        alt={`board-media-${idx}`}
+                                                        className="max-h-[280px] w-auto max-w-full object-contain"
+                                                        loading="lazy"
+                                                        onError={(e) => {
+                                                            (e.currentTarget as HTMLImageElement).style.display = "none";
+                                                        }}
+                                                    />
                                                 </div>
-                                            </a>
+
+                                                <div className="mt-2 flex items-center justify-between">
+                          <span className="text-xs text-[#6B7280]">
+                            {idx + 1} / {mediaUrls.length}
+                          </span>
+                                                    <span className="text-xs font-semibold text-[#2563EB] opacity-0 transition group-hover:opacity-100">
+                            크게 보기
+                          </span>
+                                                </div>
+                                            </button>
                                         ))}
                                     </div>
+
+                                    {/* 모달 갤러리 */}
+                                    {viewerOpen ? (
+                                        <div
+                                            className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4"
+                                            role="dialog"
+                                            aria-modal="true"
+                                            onClick={closeViewer}
+                                        >
+                                            <div
+                                                className="relative w-full max-w-[980px] rounded-[16px] bg-white shadow-xl"
+                                                onClick={(e) => e.stopPropagation()}
+                                            >
+                                                <div className="flex items-center justify-between border-b border-[#E5E7EB] px-4 py-3">
+                                                    <div className="text-sm font-semibold text-[#111827]">
+                                                        첨부 이미지 {viewerIndex + 1} / {mediaUrls.length}
+                                                    </div>
+
+                                                    <div className="flex items-center gap-2">
+                                                        <a
+                                                            href={currentUrl}
+                                                            download
+                                                            target="_blank"
+                                                            rel="noreferrer"
+                                                            className="h-9 rounded-[10px] border border-[#E5E7EB] bg-white px-3 text-sm font-semibold text-[#111827] hover:bg-[#F7F8FA]"
+                                                        >
+                                                            다운로드
+                                                        </a>
+
+                                                        <button
+                                                            type="button"
+                                                            onClick={closeViewer}
+                                                            className="h-9 rounded-[10px] bg-[#111827] px-3 text-sm font-semibold text-white hover:bg-[#0B1220]"
+                                                        >
+                                                            닫기
+                                                        </button>
+                                                    </div>
+                                                </div>
+
+                                                <div className="relative flex items-center justify-center bg-[#0B1220] p-3">
+                                                    {mediaUrls.length > 1 ? (
+                                                        <button
+                                                            type="button"
+                                                            onClick={goPrev}
+                                                            className="absolute left-3 top-1/2 -translate-y-1/2 rounded-full bg-white/20 px-3 py-2 text-sm font-semibold text-white hover:bg-white/30"
+                                                            aria-label="prev"
+                                                        >
+                                                            ◀
+                                                        </button>
+                                                    ) : null}
+
+                                                    <img
+                                                        src={currentUrl}
+                                                        alt="viewer"
+                                                        className="max-h-[72vh] w-auto max-w-full object-contain"
+                                                        draggable={false}
+                                                    />
+
+                                                    {mediaUrls.length > 1 ? (
+                                                        <button
+                                                            type="button"
+                                                            onClick={goNext}
+                                                            className="absolute right-3 top-1/2 -translate-y-1/2 rounded-full bg-white/20 px-3 py-2 text-sm font-semibold text-white hover:bg-white/30"
+                                                            aria-label="next"
+                                                        >
+                                                            ▶
+                                                        </button>
+                                                    ) : null}
+                                                </div>
+
+                                                <div className="px-4 py-3 text-xs text-[#6B7280]">
+                                                    단축키: <span className="font-semibold">← →</span> 이동,{" "}
+                                                    <span className="font-semibold">ESC</span> 닫기
+                                                </div>
+                                            </div>
+                                        </div>
+                                    ) : null}
                                 </div>
                             ) : null}
 
@@ -418,6 +539,7 @@ export default function BoardDetailPage() {
                                 ) : null}
                             </div>
 
+                            {/* 댓글 */}
                             <div className="mt-8 border-t border-[#E5E7EB] pt-6">
                                 <div className="flex items-center justify-between">
                                     <h3 className="text-lg font-bold text-[#1F2937]">댓글</h3>

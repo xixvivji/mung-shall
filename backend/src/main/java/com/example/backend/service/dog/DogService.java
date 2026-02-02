@@ -1,6 +1,7 @@
 package com.example.backend.service.dog;
 
 import com.example.backend.api.dog.dto.DogDetailResponse;
+import com.example.backend.api.dog.dto.DogStatusCountResponse;
 import com.example.backend.api.dog.dto.DogSummaryResponse;
 import com.example.backend.domain.dog.AbandonedDog;
 import com.example.backend.domain.dog.DogKind;
@@ -34,15 +35,15 @@ public class DogService {
 
     /**
      * 유기견 목록을 페이지네이션과 동적 필터링으로 조회합니다.
-     * @param sido 검색할 지역명 (선택 사항)
+     * @param region 검색할 지역명 (선택 사항)
      * @param sexCd 검색할 성별 코드 (선택 사항)
      * @param processState 검색할 상태 (선택 사항)
      * @param pageable 페이지 요청 정보 (page, size, sort)
      * @return Page<DogSummaryResponse>
      */
-    public Page<DogSummaryResponse> getDogs(String sido, String kindNm, String sexCd, String processState, Pageable pageable) {
+    public Page<DogSummaryResponse> getDogs(String region, String kindNm, String sexCd, String processState, Pageable pageable) {
         // Specification으로 동적 쿼리 생성
-        Specification<AbandonedDog> spec = AbandonedDogSpecification.createSpecification(sido, kindNm, sexCd, processState);
+        Specification<AbandonedDog> spec = AbandonedDogSpecification.createSpecification(region, kindNm, sexCd, processState);
         Page<AbandonedDog> dogPage = abandonedDogRepository.findAll(spec, pageable);
         Long currentUserId = null;
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
@@ -87,6 +88,20 @@ public class DogService {
     public List<String> getAllDogKinds() {
         return dogKindRepository.findAll().stream()
                 .map(DogKind::getName)
+                .collect(Collectors.toList());
+    }
+
+    /**
+     * 각 유기견 상태별 개수를 조회합니다.
+     * @return List<DogStatusCountResponse> 각 상태별 개수 목록
+     */
+    public List<DogStatusCountResponse> getDogStatusCounts() {
+        List<Object[]> results = abandonedDogRepository.countDogsByProcessState();
+        return results.stream()
+                .map(result -> DogStatusCountResponse.builder()
+                        .status((String) result[0])
+                        .count((Long) result[1])
+                        .build())
                 .collect(Collectors.toList());
     }
 }

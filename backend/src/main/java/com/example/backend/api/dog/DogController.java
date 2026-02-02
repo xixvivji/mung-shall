@@ -1,6 +1,7 @@
 package com.example.backend.api.dog;
 
 import com.example.backend.api.dog.dto.DogDetailResponse;
+import com.example.backend.api.dog.dto.DogStatusCountResponse;
 import com.example.backend.api.dog.dto.DogSummaryResponse;
 import com.example.backend.service.dog.DogService;
 import io.swagger.v3.oas.annotations.Operation;
@@ -33,7 +34,7 @@ public class DogController {
     @GetMapping
     public ResponseEntity<Page<DogSummaryResponse>> getDogs(
             @Parameter(description = "검색할 시도명 (e.g., '서울특별시')")
-            @RequestParam(required = false) String sido,
+            @RequestParam(required = false) String region,
             @Parameter(description = "검색할 품종명 (e.g., '말티즈')")
             @RequestParam(required = false) String kindNm,
             @Parameter(description = "검색할 성별 코드 (M: 수컷, F: 암컷, Q: 미상)")
@@ -43,7 +44,7 @@ public class DogController {
             @Parameter(description = "페이지 요청 정보 (0-based page, size, sort)")
             @PageableDefault(size = 12, sort = "happenDt", direction = Sort.Direction.DESC) Pageable pageable
     ) {
-        Page<DogSummaryResponse> dogs = dogService.getDogs(sido, kindNm, sexCd, processState, pageable);
+        Page<DogSummaryResponse> dogs = dogService.getDogs(region, kindNm, sexCd, processState, pageable);
         return ResponseEntity.ok(dogs);
     }
 
@@ -68,5 +69,16 @@ public class DogController {
     public ResponseEntity<List<String>> getDogKinds() {
         List<String> dogKinds = dogService.getAllDogKinds();
         return ResponseEntity.ok(dogKinds);
+    }
+
+    @Operation(summary = "유기견 상태별 개수 조회", description = "각 유기견 상태(processState)별로 유기견의 개수를 조회합니다.")
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "조회 성공",
+                    content = @io.swagger.v3.oas.annotations.media.Content(array = @io.swagger.v3.oas.annotations.media.ArraySchema(schema = @io.swagger.v3.oas.annotations.media.Schema(implementation = DogStatusCountResponse.class)))),
+    })
+    @GetMapping("/status-counts")
+    public ResponseEntity<List<DogStatusCountResponse>> getDogStatusCounts() {
+        List<DogStatusCountResponse> statusCounts = dogService.getDogStatusCounts();
+        return ResponseEntity.ok(statusCounts);
     }
 }

@@ -55,4 +55,7 @@ public interface AbandonedDogRepository extends JpaRepository<AbandonedDog, Long
 
     // 특정 보호소에 속한 강아지 중 특정 상태를 가진 강아지를 조회합니다.
     List<AbandonedDog> findByShelter_IdAndProcessState(Long shelterId, String processState);
+
+    @Query("SELECT ad.processState, COUNT(ad) FROM AbandonedDog ad GROUP BY ad.processState")
+    List<Object[]> countDogsByProcessState();
 }

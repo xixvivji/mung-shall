@@ -78,8 +78,8 @@ pipeline {
                         sh """
                         # --- OpenVidu ---
                         echo "OPENVIDU_SECRET=${OV_SECRET}" > .env
-                        echo "OPENVIDU_URL=http://172.26.11.106:4443/" >> .env
-                        echo "OPENVIDU_PUBLIC_URL=https://i14c109.p.ssafy.io:4443/" >> .env
+                        echo "OPENVIDU_URL=https://172.17.0.1:4443" >> .env
+                        echo "OPENVIDU_PUBLIC_URL=https://i14c109.p.ssafy.io" >> .env
                         echo "DOMAIN_OR_PUBLIC_IP=i14c109.p.ssafy.io" >> .env
 
                         # --- DB / JWT ---

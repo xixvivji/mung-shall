@@ -268,6 +268,7 @@ export function NextActions({
          ======================= */}
       {selectedStep === "APPLICATION" && (
         <ApplicationStep
+          adoptionId={adoptionId}
           isEditable={isEditable}
           onSubmitSuccess={safeGoNextFromSelected}
         />

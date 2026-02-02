@@ -75,6 +75,12 @@ export type AdoptionApplicationRequest = {
   additionalQuestions: string;
 };
 
+export type AdoptionApplicationResponse = Partial<AdoptionApplicationRequest> & {
+  id?: number;
+  applicationId?: number;
+  stepInstanceId?: number;
+};
+
 export type AdoptionApplicationSubmitResponse = {
   applicationId: number;
 };

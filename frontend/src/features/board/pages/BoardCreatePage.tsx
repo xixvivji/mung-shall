@@ -1,9 +1,10 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import AlertModal from "@/shared/components/AlertModal";
 import { useAlertModal } from "@/shared/hooks/useAlertModal";
 import BoardForm from "../components/BoardForm";
 import { createBoard, toBoardApiError } from "../api/boardApi";
+import { authStore } from "@/features/auth/store/authStore";
 
 type BoardCategory = "FREE" | "REVIEW";
 
@@ -18,13 +19,37 @@ export default function BoardCreatePage() {
   const { openAlert, alertProps } = useAlertModal();
   const [submitting, setSubmitting] = useState(false);
 
+  const me = authStore.getSnapshot();
+
   const fixedCategory = useMemo(() => {
     return parseCategory(searchParams.get("category"));
   }, [searchParams]);
 
+  useEffect(() => {
+    if (fixedCategory !== "REVIEW") return;
+
+    if (!me) {
+      openAlert({
+        title: "로그인 필요",
+        message: "후기 게시글 작성은 로그인 후 가능합니다.",
+      });
+      navigate("/auth/login", { replace: true });
+      return;
+    }
+
+    if (me.userType !== "adopter") {
+      openAlert({
+        title: "작성 권한 없음",
+        message: "후기 게시글은 입양자 계정만 작성할 수 있습니다.",
+      });
+      navigate("/boards?category=REVIEW", { replace: true });
+    }
+  }, [fixedCategory, me, navigate, openAlert]);
+
   const handleSubmit = async (values: { title: string; content: string; category?: string }) => {
     if (submitting) return;
     setSubmitting(true);
+
     try {
       const payload = {
         ...values,
@@ -32,10 +57,11 @@ export default function BoardCreatePage() {
       };
 
       const result = await createBoard(payload);
+
       if (result.id) {
         navigate(`/boards/${result.id}`);
       } else {
-        navigate("/boards");
+        navigate(`/boards?category=${fixedCategory}`);
       }
     } catch (err) {
       const boardError = toBoardApiError(err);
@@ -45,9 +71,10 @@ export default function BoardCreatePage() {
       } else if (boardError.type === "forbidden") {
         openAlert({
           title: "작성 권한 없음",
-          message: fixedCategory === "REVIEW"
-              ? "입양 완료자만 후기 게시글을 작성할 수 있습니다."
-              : "권한이 없습니다.",
+          message:
+              fixedCategory === "REVIEW"
+                  ? "입양 완료자만 후기 게시글을 작성할 수 있습니다."
+                  : "권한이 없습니다.",
         });
       } else {
         openAlert({ title: "게시글 등록 실패", message: boardError.message });
@@ -81,9 +108,8 @@ export default function BoardCreatePage() {
                 submitting={submitting}
                 submitLabel="등록하기"
                 cancelLabel="목록으로"
-                onCancel={() =>
-                    navigate(`/boards?category=${fixedCategory}`)
-                }
+                onCancel={() => navigate(`/boards?category=${fixedCategory}`)}
+                showCategory={false}
             />
           </div>
         </div>

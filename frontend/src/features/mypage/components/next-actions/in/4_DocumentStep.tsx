@@ -12,7 +12,7 @@ import type { AdoptionDocumentResponse } from "@/features/mypage/types";
 type Props = {
   isEditable: boolean; // 제출 가능 여부(단계에 따른)
   onSubmitSuccess: () => void;
-  adoptionId?: number;
+  adoptionId: number; // 부모 컴포넌트에서 유효한 ID를 보장해야 함
 };
 
 type DocKey = "idCard" | "familyCert" | "lease";
@@ -24,8 +24,6 @@ type DocsState = Record<DocKey, DocFile>;
 type UploadStatus = "idle" | "uploading" | "success" | "error";
 
 type UploadState = Record<DocKey, { status: UploadStatus; error?: string }>;
-
-const ADOPTION_ID_KEY = "adoptionId";
 
 const DOCS: Array<{ key: DocKey; label: string; hint: string; type: DocumentType }> = [
   { key: "idCard", label: "신분증 사본", hint: "주민등록증 또는 운전면허증 사본", type: "ID_CARD" },
@@ -103,13 +101,6 @@ export function DocumentStep({ isEditable, onSubmitSuccess, adoptionId }: Props)
 
   const canSubmitNow = canSubmit && allAttached && !submitting && !isSubmitted;
 
-  const resolveAdoptionId = () => {
-    const rawId =
-      typeof adoptionId === "number" ? String(adoptionId) : localStorage.getItem(ADOPTION_ID_KEY);
-    const parsed = rawId ? Number(rawId) : NaN;
-    return Number.isFinite(parsed) ? parsed : null;
-  };
-
   const documentLabel = (type: string) =>
     DOCS.find((doc) => doc.type === type)?.label ?? type;
 
@@ -145,14 +136,13 @@ export function DocumentStep({ isEditable, onSubmitSuccess, adoptionId }: Props)
   );
 
   useEffect(() => {
-    const targetId = resolveAdoptionId();
-    if (!targetId) {
-      setDocsError("Missing adoptionId.");
+    if (!adoptionId) {
+      setDocsError("Adoption ID가 유효하지 않습니다. 페이지를 새로고침 해주세요.");
       setDocumentList([]);
       return;
     }
 
-    loadDocuments(targetId).catch(() => {
+    loadDocuments(adoptionId).catch(() => {
       // loadDocuments handles its own errors
     });
   }, [adoptionId, loadDocuments]);
@@ -196,9 +186,8 @@ export function DocumentStep({ isEditable, onSubmitSuccess, adoptionId }: Props)
 
   const handleDeleteDocument = async (doc: AdoptionDocumentResponse) => {
     if (!isEditable || deletingId) return;
-    const targetId = resolveAdoptionId();
-    if (!targetId) {
-      setDocsError("Missing adoptionId.");
+    if (!adoptionId) {
+      setDocsError("Adoption ID가 유효하지 않습니다.");
       return;
     }
 
@@ -209,14 +198,14 @@ export function DocumentStep({ isEditable, onSubmitSuccess, adoptionId }: Props)
     setDocsError(null);
 
     try {
-      await deleteAdoptionDocument(targetId, doc.id);
+      await deleteAdoptionDocument(adoptionId, doc.id);
       setDocumentList((prev) => prev.filter((item) => item.id !== doc.id));
       setSubmittedDocs(null);
-      await loadDocuments(targetId, { silent: true });
+      await loadDocuments(adoptionId, { silent: true });
     } catch (err) {
       setDocsError(resolveApiErrorMessage(err, "Failed to delete document."));
       if (err instanceof ApiError && (err.status === 404 || err.status === 409)) {
-        await loadDocuments(targetId, { silent: true });
+        await loadDocuments(adoptionId, { silent: true });
       }
     } finally {
       setDeletingId(null);
@@ -226,9 +215,8 @@ export function DocumentStep({ isEditable, onSubmitSuccess, adoptionId }: Props)
   const onSubmit = async () => {
     if (!canSubmitNow) return;
 
-    const storedId = resolveAdoptionId();
-    if (!storedId) {
-      setSubmitError("Missing adoptionId.");
+    if (!adoptionId) {
+      setSubmitError("Adoption ID가 유효하지 않습니다.");
       return;
     }
 
@@ -255,7 +243,7 @@ export function DocumentStep({ isEditable, onSubmitSuccess, adoptionId }: Props)
         }
 
         try {
-          await uploadAdoptionDocument(storedId, doc.type, file);
+          await uploadAdoptionDocument(adoptionId, doc.type, file);
           setUploadState((prev) => ({
             ...prev,
             [doc.key]: { status: "success" },
@@ -278,7 +266,7 @@ export function DocumentStep({ isEditable, onSubmitSuccess, adoptionId }: Props)
     } else {
       setSubmittedDocs(docs);
       onSubmitSuccess();
-      await loadDocuments(storedId, { silent: true });
+      await loadDocuments(adoptionId, { silent: true });
     }
 
     setSubmitting(false);
@@ -298,8 +286,6 @@ export function DocumentStep({ isEditable, onSubmitSuccess, adoptionId }: Props)
     e.stopPropagation();
   };
 
-  const resolvedAdoptionId = resolveAdoptionId();
-
   return (
     <div className="space-y-6">
       <div className="rounded-2xl border border-gray-200 p-6">
@@ -315,7 +301,7 @@ export function DocumentStep({ isEditable, onSubmitSuccess, adoptionId }: Props)
 
         {docsError ? <p className="mt-2 text-xs text-red-600">{docsError}</p> : null}
 
-        {!docsLoading && !docsError && resolvedAdoptionId && documentList.length === 0 ? (
+        {!docsLoading && !docsError && adoptionId && documentList.length === 0 ? (
           <div className="mt-4 rounded-xl bg-gray-50 p-4 text-sm text-gray-500">
             No uploaded documents yet.
           </div>
@@ -364,12 +350,12 @@ export function DocumentStep({ isEditable, onSubmitSuccess, adoptionId }: Props)
           </div>
         )}
 
-        {docsError && resolvedAdoptionId ? (
+        {docsError && adoptionId ? (
           <div className="mt-4">
             <Button
               variant="outline"
               className="rounded-lg"
-              onClick={() => loadDocuments(resolvedAdoptionId)}
+              onClick={() => loadDocuments(adoptionId)}
               disabled={docsLoading}
             >
               Retry
@@ -377,7 +363,7 @@ export function DocumentStep({ isEditable, onSubmitSuccess, adoptionId }: Props)
           </div>
         ) : null}
 
-        {!resolvedAdoptionId ? (
+        {!adoptionId ? (
           <p className="mt-4 text-xs text-gray-500">
             Adoption ID is missing. Please reopen this step from the adoption flow.
           </p>

@@ -1,4 +1,4 @@
-import { api, setAccessToken } from "@/shared/api/client";
+import { api, setAuthTokens } from "@/shared/api/client";
 import type { AuthCredentials, AuthUser, SignUpRequest } from "../types";
 
 type LoginResponse = {
@@ -12,7 +12,7 @@ export async function login(credentials: AuthCredentials): Promise<AuthUser> {
     skipAuth: true,
   });
 
-  setAccessToken(accessToken);
+  setAuthTokens(accessToken);
   return fetchMe(accessToken);
 }
 

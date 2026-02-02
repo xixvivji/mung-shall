@@ -81,12 +81,19 @@ export default function DogDetailPage() {
       navigate(`/manage/${adoptionId}`);
     } catch (err) {
       if (err instanceof ApiError && err.status === 409) {
-        // 409 Conflict: 이미 진행 중인 입양 절차가 있는 경우
+        // 409 Conflict: 이미 진행 중인 입양 절차가 있는 경우.
+        // API 응답 본문에 기존 adoptionId가 포함되어 있다고 가정합니다.
+        const existingAdoptionId = (err.data as { adoptionId?: number })?.adoptionId;
         const proceed = window.confirm(
           "이미 진행 중인 입양 절차가 있습니다. 입양 관리 페이지로 이동하시겠습니까?"
         );
         if (proceed) {
-          navigate(ROUTES.manage);
+          if (existingAdoptionId) {
+            navigate(`/manage/${existingAdoptionId}`);
+          } else {
+            alert("진행 중인 입양 절차의 정보를 가져올 수 없습니다. 내 정보 페이지로 이동합니다.");
+            navigate(ROUTES.mypage);
+          }
         }
       } else {
         // 기타 에러

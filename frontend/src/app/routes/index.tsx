@@ -18,6 +18,7 @@ import BoardEditPage from "@/features/board/pages/BoardEditPage";
 import FAQPage from "@/pages/faq";
 import UiTestPage from "@/pages/uitest";
 import MotionPage from "@/pages/motion";
+import MatchingSurveyPage from "@/pages/matching-survey";
 
 export default function AppRoutes() {
   return (
@@ -41,7 +42,7 @@ export default function AppRoutes() {
           <Route path="/faq" element={<FAQPage />} />
           <Route path="/uitest" element={<UiTestPage />} />
           <Route path="/motion" element={<MotionPage />} />
-
+          <Route path="/matching-survey" element={<MatchingSurveyPage />} />
           <Route path="*" element={<NotFoundPage />} />
           
         </Route>

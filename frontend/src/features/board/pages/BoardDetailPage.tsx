@@ -12,8 +12,10 @@ import {
     AlertDialogHeader,
     AlertDialogTitle,
 } from "@/shared/ui/alert-dialog";
+
 import { deleteBoard, fetchBoardDetail, toBoardApiError } from "../api/boardApi";
 import type { BoardDetail } from "../types";
+
 import {
     createBoardComment,
     fetchBoardComments,
@@ -55,7 +57,10 @@ export default function BoardDetailPage() {
     const [deleteCommentOpenFor, setDeleteCommentOpenFor] = useState<number | null>(null);
     const [deleteCommentSubmittingFor, setDeleteCommentSubmittingFor] = useState<number | null>(null);
 
-    const me = useMemo(() => authStore.getSnapshot(), []);
+    const [me, setMe] = useState(() => authStore.getSnapshot());
+    useEffect(() => {
+        return authStore.subscribe(() => setMe(authStore.getSnapshot()));
+    }, []);
 
     const boardOwnerId = useMemo(() => {
         if (!detail) return null;
@@ -65,9 +70,9 @@ export default function BoardDetailPage() {
 
     const isOwner = useMemo(() => {
         if (!me || !detail) return false;
-        if (boardOwnerId === null) return false;
-        return me.userId === boardOwnerId;
-    }, [boardOwnerId, detail, me]);
+        if (typeof (detail as any).authorId !== "number") return false;
+        return me.userId === (detail as any).authorId;
+    }, [detail, me]);
 
     useEffect(() => {
         let cancelled = false;
@@ -198,15 +203,13 @@ export default function BoardDetailPage() {
                 const result = await toggleCommentLike(commentId);
 
                 setComments((prev) =>
-                    prev.map((c) =>
-                        c.id === commentId
-                            ? { ...c, likedByMe: result.likedByMe, likeCount: result.likeCount }
-                            : c
-                    )
-                );
-
-                setComments((prev) =>
                     prev.map((c) => {
+                        // 루트 댓글 자체 좋아요
+                        if (c.id === commentId) {
+                            return { ...c, likedByMe: result.likedByMe, likeCount: result.likeCount };
+                        }
+
+                        // replies에 있는지 확인
                         const replies = Array.isArray((c as any).replies) ? (c as any).replies : null;
                         if (!replies) return c;
 
@@ -286,11 +289,8 @@ export default function BoardDetailPage() {
     const isMyComment = useCallback(
         (c: CommentItem) => {
             if (!me) return false;
-
             const authorId = (c as any).authorId;
-            if (typeof authorId === "number") return me.userId === authorId;
-
-            return false;
+            return typeof authorId === "number" && me.userId === authorId;
         },
         [me]
     );
@@ -339,7 +339,7 @@ export default function BoardDetailPage() {
                         <div className="text-sm text-[#d14343]">{error}</div>
                     ) : detail ? (
                         <div className="space-y-6">
-                            {/* 게시글 제목/메타 */}
+                            {/* 제목/메타 */}
                             <div className="space-y-2">
                                 <h2 className="text-2xl font-semibold text-[#1F2937]">{detail.title}</h2>
                                 <div className="text-sm text-[#6B7280]">
@@ -348,12 +348,12 @@ export default function BoardDetailPage() {
                                 </div>
                             </div>
 
-                            {/* 게시글 본문 */}
+                            {/* 본문 */}
                             <div className="whitespace-pre-line text-sm leading-7 text-[#1F2937]">
                                 {detail.content}
                             </div>
 
-                            {/* 작성자 판별이 가능하면 제한적으로 노출, 아니면 서버에서 막히게 둠 */}
+                            {/* 수정/삭제 (authorId가 없으면 서버에서 막히게 버튼은 보여줌) */}
                             <div className="flex flex-wrap gap-3">
                                 {(isOwner || boardOwnerId === null) && (
                                     <Link
@@ -466,7 +466,10 @@ export default function BoardDetailPage() {
                               <textarea
                                   value={editTextById[c.id] ?? ""}
                                   onChange={(e) =>
-                                      setEditTextById((prev) => ({ ...prev, [c.id]: e.target.value }))
+                                      setEditTextById((prev) => ({
+                                          ...prev,
+                                          [c.id]: e.target.value,
+                                      }))
                                   }
                                   className="min-h-[84px] w-full resize-none rounded-[12px] border border-[#E5E7EB] p-3 text-sm outline-none focus:border-[#93C5FD]"
                               />
@@ -482,7 +485,8 @@ export default function BoardDetailPage() {
                                                                     type="button"
                                                                     onClick={() => handleSubmitEdit(c.id)}
                                                                     disabled={
-                                                                        editSubmittingFor === c.id || !(editTextById[c.id] ?? "").trim()
+                                                                        editSubmittingFor === c.id ||
+                                                                        !(editTextById[c.id] ?? "").trim()
                                                                     }
                                                                     className="h-10 rounded-[12px] bg-[#111827] px-4 text-sm font-semibold text-white hover:bg-[#0B1220] disabled:opacity-50"
                                                                 >
@@ -505,7 +509,7 @@ export default function BoardDetailPage() {
                                                             {replyOpenFor === c.id ? "답글 닫기" : "답글 달기"}
                                                         </button>
 
-                                                        {/* 내 댓글이면 수정/삭제 노출 (authorId 있을 때만) */}
+                                                        {/* 내 댓글이면 수정/삭제 */}
                                                         {isMyComment(c) && editOpenFor !== c.id ? (
                                                             <>
                                                                 <button
@@ -533,7 +537,10 @@ export default function BoardDetailPage() {
                               <textarea
                                   value={replyTextById[c.id] ?? ""}
                                   onChange={(e) =>
-                                      setReplyTextById((prev) => ({ ...prev, [c.id]: e.target.value }))
+                                      setReplyTextById((prev) => ({
+                                          ...prev,
+                                          [c.id]: e.target.value,
+                                      }))
                                   }
                                   placeholder="답글을 입력하세요."
                                   className="min-h-[72px] w-full resize-none rounded-[12px] border border-[#E5E7EB] p-3 text-sm outline-none focus:border-[#93C5FD]"

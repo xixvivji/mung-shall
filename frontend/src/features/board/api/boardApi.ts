@@ -55,6 +55,8 @@ type BoardListResponse = {
 type BoardDetailResponse = {
   id?: unknown;
   boardId?: unknown;
+  writerId?: unknown;
+
   title?: unknown;
   content?: unknown;
   category?: unknown;
@@ -140,7 +142,10 @@ function normalizeDetail(raw: unknown): BoardDetail {
     id: safeId(item.id ?? item.boardId, ""),
     title: safeString(item.title, "제목 없음"),
     content: safeString(item.content, ""),
-    authorName: safeString(item.writer ?? item.authorName ?? item.writerName, "익명"),
+
+    authorName: safeString(item.writerName ?? item.writer ?? item.authorName ?? item.writerName, "익명"),
+    authorId: typeof item.writerId === "number" ? item.writerId : Number(item.writerId) || undefined,
+
     createdAt: safeDate(item.createdAt ?? item.createdDate),
     updatedAt: safeString(item.updatedAt ?? item.updatedDate) || undefined,
   };

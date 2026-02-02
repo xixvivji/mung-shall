@@ -10,7 +10,10 @@ export type BoardDetail = {
   id: string;
   title: string;
   content: string;
+
   authorName: string;
+  authorId?: number;
+
   createdAt: string;
   updatedAt?: string;
 };

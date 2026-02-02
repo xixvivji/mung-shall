@@ -1,12 +1,13 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Link, useNavigate, useSearchParams } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import BoardList from "../components/BoardList";
 import Pagination from "@/features/adoption/components/Pagination";
 import { fetchBoardList, toBoardApiError } from "../api/boardApi";
 import type { BoardSummary } from "../types";
-import { authStore } from "@/features/auth/store/authStore";
+
 import AlertModal from "@/shared/components/AlertModal";
 import { useAlertModal } from "@/shared/hooks/useAlertModal";
+import { authStore } from "@/features/auth/store/authStore";
 
 type BoardCategoryFilter = "ALL" | "FREE" | "REVIEW";
 type BoardSort = "createdAt" | "viewCount";
@@ -29,24 +30,9 @@ function parseSort(params: URLSearchParams): BoardSort {
     return raw === "viewCount" ? "viewCount" : "createdAt";
 }
 
-function canWriteReview(me: any): boolean {
-    if (!me) return false;
-
-    const userType = typeof me.userType === "string" ? me.userType.toLowerCase() : "";
-    const role = typeof me.role === "string" ? me.role.toLowerCase() : "";
-    const accountType = typeof me.accountType === "string" ? me.accountType.toLowerCase() : "";
-
-    const isAdopterFlag =
-        me.isAdopter === true || me.adopter === true || me.adoptionCompleted === true;
-
-    const isAdopterByString =
-        userType === "adopter" ||
-        role === "adopter" ||
-        accountType === "adopter" ||
-        userType === "adopted" ||
-        role === "adopted";
-
-    return Boolean(isAdopterFlag || isAdopterByString);
+function isAdopter(me: any) {
+    const t = String(me?.userType ?? "").toUpperCase();
+    return t === "ADOPTER";
 }
 
 export default function BoardListPage() {
@@ -69,9 +55,7 @@ export default function BoardListPage() {
     const sort = useMemo(() => parseSort(searchParams), [searchParams]);
 
     const [me, setMe] = useState(() => authStore.getSnapshot());
-    useEffect(() => {
-        return authStore.subscribe(() => setMe(authStore.getSnapshot()));
-    }, []);
+    useEffect(() => authStore.subscribe(() => setMe(authStore.getSnapshot())), []);
 
     useEffect(() => {
         setQuery(q);
@@ -93,20 +77,36 @@ export default function BoardListPage() {
 
     const setCategoryFilter = useCallback(
         (nextCategory: BoardCategoryFilter) => {
+            if (nextCategory === "REVIEW") {
+                if (!me) {
+                    openAlert({
+                        title: "로그인 필요",
+                        message: "후기 게시판은 로그인 후 이용할 수 있습니다.",
+                    });
+                    navigate("/auth/login", { replace: true });
+                    return;
+                }
+                if (!isAdopter(me)) {
+                    openAlert({
+                        title: "접근 권한 없음",
+                        message: "입양 완료자만 후기 게시판을 이용할 수 있습니다.",
+                    });
+                    return;
+                }
+            }
+
             setSearchParams(
                 (prev) => {
                     const next = new URLSearchParams(prev);
-
                     if (nextCategory === "ALL") next.delete("category");
                     else next.set("category", nextCategory);
-
                     next.set("page", "1");
                     return next;
                 },
                 { replace: true }
             );
         },
-        [setSearchParams]
+        [me, navigate, openAlert, setSearchParams]
     );
 
     const setSortFilter = useCallback(
@@ -161,11 +161,8 @@ export default function BoardListPage() {
         setSearchParams(
             (prev) => {
                 const next = new URLSearchParams(prev);
-                if (query.trim()) {
-                    next.set("q", query.trim());
-                } else {
-                    next.delete("q");
-                }
+                if (query.trim()) next.set("q", query.trim());
+                else next.delete("q");
                 next.set("page", "1");
                 return next;
             },
@@ -173,36 +170,13 @@ export default function BoardListPage() {
         );
     };
 
+    const handleClickWrite = useCallback(() => {
+        navigate("/boards/new");
+    }, [navigate]);
+
     const tabBase = "h-10 rounded-[999px] px-4 text-sm font-semibold transition border";
     const tabActive = "bg-[#111827] text-white border-[#111827]";
     const tabInactive = "bg-white text-[#111827] border-[#E5E7EB] hover:bg-[#F7F8FA]";
-
-    const handleClickWrite = useCallback(() => {
-        const targetCategory: "FREE" | "REVIEW" =
-            category === "ALL" ? "FREE" : category;
-
-        if (targetCategory === "REVIEW") {
-            if (!me) {
-                openAlert({
-                    title: "로그인 필요",
-                    message: "후기 게시글 작성은 로그인 후 가능합니다.",
-                });
-                navigate("/auth/login", { replace: true });
-                return;
-            }
-
-            if (!canWriteReview(me)) {
-                openAlert({
-                    title: "작성 권한 없음",
-                    message: "후기 게시글은 입양 완료자(입양자)만 작성할 수 있습니다.",
-                });
-                setCategoryFilter("REVIEW");
-                return;
-            }
-        }
-
-        navigate(`/boards/new?category=${targetCategory}`);
-    }, [category, me, navigate, openAlert, setCategoryFilter]);
 
     return (
         <section className="bg-[#F7F8FA]">
@@ -249,11 +223,7 @@ export default function BoardListPage() {
                         </button>
 
                         <span className="ml-2 text-xs text-[#6B7280]">
-              {category === "ALL"
-                  ? "전체 게시글"
-                  : category === "FREE"
-                      ? "자유 게시판"
-                      : "입양 후기 게시판"}
+              {category === "ALL" ? "전체 게시글" : category === "FREE" ? "자유 게시판" : "입양 후기 게시판"}
             </span>
                     </div>
 
@@ -261,9 +231,7 @@ export default function BoardListPage() {
                         <span className="text-sm text-[#6B7280]">정렬</span>
                         <select
                             value={sort}
-                            onChange={(e) =>
-                                setSortFilter(e.target.value === "viewCount" ? "viewCount" : "createdAt")
-                            }
+                            onChange={(e) => setSortFilter(e.target.value === "viewCount" ? "viewCount" : "createdAt")}
                             className="h-10 rounded-[12px] border border-[#E5E7EB] bg-white px-3 text-sm text-[#111827] outline-none"
                         >
                             <option value="createdAt">최신순</option>

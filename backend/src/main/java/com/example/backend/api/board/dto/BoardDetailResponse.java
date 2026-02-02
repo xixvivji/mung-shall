@@ -11,7 +11,10 @@ public record BoardDetailResponse(
         String title,
         String content,
         BoardCategory category,
+
+        Long writerId,
         String writer,
+
         LocalDateTime createdAt,
         LocalDateTime updatedAt,
         int viewCount,
@@ -24,7 +27,10 @@ public record BoardDetailResponse(
                 board.getTitle(),
                 board.getContent(),
                 board.getCategory(),
+
+                board.getWriter().getUserId(),
                 board.getWriter().getName(),
+
                 board.getCreatedAt(),
                 board.getUpdatedAt(),
                 board.getViewCount(),

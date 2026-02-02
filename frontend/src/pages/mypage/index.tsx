@@ -1,96 +1,48 @@
-import { useCallback, useEffect, useState } from "react";
+import { useEffect, useState } from "react";
+import { Link } from "react-router-dom";
+
 import {
-  AdoptionTimeline,
-  NextActions,
   PostAdoptionTools,
   ProfileSummary,
   useMyPage,
 } from "@/features/mypage";
+
 import useAuth from "@/features/auth/hooks/useAuth";
 import CenterPage from "@/pages/center";
-import type { AdoptionStep } from "@/features/mypage/types";
+
 import { fetchMyInfo } from "@/features/member/api/memberApi";
 import type { MemberMeResponse } from "@/features/member/types";
-import AlertModal from "@/shared/components/AlertModal";
-import { useAlertModal } from "@/shared/hooks/useAlertModal";
 
 function AdopterMyPage() {
+  const [memberInfo, setMemberInfo] = useState<MemberMeResponse | null>(null);
+
+  // ✅ MyPage에서는 입양관리/해야할일을 제거했으므로
+  // ✅ PostAdoptionTools에 필요한 post-adoption 데이터만 사용
   const {
-    loading,
-    adoptionId,
-    adoptionLoading,
-    adoptionError,
     postAdoptionId,
     postAdoption,
     postAdoptionLoading,
-    postAdoptionError,
-    currentStep: apiCurrentStep,
-    submitStep,
     refreshPostAdoption,
   } = useMyPage();
-  const [memberInfo, setMemberInfo] = useState<MemberMeResponse | null>(null);
-  const { openAlert, alertProps } = useAlertModal();
-
-  // ✅ 임시: 진행중 단계 (전/중/후 아무거나 가능) — 이제 state로 관리
-  const [currentStep, setCurrentStep] = useState<AdoptionStep>(apiCurrentStep ?? "SURVEY");
-
-  // ✅ 선택 단계
-  const [selectedStep, setSelectedStep] = useState<AdoptionStep>(apiCurrentStep ?? "SURVEY");
-
-  // (선택) currentStep이 바뀌면 선택 단계도 같이 따라가게
-  useEffect(() => {
-    setCurrentStep(apiCurrentStep ?? "SURVEY");
-    setSelectedStep(apiCurrentStep ?? "SURVEY");
-  }, [apiCurrentStep]);
 
   useEffect(() => {
     let mounted = true;
+
     fetchMyInfo()
       .then((data) => {
-        if (mounted) {
-          setMemberInfo(data);
-        }
+        if (mounted) setMemberInfo(data);
       })
       .catch(() => {
-        if (mounted) {
-          setMemberInfo(null);
-        }
+        if (mounted) setMemberInfo(null);
       });
+
     return () => {
       mounted = false;
     };
   }, []);
 
-  useEffect(() => {
-    if (adoptionError) {
-      openAlert({ title: "입양 과정 오류", message: adoptionError });
-    }
-  }, [adoptionError, openAlert]);
-
-  useEffect(() => {
-    if (postAdoptionError) {
-      openAlert({ title: "입양 후 과정 오류", message: postAdoptionError });
-    }
-  }, [postAdoptionError, openAlert]);
-
-  // ✅ NextActions에서 "다음 단계로 진행" 요청했을 때 부모가 갱신
-  const advanceTo = (next: AdoptionStep) => {
-    setCurrentStep(next);
-    setSelectedStep(next);
-  };
-
-  const handleSubmitStep = useCallback(
-    async (step: AdoptionStep) => {
-      const result = await submitStep(step);
-      if (result.status === "error") {
-        openAlert({ title: "단계 제출 실패", message: "잠시 후 다시 시도해주세요." });
-      }
-    },
-    [openAlert, submitStep]
-  );
-
-  if (loading || !memberInfo) {
-    return <div className="px-6 py-16 text-sm text-[#777]">???...</div>;
+  if (!memberInfo) {
+    return <div className="px-6 py-16 text-sm text-[#777]">Loading...</div>;
   }
 
   return (
@@ -99,31 +51,25 @@ function AdopterMyPage() {
 
       <ProfileSummary user={memberInfo} />
 
-      {(adoptionLoading || postAdoptionLoading) && (
+      {/* ✅ 입양관리/해야할일은 /manage로 이동 */}
+      <div>
+        <Link
+          to="/manage"
+          className="inline-flex items-center rounded-lg border px-4 py-2 text-sm hover:bg-gray-50"
+        >
+          입양 관리로 이동
+        </Link>
+      </div>
+
+      {postAdoptionLoading && (
         <div className="text-sm text-[#777]">Loading...</div>
       )}
-
-      <AdoptionTimeline
-        currentStep={currentStep}
-        selectedStep={selectedStep}
-        onSelectStep={setSelectedStep}
-      />
-
-      <NextActions
-        currentStep={currentStep}
-        selectedStep={selectedStep}
-        onSelectStep={setSelectedStep}
-        onAdvanceStep={advanceTo}
-        onSubmitStep={handleSubmitStep}
-        adoptionId={adoptionId ?? undefined}
-      />
 
       <PostAdoptionTools
         postAdoptionId={postAdoptionId}
         steps={postAdoption?.steps}
         onRefresh={refreshPostAdoption}
       />
-      <AlertModal {...alertProps} />
     </section>
   );
 }

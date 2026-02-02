@@ -1,5 +1,4 @@
-import { api } from "@/shared/api/client";
-import type { DocumentType } from "@/features/adoptionApplication/types";
+﻿import { api } from "@/shared/api/client";
 import type {
   AdoptionDetail,
   AdoptionContractResponse,
@@ -7,6 +6,8 @@ import type {
   AdoptionStepInstance,
   AdoptionStepStatus,
   EducationCertResponse,
+} from "@/features/manage/types";
+import type {
   PostAdoptionProcess,
   PostAdoptionStep,
   PostAdoptionStepStatus,
@@ -312,3 +313,6 @@ export async function deleteAdoptionDocument(
     method: "DELETE",
   });
 }
+
+
+

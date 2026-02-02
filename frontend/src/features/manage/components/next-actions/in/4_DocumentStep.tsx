@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+﻿import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Button } from "@/shared/ui/button";
 import { ApiError } from "@/shared/api/client";
 import {
@@ -7,7 +7,7 @@ import {
   uploadAdoptionDocument,
 } from "@/features/postAdoption/api/postAdoptionApi";
 import type { DocumentType } from "@/features/adoptionApplication/types";
-import type { AdoptionDocumentResponse } from "@/features/mypage/types";
+import type { AdoptionDocumentResponse } from "@/features/manage/types";
 
 type Props = {
   isEditable: boolean; // 제출 가능 여부(단계에 따른)
@@ -648,3 +648,5 @@ export function DocumentStep({ isEditable, onSubmitSuccess, adoptionId }: Props)
     </div>
   );
 }
+
+

@@ -4,7 +4,6 @@ import { fetchMyDogs } from "../api/mypageApi";
 import {
   cancelPostAdoptionProcess,
   completePostAdoptionProcess,
-  createAdoptionProcess,
   fetchAdoptionDetail,
   fetchPostAdoptionProcess,
   startPostAdoptionProcess,
@@ -63,7 +62,6 @@ export default function useMyPage() {
   const [postAdoption, setPostAdoption] = useState<PostAdoptionProcess | null>(null);
   const [postAdoptionLoading, setPostAdoptionLoading] = useState(false);
   const [postAdoptionError, setPostAdoptionError] = useState<string | null>(null);
-  const ensureAdoptionIdRef = useRef(false);
   const ensureAdoptionIdAttemptedRef = useRef(false);
 
   useEffect(() => {
@@ -135,24 +133,10 @@ export default function useMyPage() {
   }, [postAdoptionId, refreshPostAdoption]);
 
   const ensureAdoptionId = useCallback(async () => {
-    if (adoptionId || ensureAdoptionIdRef.current || ensureAdoptionIdAttemptedRef.current) return;
-    ensureAdoptionIdRef.current = true;
+    if (adoptionId || ensureAdoptionIdAttemptedRef.current) return;
     ensureAdoptionIdAttemptedRef.current = true;
-    setAdoptionError(null);
-
-    try {
-      const createdId = await createAdoptionProcess();
-      setAdoptionId(createdId);
-    } catch (err) {
-      const message =
-        err instanceof Error
-          ? err.message
-          : "입양 프로세스를 시작할 수 없습니다. 잠시 후 다시 시도해주세요.";
-      setAdoptionError(message);
-    } finally {
-      ensureAdoptionIdRef.current = false;
-    }
-  }, [adoptionId, postAdoptionId]);
+    setAdoptionError("입양 과정에서 다시 진입해주세요.");
+  }, [adoptionId]);
 
   useEffect(() => {
     if (adoptionId) return;

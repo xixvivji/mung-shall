@@ -162,6 +162,7 @@ export default function BoardListPage() {
                         >
                             글쓰기
                         </Link>
+
                     </div>
                 </div>
 

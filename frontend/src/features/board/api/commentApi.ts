@@ -21,12 +21,58 @@ export type CommentPageResponse = {
     hasNext?: boolean;
 };
 
-export type ToggleLikeResponse = {
-    likedByMe: boolean;
-    likeCount: number;
+type RawComment = {
+    id?: unknown;
+    content?: unknown;
+    writer?: unknown;
+    authorName?: unknown;
+    createdAt?: unknown;
+    parentCommentId?: unknown;
+    likeCount?: unknown;
+    likedByMe?: unknown;
+    replies?: unknown;
 };
 
-// 댓글 목록 조회 (페이지 응답을 그대로 받고 싶을 때)
+const toNumber = (v: unknown, fallback = 0) => {
+    if (typeof v === "number") return v;
+    if (typeof v === "string" && v.trim() && !Number.isNaN(Number(v))) return Number(v);
+    return fallback;
+};
+
+const toString = (v: unknown, fallback = "") => {
+    if (typeof v === "string") return v;
+    if (typeof v === "number") return String(v);
+    return fallback;
+};
+
+function normalizeComment(raw: unknown): CommentItem {
+    if (!raw || typeof raw !== "object") {
+        return { id: 0, content: "" };
+    }
+
+    const c = raw as RawComment;
+
+    const item: CommentItem = {
+        id: toNumber(c.id, 0),
+        content: toString(c.content, ""),
+        authorName: toString(c.writer ?? c.authorName, "익명"),
+        createdAt: toString(c.createdAt, ""),
+        parentCommentId:
+            c.parentCommentId === null || c.parentCommentId === undefined
+                ? null
+                : toNumber(c.parentCommentId, null as any),
+
+        likeCount: typeof c.likeCount === "number" ? c.likeCount : toNumber(c.likeCount, 0),
+        likedByMe: typeof c.likedByMe === "boolean" ? c.likedByMe : Boolean(c.likedByMe),
+    };
+
+    if (Array.isArray(c.replies)) {
+        item.replies = c.replies.map(normalizeComment);
+    }
+
+    return item;
+}
+
 export async function fetchBoardCommentsPage(
     boardId: string,
     params?: { page?: number; size?: number }
@@ -38,10 +84,23 @@ export async function fetchBoardCommentsPage(
     const qs = search.toString();
     const url = qs ? `/boards/${boardId}/comments?${qs}` : `/boards/${boardId}/comments`;
 
-    return api<CommentPageResponse>(url, { method: "GET" });
+    const data = await api<any>(url, { method: "GET" });
+
+    const content = Array.isArray(data?.content) ? data.content : Array.isArray(data) ? data : [];
+    const normalized = content.map(normalizeComment);
+
+    const result: CommentPageResponse = {
+        content: normalized,
+        page: typeof data?.page === "number" ? data.page : undefined,
+        size: typeof data?.size === "number" ? data.size : undefined,
+        totalPages: typeof data?.totalPages === "number" ? data.totalPages : undefined,
+        totalElements: typeof data?.totalElements === "number" ? data.totalElements : undefined,
+        hasNext: typeof data?.hasNext === "boolean" ? data.hasNext : undefined,
+    };
+
+    return result;
 }
 
-// 댓글 목록 조회 (기존 UI 호환: content만 뽑아서 배열 반환)
 export async function fetchBoardComments(
     boardId: string,
     params?: { page?: number; size?: number }
@@ -50,7 +109,6 @@ export async function fetchBoardComments(
     return Array.isArray(data?.content) ? data.content : [];
 }
 
-// 댓글 작성
 export async function createBoardComment(
     boardId: string,
     payload: { content: string; parentCommentId?: number | null }
@@ -65,20 +123,27 @@ export async function createBoardComment(
     });
 }
 
-export async function toggleCommentLike(commentId: number | string): Promise<ToggleLikeResponse> {
+export async function toggleCommentLike(commentId: number): Promise<{ likedByMe: boolean; likeCount: number }> {
     const data = await api<any>(`/comments/${commentId}/likes`, {
         method: "POST",
     });
 
-    const likedByMe =
-        Boolean(data?.likedByMe) ||
-        Boolean(data?.liked) ||
-        Boolean(data?.isLiked) ||
-        Boolean(data?.myLiked) ||
-        false;
+    return {
+        likedByMe: Boolean(data?.liked),
+        likeCount: typeof data?.likeCount === "number" ? data.likeCount : 0,
+    };
+}
 
-    const likeCountRaw = data?.likeCount ?? data?.likes ?? data?.count ?? data?.likeCnt;
-    const likeCount = typeof likeCountRaw === "number" ? likeCountRaw : Number(likeCountRaw ?? 0);
+export async function updateComment(commentId: number, payload: { content: string }) {
+    return api(`/comments/${commentId}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ content: payload.content }),
+    });
+}
 
-    return { likedByMe, likeCount };
+export async function deleteComment(commentId: number) {
+    return api(`/comments/${commentId}`, {
+        method: "DELETE",
+    });
 }

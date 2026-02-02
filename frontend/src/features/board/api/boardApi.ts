@@ -58,12 +58,20 @@ type BoardDetailResponse = {
   title?: unknown;
   content?: unknown;
   category?: unknown;
+
+  writer?: unknown;
+
   authorName?: unknown;
   writerName?: unknown;
+
   createdAt?: unknown;
   createdDate?: unknown;
   updatedAt?: unknown;
   updatedDate?: unknown;
+
+  viewCount?: unknown;
+  commentCount?: unknown;
+  mediaUrls?: unknown;
 };
 
 const safeString = (value: unknown, fallback = "") => {
@@ -102,7 +110,9 @@ function normalizeSummary(raw: unknown, index: number): BoardSummary {
   const id = safeId(item.id ?? item.boardId, String(index));
   const title = safeString(item.title, "제목 없음");
   const content = safeString(item.content);
-  const authorName = safeString(item.authorName ?? item.writerName, "익명");
+
+  const authorName = safeString(item.writer ?? item.authorName ?? item.writerName, "익명");
+
   const createdAt = safeDate(item.createdAt ?? item.createdDate);
   const preview = safePreview((item as { preview?: unknown }).preview, content);
 
@@ -130,7 +140,7 @@ function normalizeDetail(raw: unknown): BoardDetail {
     id: safeId(item.id ?? item.boardId, ""),
     title: safeString(item.title, "제목 없음"),
     content: safeString(item.content, ""),
-    authorName: safeString(item.authorName ?? item.writerName, "익명"),
+    authorName: safeString(item.writer ?? item.authorName ?? item.writerName, "익명"),
     createdAt: safeDate(item.createdAt ?? item.createdDate),
     updatedAt: safeString(item.updatedAt ?? item.updatedDate) || undefined,
   };
@@ -139,9 +149,11 @@ function normalizeDetail(raw: unknown): BoardDetail {
 export async function fetchBoardList(params?: {
   page?: number;
   size?: number;
-  q?: string;            // UI용 검색어
-  category?: string;     // FREE/REVIEW
-  sort?: "createdAt" | "viewCount";
+
+  q?: string;
+
+  category?: string; // FREE/REVIEW
+  sort?: string;     // createdAt/viewCount
 }): Promise<{ items: BoardSummary[]; totalPages?: number }> {
   try {
     const search = new URLSearchParams();
@@ -151,7 +163,6 @@ export async function fetchBoardList(params?: {
     if (params?.q) search.set("keyword", params.q);
 
     if (params?.category) search.set("category", params.category);
-
     if (params?.sort) search.set("sort", params.sort);
 
     const query = search.toString();
@@ -186,6 +197,7 @@ export async function createBoard(payload: BoardCreateRequest): Promise<{ id: st
   try {
     const data = await api<Partial<BoardDetailResponse>>(`/boards`, {
       method: "POST",
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify(payload),
     });
     const id = safeId(data.id ?? data.boardId, "");
@@ -202,6 +214,7 @@ export async function updateBoard(
   try {
     await api<void>(`/boards/${id}`, {
       method: "PUT",
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify(payload),
     });
   } catch (error) {

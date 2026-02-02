@@ -46,6 +46,8 @@ public class SecurityConfig {
                 .headers(h -> h.frameOptions(frame -> frame.sameOrigin()))
 
                 .authorizeHttpRequests(auth -> auth
+                        .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll() //  개발동안 임시임
+
                         .requestMatchers(
                                 "/favicon.ico",
                                 "/swagger-ui.html",
@@ -110,6 +112,7 @@ public class SecurityConfig {
         CorsConfiguration configuration = new CorsConfiguration();
 
         configuration.setAllowedOrigins(Arrays.asList(
+                "http://localhost:5173", // 임시
                 "http://localhost:3000",
                 "http://13.125.3.38",
                 "https://13.125.3.38",

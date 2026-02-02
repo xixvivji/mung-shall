@@ -1,10 +1,17 @@
 import { useCallback, useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { AdoptionTimeline, NextActions, useMyPage } from "@/features/mypage";
 import type { AdoptionStep } from "@/features/mypage/types";
 import AlertModal from "@/shared/components/AlertModal";
 import { useAlertModal } from "@/shared/hooks/useAlertModal";
+import useAuth from "@/features/auth/hooks/useAuth";
+import { ROUTES } from "@/shared/constants/routes";
 
-export default function ManagePage() {
+/**
+ * 입양자(Adopter) 전용 입양 관리 페이지 컴포넌트.
+ * useMyPage 훅을 사용하여 입양 프로세스 데이터를 가져오고 관리합니다.
+ */
+function AdopterManagePage() {
   const {
     adoptionId,
     adoptionLoading,
@@ -76,4 +83,29 @@ export default function ManagePage() {
       <AlertModal {...alertProps} />
     </section>
   );
+}
+
+/**
+ * `/manage` 경로에 대한 라우팅을 처리하는 페이지 컴포넌트.
+ * 사용자 유형을 확인하여 입양자인 경우에만 `AdopterManagePage`를 렌더링하고,
+ * 보호소/보호센터 사용자인 경우 `/center` 페이지로 리디렉션합니다.
+ */
+export default function ManagePage() {
+  const { user } = useAuth();
+  const navigate = useNavigate();
+  const userType = user?.userType?.toLowerCase();
+
+  useEffect(() => {
+    // 로그인한 사용자가 보호소/센터 유형이면 /center로 리디렉션
+    if (user && (userType === "shelter" || userType === "center")) {
+      navigate(ROUTES.center, { replace: true });
+    }
+  }, [user, userType, navigate]);
+
+  // 사용자 유형이 아직 확인되지 않았거나, 리디렉션 중일 때 로딩 표시
+  if (!user || userType === "shelter" || userType === "center") {
+    return <div className="min-h-screen flex items-center justify-center">Loading...</div>;
+  }
+
+  return <AdopterManagePage />;
 }

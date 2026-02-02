@@ -18,6 +18,7 @@ export default function Header() {
     userType === "shelter" || userType === "center"
       ? ROUTES.center
       : ROUTES.mypage;
+  const isAdopter = user && userType !== "shelter" && userType !== "center";
 
   const handleLogout = async () => {
     await logout();
@@ -69,16 +70,18 @@ export default function Header() {
               )}
             </NavLink>
 
-            {/* ✅ contacts 제거 → manage 추가 */}
-            <NavLink
-              to={ROUTES.manage}
-              className={() => `${linkBase} ${linkState}`}
-              style={{ fontVariationSettings: "'wdth' 100" }}
-            >
-              {({ isActive }) => (
-                <span data-active={isActive ? "true" : "false"}>manage</span>
-              )}
-            </NavLink>
+            {/* 입양자일 경우에만 'manage' 메뉴 노출 */}
+            {isAdopter && (
+              <NavLink
+                to={ROUTES.manage}
+                className={() => `${linkBase} ${linkState}`}
+                style={{ fontVariationSettings: "'wdth' 100" }}
+              >
+                {({ isActive }) => (
+                  <span data-active={isActive ? "true" : "false"}>manage</span>
+                )}
+              </NavLink>
+            )}
 
             <NavLink
               to={ROUTES.boards}

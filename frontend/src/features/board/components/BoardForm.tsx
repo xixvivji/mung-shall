@@ -1,11 +1,11 @@
-import { useEffect, useMemo, useState, type FormEvent } from "react";
-
-type BoardCategory = "FREE" | "REVIEW";
+import { useEffect, useMemo, useState, type FormEvent, useCallback } from "react";
+import { uploadBoardImage } from "../api/imageApi";
+import type { BoardCategory } from "../types";
 
 type BoardFormValues = {
     title: string;
     content: string;
-    category?: string;
+    category?: BoardCategory;
     mediaUrls?: string[];
 };
 
@@ -18,9 +18,7 @@ type BoardFormProps = {
     submitting?: boolean;
 
     showCategory?: boolean;
-
     initialCategory?: BoardCategory;
-
     me?: any;
 };
 
@@ -28,6 +26,7 @@ type FieldErrors = {
     title?: string;
     content?: string;
     category?: string;
+    mediaUrls?: string;
 };
 
 function isAdopter(me: any) {
@@ -43,26 +42,22 @@ export default function BoardForm({
                                       cancelLabel = "취소",
                                       submitting = false,
                                       showCategory = false,
-
                                       initialCategory = "FREE",
                                       me,
                                   }: BoardFormProps) {
-    const canSelectReview = useMemo(() => {
-        // REVIEW는 로그인 + adopter만 허용
-        return !!me && isAdopter(me);
-    }, [me]);
+    const canSelectReview = useMemo(() => !!me && isAdopter(me), [me]);
 
     const [values, setValues] = useState<BoardFormValues>(() => ({
         title: initialValues?.title ?? "",
         content: initialValues?.content ?? "",
         category: initialValues?.category ?? initialCategory,
-        mediaUrls: initialValues?.mediaUrls ?? undefined,
+        mediaUrls: initialValues?.mediaUrls ?? [],
     }));
 
     useEffect(() => {
         setValues((prev) => ({
             ...prev,
-            category: (prev.category ?? "").trim() ? prev.category : initialCategory,
+            category: prev.category ? prev.category : initialCategory,
         }));
     }, [initialCategory]);
 
@@ -75,6 +70,9 @@ export default function BoardForm({
     }, [canSelectReview]);
 
     const [errors, setErrors] = useState<FieldErrors>({});
+
+    const [uploading, setUploading] = useState(false);
+    const [uploadError, setUploadError] = useState<string | null>(null);
 
     const validate = (next: BoardFormValues) => {
         const nextErrors: FieldErrors = {};
@@ -102,12 +100,52 @@ export default function BoardForm({
         await onSubmit({
             title: values.title.trim(),
             content: values.content.trim(),
-            category: values.category?.trim() || undefined,
-            mediaUrls: values.mediaUrls ?? undefined,
+            category: values.category,
+            mediaUrls: (values.mediaUrls ?? []).length ? values.mediaUrls : undefined,
         });
     };
 
-    const selectedCategory = String(values.category ?? "FREE").toUpperCase() as BoardCategory;
+    const selectedCategory = (values.category ?? "FREE") as BoardCategory;
+
+    const handlePickFiles = useCallback(async (files: FileList | null) => {
+        if (!files || files.length === 0) return;
+
+        setUploadError(null);
+        setErrors((prev) => ({ ...prev, mediaUrls: undefined }));
+
+        const fileArray = Array.from(files);
+
+        setUploading(true);
+        try {
+            const uploadedUrls: string[] = [];
+
+            for (const file of fileArray) {
+                if (!file.type.startsWith("image/")) {
+                    throw new Error("이미지 파일만 업로드할 수 있습니다.");
+                }
+                const url = await uploadBoardImage(file);
+                uploadedUrls.push(url);
+            }
+
+            setValues((prev) => ({
+                ...prev,
+                mediaUrls: [...(prev.mediaUrls ?? []), ...uploadedUrls],
+            }));
+        } catch (e: any) {
+            const msg = String(e?.message ?? "이미지 업로드에 실패했습니다.");
+            setUploadError(msg);
+            setErrors((prev) => ({ ...prev, mediaUrls: msg }));
+        } finally {
+            setUploading(false);
+        }
+    }, []);
+
+    const handleRemoveMedia = useCallback((url: string) => {
+        setValues((prev) => ({
+            ...prev,
+            mediaUrls: (prev.mediaUrls ?? []).filter((u) => u !== url),
+        }));
+    }, []);
 
     return (
         <form className="space-y-8" onSubmit={handleSubmit}>
@@ -118,7 +156,7 @@ export default function BoardForm({
                     placeholder="제목을 입력해주세요."
                     value={values.title}
                     onChange={(event) => setValues((prev) => ({ ...prev, title: event.target.value }))}
-                    disabled={submitting}
+                    disabled={submitting || uploading}
                 />
                 {errors.title ? <p className="text-xs text-[#ef4444]">{errors.title}</p> : null}
             </div>
@@ -127,14 +165,12 @@ export default function BoardForm({
                 <div className="space-y-3">
                     <label className="text-sm font-semibold text-[#1F2937]">카테고리</label>
 
-                    {/* 드롭다운 */}
                     <select
                         className="h-12 w-full rounded-[12px] border border-[#E5E7EB] bg-white px-4 text-sm text-[#1F2937] outline-none focus:ring-2 focus:ring-[#5B7CFA]"
                         value={selectedCategory}
                         onChange={(event) => {
-                            const next = event.target.value.toUpperCase();
+                            const next = event.target.value.toUpperCase() as BoardCategory;
                             if (next === "REVIEW" && !canSelectReview) {
-                                // REVIEW는 선택 자체가 불가능(disabled라 일반적으론 여기 안옴) + 혹시 모를 방어
                                 setErrors((prev) => ({
                                     ...prev,
                                     category: "입양 완료자만 후기(REVIEW)를 작성할 수 있습니다.",
@@ -145,7 +181,7 @@ export default function BoardForm({
                             setErrors((prev) => ({ ...prev, category: undefined }));
                             setValues((prev) => ({ ...prev, category: next }));
                         }}
-                        disabled={submitting}
+                        disabled={submitting || uploading}
                     >
                         <option value="FREE">자유(FREE)</option>
                         <option value="REVIEW" disabled={!canSelectReview}>
@@ -153,15 +189,12 @@ export default function BoardForm({
                         </option>
                     </select>
 
-                    {/* 안내 문구 */}
                     {!canSelectReview ? (
                         <p className="text-xs text-[#6B7280]">
                             후기(REVIEW) 작성은 <span className="font-semibold">입양 완료자(ADOPTER)</span>만 가능합니다.
                         </p>
                     ) : (
-                        <p className="text-xs text-[#6B7280]">
-                            카테고리에 맞는 게시판으로 등록됩니다.
-                        </p>
+                        <p className="text-xs text-[#6B7280]">카테고리에 맞는 게시판으로 등록됩니다.</p>
                     )}
 
                     {errors.category ? <p className="text-xs text-[#ef4444]">{errors.category}</p> : null}
@@ -175,20 +208,64 @@ export default function BoardForm({
                     placeholder="내용을 입력해주세요."
                     value={values.content}
                     onChange={(event) => setValues((prev) => ({ ...prev, content: event.target.value }))}
-                    disabled={submitting}
+                    disabled={submitting || uploading}
                 />
                 {errors.content ? <p className="text-xs text-[#ef4444]">{errors.content}</p> : null}
             </div>
 
-            <div className="rounded-[16px] border border-dashed border-[#E5E7EB] bg-[#F7F8FA] p-6 text-sm text-[#6B7280]">
-                이미지 업로드 기능은 추후 지원될 예정입니다.
+            {/* 이미지 업로드 */}
+            <div className="space-y-3">
+                <label className="text-sm font-semibold text-[#1F2937]">이미지 첨부</label>
+
+                <div className="rounded-[16px] border border-dashed border-[#E5E7EB] bg-[#F7F8FA] p-6">
+                    <div className="flex flex-wrap items-center justify-between gap-3">
+                        <p className="text-sm text-[#6B7280]">JPG/PNG 등 이미지 파일을 업로드할 수 있습니다.</p>
+
+                        <label className="inline-flex cursor-pointer items-center gap-2 rounded-[12px] bg-white px-4 py-2 text-sm font-semibold text-[#1F2937] shadow-sm ring-1 ring-[#E5E7EB] hover:bg-[#F7F8FA]">
+                            <input
+                                type="file"
+                                accept="image/*"
+                                multiple
+                                className="hidden"
+                                disabled={submitting || uploading}
+                                onChange={(e) => handlePickFiles(e.target.files)}
+                            />
+                            {uploading ? "업로드 중..." : "파일 선택"}
+                        </label>
+                    </div>
+
+                    {uploadError ? <p className="mt-3 text-xs text-[#ef4444]">{uploadError}</p> : null}
+                    {errors.mediaUrls ? <p className="mt-3 text-xs text-[#ef4444]">{errors.mediaUrls}</p> : null}
+
+                    {Array.isArray(values.mediaUrls) && values.mediaUrls.length > 0 ? (
+                        <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4">
+                            {values.mediaUrls.map((url) => (
+                                <div
+                                    key={url}
+                                    className="group relative overflow-hidden rounded-[12px] border border-[#E5E7EB] bg-white"
+                                >
+                                    <img src={url} alt="uploaded" className="h-28 w-full object-cover" />
+                                    <button
+                                        type="button"
+                                        onClick={() => handleRemoveMedia(url)}
+                                        className="absolute right-2 top-2 rounded-full bg-black/60 px-2 py-1 text-xs font-semibold text-white opacity-0 transition group-hover:opacity-100"
+                                    >
+                                        삭제
+                                    </button>
+                                </div>
+                            ))}
+                        </div>
+                    ) : (
+                        <p className="mt-3 text-xs text-[#9CA3AF]">첨부된 이미지가 없습니다.</p>
+                    )}
+                </div>
             </div>
 
             <div className="flex flex-wrap items-center gap-3">
                 <button
                     type="submit"
                     className="h-12 rounded-[12px] bg-[#5B7CFA] px-6 text-sm font-semibold text-white transition hover:brightness-95 disabled:cursor-not-allowed disabled:opacity-60"
-                    disabled={submitting}
+                    disabled={submitting || uploading}
                 >
                     {submitting ? "처리 중..." : submitLabel}
                 </button>
@@ -196,7 +273,7 @@ export default function BoardForm({
                     type="button"
                     className="h-12 rounded-[12px] border border-[#E5E7EB] bg-white px-6 text-sm font-semibold text-[#1F2937] transition hover:bg-[#F7F8FA]"
                     onClick={onCancel}
-                    disabled={submitting || !onCancel}
+                    disabled={submitting || uploading || !onCancel}
                 >
                     {cancelLabel}
                 </button>

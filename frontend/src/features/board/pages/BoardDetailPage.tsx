@@ -338,6 +338,40 @@ export default function BoardDetailPage() {
 
                             <div className="whitespace-pre-line text-sm leading-7 text-[#1F2937]">{detail.content}</div>
 
+                            {/* 첨부 이미지 */}
+                            {Array.isArray(detail.mediaUrls) && detail.mediaUrls.length > 0 ? (
+                                <div className="space-y-3">
+                                    <div className="text-sm font-semibold text-[#1F2937]">첨부 이미지</div>
+
+                                    <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4">
+                                        {detail.mediaUrls.map((url, idx) => (
+                                            <a
+                                                key={`${url}-${idx}`}
+                                                href={url}
+                                                target="_blank"
+                                                rel="noreferrer"
+                                                className="group relative overflow-hidden rounded-[12px] border border-[#E5E7EB] bg-white"
+                                                title="새 창으로 열기"
+                                            >
+                                                <img
+                                                    src={url}
+                                                    alt={`board-media-${idx}`}
+                                                    className="h-40 w-full object-cover transition group-hover:scale-[1.02]"
+                                                    loading="lazy"
+                                                    onError={(e) => {
+                                                        // 깨진 이미지 대비
+                                                        (e.currentTarget as HTMLImageElement).style.display = "none";
+                                                    }}
+                                                />
+                                                <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/50 to-transparent p-2 text-xs font-semibold text-white opacity-0 transition group-hover:opacity-100">
+                                                    새 창으로 보기
+                                                </div>
+                                            </a>
+                                        ))}
+                                    </div>
+                                </div>
+                            ) : null}
+
                             <div className="flex flex-wrap gap-3">
                                 {isOwner && (
                                     <Link

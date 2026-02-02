@@ -5,8 +5,8 @@ import { useAlertModal } from "@/shared/hooks/useAlertModal";
 import BoardForm from "../components/BoardForm";
 import { createBoard, toBoardApiError } from "../api/boardApi";
 import { authStore } from "@/features/auth/store/authStore";
+import type { BoardCategory } from "../types";
 
-type BoardCategory = "FREE" | "REVIEW";
 
 function parseInitialCategory(param: string | null): BoardCategory {
   const v = (param ?? "").toUpperCase();
@@ -27,7 +27,7 @@ export default function BoardCreatePage() {
   }, [searchParams]);
 
   const handleSubmit = useCallback(
-      async (values: { title: string; content: string; category?: string; mediaUrls?: string[] }) => {
+      async (values: { title: string; content: string; category?: BoardCategory; mediaUrls?: string[] }) => {
         if (submitting) return;
         setSubmitting(true);
 

@@ -1,9 +1,10 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { AdoptionDetail, AdoptionStep, MyDog, PostAdoptionProcess, PostAdoptionStep } from "../types";
 import { fetchMyDogs } from "../api/mypageApi";
 import {
   cancelPostAdoptionProcess,
   completePostAdoptionProcess,
+  createAdoptionProcess,
   fetchAdoptionDetail,
   fetchPostAdoptionProcess,
   startPostAdoptionProcess,
@@ -46,7 +47,7 @@ function resolveStepKey(name?: string, stepOrder?: number | null): AdoptionStep 
 export default function useMyPage() {
   const [dogs, setDogs] = useState<MyDog[]>([]);
   const [loading, setLoading] = useState(true);
-  const [adoptionId] = useState<number | null>(() => {
+  const [adoptionId, setAdoptionId] = useState<number | null>(() => {
     const raw = localStorage.getItem(ADOPTION_ID_KEY);
     const value = raw ? Number(raw) : NaN;
     return Number.isFinite(value) && value > 0 ? value : null;
@@ -62,6 +63,7 @@ export default function useMyPage() {
   const [postAdoption, setPostAdoption] = useState<PostAdoptionProcess | null>(null);
   const [postAdoptionLoading, setPostAdoptionLoading] = useState(false);
   const [postAdoptionError, setPostAdoptionError] = useState<string | null>(null);
+  const ensureAdoptionIdRef = useRef(false);
 
   useEffect(() => {
     let mounted = true;
@@ -82,6 +84,14 @@ export default function useMyPage() {
       mounted = false;
     };
   }, []);
+
+  useEffect(() => {
+    if (adoptionId) {
+      localStorage.setItem(ADOPTION_ID_KEY, String(adoptionId));
+    } else {
+      localStorage.removeItem(ADOPTION_ID_KEY);
+    }
+  }, [adoptionId]);
 
   const refreshAdoptionDetail = useCallback(async () => {
     if (!adoptionId) return;
@@ -105,13 +115,16 @@ export default function useMyPage() {
     try {
       const detail = await fetchPostAdoptionProcess(postAdoptionId);
       setPostAdoption(detail);
+      if (!adoptionId && detail.adoptionId) {
+        setAdoptionId(detail.adoptionId);
+      }
     } catch (err) {
       const message = err instanceof Error ? err.message : "Failed to load post-adoption detail.";
       setPostAdoptionError(message);
     } finally {
       setPostAdoptionLoading(false);
     }
-  }, [postAdoptionId]);
+  }, [adoptionId, postAdoptionId]);
 
   useEffect(() => {
     if (!adoptionId) return;
@@ -122,6 +135,39 @@ export default function useMyPage() {
     if (!postAdoptionId) return;
     void refreshPostAdoption();
   }, [postAdoptionId, refreshPostAdoption]);
+
+  const ensureAdoptionId = useCallback(async () => {
+    if (adoptionId || ensureAdoptionIdRef.current) return;
+    ensureAdoptionIdRef.current = true;
+    setAdoptionError(null);
+
+    try {
+      if (postAdoptionId) {
+        const detail = await fetchPostAdoptionProcess(postAdoptionId);
+        setPostAdoption(detail);
+        if (detail.adoptionId) {
+          setAdoptionId(detail.adoptionId);
+          return;
+        }
+      }
+
+      const createdId = await createAdoptionProcess();
+      setAdoptionId(createdId);
+    } catch (err) {
+      const message =
+        err instanceof Error
+          ? err.message
+          : "입양 프로세스를 시작할 수 없습니다. 잠시 후 다시 시도해주세요.";
+      setAdoptionError(message);
+    } finally {
+      ensureAdoptionIdRef.current = false;
+    }
+  }, [adoptionId, postAdoptionId]);
+
+  useEffect(() => {
+    if (adoptionId) return;
+    void ensureAdoptionId();
+  }, [adoptionId, ensureAdoptionId]);
 
   const startPostAdoption = useCallback(async () => {
     if (!adoptionId) {

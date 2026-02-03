@@ -17,5 +17,5 @@ public class AdoptionDetailResponse {
     private AdoptionProcessStatus processStatus;
     private AdoptionStatus status;
     private String rejectionReason;
-    private List<AdoptionStepInstanceResponse> steps;
+    private List<AdoptionStepSummaryResponse> steps;
 }

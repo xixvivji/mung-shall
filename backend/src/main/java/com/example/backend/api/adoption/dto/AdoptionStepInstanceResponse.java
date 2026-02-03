@@ -12,10 +12,10 @@ import java.time.LocalDateTime;
 @Builder
 public class AdoptionStepInstanceResponse {
     private Long id;
-    private AdoptionStepDefResponse stepDef; // 연결
+    private AdoptionStepDefResponse stepDef;
     private AdoptionStepStatus status;
-    private Long approverUserId; // 임시
-    private String approverUserName; // 임시
+    private Long approverUserId;
+    private String approverUserName;
     private LocalDateTime submittedAt;
     private LocalDateTime approvedAt;
     private LocalDateTime completedAt;

@@ -1,4 +1,4 @@
-import { Route, Routes } from "react-router-dom";
+import { BrowserRouter, Route, Routes } from "react-router-dom";
 import AppLayout from "@/app/AppLayout";
 import HomePage from "@/pages/home";
 import AdoptionPage from "@/pages/adoption";
@@ -22,28 +22,31 @@ import MatchingSurveyPage from "@/pages/matching-survey";
 
 export default function AppRoutes() {
   return (
-    <Routes>
-      <Route element={<AppLayout />}>
-        <Route index element={<HomePage />} />
-        <Route path="/adoption" element={<AdoptionPage />} />
-        <Route path="/adoption/:id" element={<AdoptionDetailPage />} />
-        <Route path="/adoption-recommend" element={<AdoptionRecommendPage />} />
-        <Route path="/boards" element={<BoardListPage />} />
-        <Route path="/boards/new" element={<BoardCreatePage />} />
-        <Route path="/boards/:id" element={<BoardDetailPage />} />
-        <Route path="/boards/:id/edit" element={<BoardEditPage />} />
-        <Route path="/auth/login" element={<LoginPage />} />
-        <Route path="/auth/signup" element={<SignupPage />} />
-        <Route path="/oauth/callback" element={<OAuthCallbackPage />} />
-        <Route path="/mypage" element={<MyPage />} />
-        <Route path="/manage" element={<ManagePage />} />
-        <Route path="/center" element={<CenterPage />} />
-        <Route path="/faq" element={<FAQPage />} />
-        <Route path="/uitest" element={<UiTestPage />} />
-        <Route path="/motion" element={<MotionPage />} />
-        <Route path="/matching-survey" element={<MatchingSurveyPage />} />
-        <Route path="*" element={<NotFoundPage />} />
-      </Route>
-    </Routes>
+    <BrowserRouter>
+      <Routes>
+        <Route element={<AppLayout />}>
+          <Route index element={<HomePage />} />
+          <Route path="/adoption" element={<AdoptionPage />} />
+          <Route path="/adoption/:id" element={<AdoptionDetailPage />} />
+          <Route path="/adoption-recommend" element={<AdoptionRecommendPage />} />
+          <Route path="/boards" element={<BoardListPage />} />
+          <Route path="/boards/new" element={<BoardCreatePage />} />
+          <Route path="/boards/:id" element={<BoardDetailPage />} />
+          <Route path="/boards/:id/edit" element={<BoardEditPage />} />
+          <Route path="/auth/login" element={<LoginPage />} />
+          <Route path="/auth/signup" element={<SignupPage />} />
+          <Route path="/oauth/callback" element={<OAuthCallbackPage />} />
+          <Route path="/mypage" element={<MyPage />} />
+          <Route path="/manage" element={<ManagePage />} />
+          <Route path="/center" element={<CenterPage />} />
+          <Route path="/faq" element={<FAQPage />} />
+          <Route path="/uitest" element={<UiTestPage />} />
+          <Route path="/motion" element={<MotionPage />} />
+          <Route path="/matching-survey" element={<MatchingSurveyPage />} />
+          <Route path="*" element={<NotFoundPage />} />
+          
+        </Route>
+      </Routes>
+    </BrowserRouter>
   );
 }

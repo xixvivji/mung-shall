@@ -2,76 +2,42 @@ import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { fetchMe } from "@/features/auth/api/authApi";
 import { authStore } from "@/features/auth/store/authStore";
-import { ApiError, refreshAccessToken } from "@/shared/api/client";
 import { ROUTES } from "@/shared/constants/routes";
-
-const DEFAULT_ERROR_MESSAGE = "º“º» ∑Œ±◊¿Œø° Ω«∆–«ﬂΩ¿¥œ¥Ÿ. ¥ŸΩ√ Ω√µµ«ÿ¡÷ººø‰.";
-
-function stripAccessTokenFromUrl() {
-  const params = new URLSearchParams(window.location.search);
-  if (!params.has("accessToken")) return;
-  params.delete("accessToken");
-  const query = params.toString();
-  const nextUrl = `${window.location.pathname}${query ? `?${query}` : ""}${window.location.hash}`;
-  window.history.replaceState({}, "", nextUrl);
-}
-
-function resolveNextRoute(userType?: string | null) {
-  const normalized = userType?.toLowerCase();
-  return normalized === "shelter" || normalized === "center" ? ROUTES.center : ROUTES.mypage;
-}
-
-function resolveErrorMessage(error: unknown) {
-  if (error instanceof ApiError) {
-    if (error.status === 401 || error.status === 403) {
-      return "∑Œ±◊¿Œ¿Ã ∏∏∑·µ«æ˙Ω¿¥œ¥Ÿ. ¥ŸΩ√ ∑Œ±◊¿Œ«ÿ¡÷ººø‰.";
-    }
-    return error.message || DEFAULT_ERROR_MESSAGE;
-  }
-  if (error instanceof Error) return error.message || DEFAULT_ERROR_MESSAGE;
-  return DEFAULT_ERROR_MESSAGE;
-}
+import { clearAuthTokens, setAuthTokens } from "@/shared/api/client";
 
 export default function OAuthCallbackPage() {
   const navigate = useNavigate();
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    stripAccessTokenFromUrl();
+    const params = new URLSearchParams(window.location.search);
+    const errorCode = params.get("error");
+    const errorMessage = params.get("message");
+    const accessToken = params.get("accessToken");
 
-    const finalizeLogin = async () => {
-      try {
-        const user = await fetchMe({ skipRefresh: true });
+    if (errorCode) {
+      setError(errorMessage ?? "ÏÜåÏÖú Î°úÍ∑∏Ïù∏Ïóê Ïã§Ìå®ÌñàÏäµÎãàÎã§.");
+      return;
+    }
+
+    if (!accessToken) {
+      setError("ÏÜåÏÖú Î°úÍ∑∏Ïù∏ ÌÜ†ÌÅ∞Ïù¥ ÏóÜÏäµÎãàÎã§.");
+      return;
+    }
+
+    setAuthTokens(accessToken);
+    fetchMe(accessToken)
+      .then((user) => {
         authStore.setUser(user);
-        navigate(resolveNextRoute(user?.userType), { replace: true });
-        return;
-      } catch (err) {
-        if (err instanceof ApiError && err.status === 401) {
-          try {
-            await refreshAccessToken("reactive");
-            const user = await fetchMe({ skipRefresh: true });
-            authStore.setUser(user);
-            navigate(resolveNextRoute(user?.userType), { replace: true });
-            return;
-          } catch (refreshErr) {
-            const message = resolveErrorMessage(refreshErr);
-            setError(message);
-            window.setTimeout(() => {
-              navigate(ROUTES.login, { replace: true, state: { error: message } });
-            }, 400);
-            return;
-          }
-        }
-
-        const message = resolveErrorMessage(err);
+        const userType = user?.userType?.toLowerCase();
+        const nextRoute = userType === "shelter" || userType === "center" ? ROUTES.center : ROUTES.mypage;
+        navigate(nextRoute, { replace: true });
+      })
+      .catch((err) => {
+        clearAuthTokens();
+        const message = err instanceof Error ? err.message : "ÏÜåÏÖú Î°úÍ∑∏Ïù∏ Ï≤òÎ¶¨Ïóê Ïã§Ìå®ÌñàÏäµÎãàÎã§.";
         setError(message);
-        window.setTimeout(() => {
-          navigate(ROUTES.login, { replace: true, state: { error: message } });
-        }, 400);
-      }
-    };
-
-    void finalizeLogin();
+      });
   }, [navigate]);
 
   return (
@@ -79,12 +45,17 @@ export default function OAuthCallbackPage() {
       {error ? (
         <div className="text-center">
           <p className="text-[14px] text-[#d14343]">{error}</p>
-          <p className="mt-2 text-[12px] text-[#737373]">∑Œ±◊¿Œ ∆‰¿Ã¡ˆ∑Œ ¿Ãµø ¡ﬂ...</p>
+          <button
+            type="button"
+            onClick={() => navigate(ROUTES.login, { replace: true })}
+            className="mt-4 rounded-[8px] border border-[#e5e5e5] px-4 py-2 text-[12px] text-[#333] hover:text-black"
+          >
+            Î°úÍ∑∏Ïù∏ÏúºÎ°ú ÎèåÏïÑÍ∞ÄÍ∏∞
+          </button>
         </div>
       ) : (
-        <p className="text-[14px] text-[#737373]">º“º» ∑Œ±◊¿Œ √≥∏Æ ¡ﬂ...</p>
+        <p className="text-[14px] text-[#737373]">ÏÜåÏÖú Î°úÍ∑∏Ïù∏ Ï≤òÎ¶¨ Ï§ë...</p>
       )}
     </div>
   );
 }
-

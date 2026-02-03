@@ -101,7 +101,7 @@ export async function refreshAccessToken(reason: RefreshReason = "reactive"): Pr
 }
 
 async function apiRequest(path: string, options: ApiOptions): Promise<Response> {
-  const { skipAuth, skipRefresh, retry, credentials: _credentials, ...init } = options;
+  const { skipAuth, skipRefresh, retry, credentials, ...init } = options;
   const headers = new Headers(init.headers);
   const token = localStorage.getItem("accessToken");
   if (token && !_skipAuth) {
@@ -121,6 +121,12 @@ async function apiRequest(path: string, options: ApiOptions): Promise<Response> 
   }
 
   if (import.meta.env.DEV) {
+    if (skipAuth) {
+      console.debug("[auth] skipAuth enabled", { path, requestId });
+    }
+    if (credentials && credentials !== "include") {
+      console.warn("[http] credentials override ignored", { path, requestId, credentials });
+    }
     console.debug("[http] request", {
       requestId,
       path,
@@ -140,7 +146,7 @@ async function apiRequest(path: string, options: ApiOptions): Promise<Response> 
     credentials: "omit",
   });
 
-  if (response.status === 401 && !skipRefresh && !retry && !isRefreshPath(path)) {
+  if (response.status === 401 && !skipRefresh && !retry && !isAuthPath(path)) {
     try {
       await refreshAccessToken("reactive");
       if (import.meta.env.DEV) {
@@ -181,7 +187,7 @@ function createRequestId() {
   return `req_${Date.now()}_${Math.random().toString(16).slice(2)}`;
 }
 
-function isRefreshPath(path: string) {
-  return path.startsWith("/auth/refresh");
+function isAuthPath(path: string) {
+  return path.startsWith("/auth");
 }
 

@@ -1,5 +1,6 @@
-import type { ReactNode } from "react";
-import { useCallback, useEffect, useMemo, useState, useSyncExternalStore } from "react";
+ï»¿import type { ReactNode } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
+import { useLocation } from "react-router-dom";
 import { fetchMe } from "@/features/auth/api/authApi";
 import { authStore } from "@/features/auth/store/authStore";
 import { ApiError, setAuthExpiredHandler } from "@/shared/api/client";
@@ -10,13 +11,16 @@ type AuthProviderProps = {
   children: ReactNode;
 };
 
-const AUTH_EXPIRED_MESSAGE = "·Î±×ÀÎÀÌ ¸¸·áµÇ¾ú½À´Ï´Ù. ´Ù½Ã ·Î±×ÀÎÇØÁÖ¼¼¿ä.";
+const AUTH_EXPIRED_MESSAGE = "ë¡œê·¸ì¸ì´ ë§Œë£Œë˜ì—ˆìŠµë‹ˆë‹¤. ë‹¤ì‹œ ë¡œê·¸ì¸í•´ì£¼ì„¸ìš”.";
 
 export default function AuthProvider({ children }: AuthProviderProps) {
+  const location = useLocation();
   const user = useSyncExternalStore(authStore.subscribe, authStore.getSnapshot, authStore.getSnapshot);
   const [loading, setLoading] = useState(true);
   const [expiredMessage, setExpiredMessage] = useState<string | null>(null);
   const isAuthenticated = Boolean(user);
+  const hasBootstrapped = useRef(false);
+  const isAuthRoute = location.pathname === "/auth" || location.pathname.startsWith("/auth/");
 
   const expireSession = useCallback((message?: string) => {
     authStore.setUser(null);
@@ -32,7 +36,21 @@ export default function AuthProvider({ children }: AuthProviderProps) {
   );
 
   useEffect(() => {
+    if (isAuthRoute) {
+      setLoading(false);
+      return undefined;
+    }
+    if (isAuthenticated) {
+      hasBootstrapped.current = true;
+      setLoading(false);
+      return undefined;
+    }
+    if (hasBootstrapped.current) {
+      return undefined;
+    }
+
     let active = true;
+    hasBootstrapped.current = true;
     setLoading(true);
 
     fetchMe({ skipRefresh: true })
@@ -56,15 +74,15 @@ export default function AuthProvider({ children }: AuthProviderProps) {
     return () => {
       active = false;
     };
-  }, []);
+  }, [isAuthRoute, isAuthenticated]);
 
   useEffect(() => {
-    if (isAuthenticated) {
+    if (isAuthenticated && !isAuthRoute) {
       refreshScheduler.start();
     } else {
       refreshScheduler.stop();
     }
-  }, [isAuthenticated, refreshScheduler]);
+  }, [isAuthenticated, isAuthRoute, refreshScheduler]);
 
   useEffect(() => {
     return () => refreshScheduler.stop();
@@ -77,11 +95,22 @@ export default function AuthProvider({ children }: AuthProviderProps) {
   }, [isAuthenticated]);
 
   useEffect(() => {
+    if (isAuthRoute) {
+      setAuthExpiredHandler(null);
+      return undefined;
+    }
+
     setAuthExpiredHandler(() => {
       expireSession(AUTH_EXPIRED_MESSAGE);
     });
     return () => setAuthExpiredHandler(null);
-  }, [expireSession]);
+  }, [expireSession, isAuthRoute]);
+
+  useEffect(() => {
+    if (isAuthRoute) {
+      setExpiredMessage(null);
+    }
+  }, [isAuthRoute]);
 
   const handleExpiredClose = useCallback(() => {
     setExpiredMessage(null);
@@ -92,8 +121,8 @@ export default function AuthProvider({ children }: AuthProviderProps) {
     <>
       {children}
       <AlertModal
-        open={Boolean(expiredMessage) && !loading}
-        title="¼¼¼Ç ¸¸·á"
+        open={Boolean(expiredMessage) && !loading && !isAuthRoute}
+        title="ì„¸ì…˜ ë§Œë£Œ"
         message={expiredMessage ?? ""}
         onClose={handleExpiredClose}
       />

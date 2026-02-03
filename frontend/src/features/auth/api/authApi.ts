@@ -1,4 +1,4 @@
-import { api } from "@/shared/api/client";
+import { api, refreshAccessToken } from "@/shared/api/client";
 import type { AuthCredentials, AuthUser, SignUpRequest } from "../types";
 
 type LoginResponse = {
@@ -13,9 +13,8 @@ export async function login(credentials: AuthCredentials): Promise<AuthUser> {
     skipRefresh: true,
   });
 
-  localStorage.setItem("accessToken", res.accessToken);
-
-  return fetchMe();
+  await refreshAccessToken("proactive");
+  return fetchMe({ skipRefresh: true });
 }
 
 export async function fetchMe(options?: { skipRefresh?: boolean }): Promise<AuthUser> {

@@ -1,5 +1,6 @@
 
 import { createRoot } from "react-dom/client";
+import { BrowserRouter } from "react-router-dom";
 import AppProviders from "./app/providers/AppProviders";
 import AppRoutes from "./app/routes";
 import "./styles/index.css";
@@ -9,8 +10,10 @@ if ("scrollRestoration" in history) {
 }
 
 createRoot(document.getElementById("root")!).render(
-  <AppProviders>
-    <AppRoutes />
-  </AppProviders>,
+  <BrowserRouter>
+    <AppProviders>
+      <AppRoutes />
+    </AppProviders>
+  </BrowserRouter>,
 );
   

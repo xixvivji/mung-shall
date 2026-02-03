@@ -1,4 +1,4 @@
-ï»¿import { api, getAccessToken } from "@/shared/api/client";
+import { api, apiBlob } from "@/shared/api/client";
 import type { DocumentType } from "@/features/adoptionApplication/types";
 
 export type ApplicationStatusFilter = "ALL" | "WAITING" | "APPROVED" | "REJECTED";
@@ -78,7 +78,7 @@ const normalizeListItem = (raw: unknown): ShelterAdopterListItem => {
     applicationId: applicationId ?? undefined,
     applicantName: toText(
       item.applicantName ?? item.adopterName ?? item.name ?? item.applicant_name,
-      "ì´ë¦„ ì—†ìŒ"
+      "ÀÌ¸§ ¾øÀ½"
     ),
     applicantPhone: toText(
       item.applicantPhone ?? item.phone ?? item.contact ?? item.applicant_phone,
@@ -134,7 +134,7 @@ export async function verifyShelterAdoption(
   });
 }
 
-// Legacy document endpoints (Swaggerì— ì—†ìŒ)
+// Legacy document endpoints (Swagger¿¡ ¾øÀ½)
 export async function fetchShelterApplicationDocuments(applicationId: number) {
   return api<ShelterApplicationDocument[]>(
     `/shelter/adoptions/applications/${applicationId}/documents`
@@ -142,19 +142,8 @@ export async function fetchShelterApplicationDocuments(applicationId: number) {
 }
 
 export async function fetchShelterDocumentBlob(documentId: number): Promise<Blob> {
-  const token = getAccessToken();
-  const headers = new Headers();
-  if (token) headers.set("Authorization", `Bearer ${token}`);
-
-  const response = await fetch(`/api/shelter/adoptions/documents/${documentId}`, {
-    headers,
-    credentials: "omit",
-  });
-
-  if (!response.ok) {
-    const errorText = await response.text();
-    throw new Error(errorText || response.statusText);
-  }
-
-  return response.blob();
+  return apiBlob(`/shelter/adoptions/documents/${documentId}`);
 }
+
+
+

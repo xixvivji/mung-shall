@@ -1,4 +1,4 @@
-package com.example.backend.api.adoption.dto.application;
+package com.example.backend.api.adoption.dto.survey;
 
 import com.example.backend.domain.adoption.enums.Gender; // UPDATED IMPORT
 import com.example.backend.domain.adoption.enums.MaritalStatus; // UPDATED IMPORT
@@ -15,9 +15,9 @@ import java.util.List;
 @Getter
 @Setter
 @NoArgsConstructor
-public class AdoptionApplicationResponse {
+public class AdoptionSurveyResponse {
 
-    private Long id; // AdoptionApplication ID
+    private Long id; // AdoptionSurvey ID
     private Long stepInstanceId; // Associated AdoptionStepInstance ID
 
     // Personal Information

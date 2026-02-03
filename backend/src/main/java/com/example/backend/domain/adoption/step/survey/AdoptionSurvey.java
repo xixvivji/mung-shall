@@ -1,4 +1,4 @@
-package com.example.backend.domain.adoption.step.application;
+package com.example.backend.domain.adoption.step.survey;
 
 import com.example.backend.domain.adoption.enums.Gender; // UPDATED IMPORT
 import com.example.backend.domain.adoption.enums.MaritalStatus; // UPDATED IMPORT
@@ -22,11 +22,11 @@ import java.util.ArrayList;
 import java.util.List;
 
 @Entity
-@Table(name = "adoption_application")
+@Table(name = "adoption_survey")
 @Getter
 @Setter
 @NoArgsConstructor
-public class AdoptionApplication {
+public class AdoptionSurvey {
 
     @Id
     private Long id;
@@ -62,7 +62,7 @@ public class AdoptionApplication {
 
     // Family Contacts (can be multiple)
     @ElementCollection(fetch = FetchType.LAZY)
-    @CollectionTable(name = "adoption_app_emergency_contact", joinColumns = @JoinColumn(name = "adoption_application_id"))
+    @CollectionTable(name = "adoption_survey_emergency_contact", joinColumns = @JoinColumn(name = "adoption_survey_id"))
     private List<EmergencyContactInfo> emergencyContacts = new ArrayList<>();
 
     // Pet Preference
@@ -81,7 +81,7 @@ public class AdoptionApplication {
     private CohabitantComposition cohabitantComposition;
 
     @ElementCollection(fetch = FetchType.LAZY) // For individual cohabitant details
-    @CollectionTable(name = "adoption_app_cohabitant_detail", joinColumns = @JoinColumn(name = "adoption_application_id"))
+    @CollectionTable(name = "adoption_survey_cohabitant_detail", joinColumns = @JoinColumn(name = "adoption_survey_id"))
     private List<CohabitantDetail> cohabitantDetails = new ArrayList<>();
 
     
@@ -91,7 +91,7 @@ public class AdoptionApplication {
     private Boolean hasCurrentPets; // 현재 함께하고 있는 반려동물이 있으신가요?
 
     @ElementCollection(fetch = FetchType.LAZY)
-    @CollectionTable(name = "adoption_app_current_pet_detail", joinColumns = @JoinColumn(name = "adoption_application_id"))
+    @CollectionTable(name = "adoption_survey_current_pet_detail", joinColumns = @JoinColumn(name = "adoption_survey_id"))
     private List<CurrentPetDetail> currentPetDetails = new ArrayList<>();
 
     // Past Pet Experience
@@ -99,7 +99,7 @@ public class AdoptionApplication {
     private Boolean hasPastPetExperience; // 이전에 반려동물을 양육한 경험이 있으신가요?
 
     @ElementCollection(fetch = FetchType.LAZY)
-    @CollectionTable(name = "adoption_app_past_pet_experience", joinColumns = @JoinColumn(name = "adoption_application_id"))
+    @CollectionTable(name = "adoption_survey_past_pet_experience", joinColumns = @JoinColumn(name = "adoption_survey_id"))
     private List<PastPetExperience> pastPetExperiences = new ArrayList<>();
 
     // Residency Information

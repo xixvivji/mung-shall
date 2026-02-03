@@ -1,4 +1,4 @@
-package com.example.backend.api.adoption.dto.application;
+package com.example.backend.api.adoption.dto.survey;
 
 import com.example.backend.domain.adoption.enums.Gender; // UPDATED IMPORT
 import com.example.backend.domain.adoption.enums.MaritalStatus; // UPDATED IMPORT
@@ -20,7 +20,7 @@ import java.util.List;
 @Getter
 @Setter
 @NoArgsConstructor
-public class AdoptionApplicationRequest {
+public class AdoptionSurveyRequest {
 
     // 개인정보
     @NotBlank(message = "이름은 필수입니다.")

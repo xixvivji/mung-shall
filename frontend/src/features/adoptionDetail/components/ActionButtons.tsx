@@ -7,6 +7,7 @@ import { ApiError } from "@/shared/api/client";
 import { ROUTES } from "@/shared/constants/routes";
 import useAuth from "@/features/auth/hooks/useAuth";
 import { startAdoption } from "@/features/adoption/api/adoptionApi";
+import { fetchAdoptionsByStatus } from "@/features/manage/api/manageApi";
 import useFavoriteDogs, { resolveFavoriteErrorMessage } from "@/features/adoption/hooks/useFavoriteDogs";
 
 type Props = {
@@ -73,6 +74,29 @@ export default function ActionButtons({ dogId }: Props) {
       });
       navigate(`/adoptions/${adoptionId}`);
     } catch (err) {
+      if (
+        err instanceof ApiError &&
+        err.status === 400 &&
+        err.message.includes("이미 해당 유기견에 대한 입양 절차가 진행 중입니다.")
+      ) {
+        const shouldMove = window.confirm(
+          "이미 진행 중인 입양입니다. 입양 관리로 이동할까요?"
+        );
+        if (!shouldMove) return;
+        try {
+          const existing = await fetchAdoptionsByStatus(resolvedUserId, "IN_PROGRESS");
+          const matched =
+            existing.find((item) => item.dogId === numericDogId) ?? existing[0];
+          if (matched?.adoptionId) {
+            navigate(`${ROUTES.manage}?adoptionId=${matched.adoptionId}`);
+          } else {
+            navigate(ROUTES.manage);
+          }
+        } catch {
+          navigate(ROUTES.manage);
+        }
+        return;
+      }
       if (err instanceof ApiError && (err.status === 401 || err.status === 403)) {
         openAlert({ title: "로그인 필요", message: "입양을 진행하려면 로그인이 필요합니다." });
         navigate(ROUTES.login, { state: { from: location.pathname } });

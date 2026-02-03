@@ -1,5 +1,5 @@
 ﻿import { ApiError, api } from "@/shared/api/client";
-import type { AdoptionDetail, AdoptionProcessStatus, LikedDog } from "../types";
+import type { AdoptionProcessStatus, AdoptionStatusSummary, LikedDog } from "../types";
 
 type CreateAdoptionRequest = {
   userId: number;
@@ -86,23 +86,45 @@ export async function createAdoptionProcess(
 export async function fetchAdoptionsByStatus(
   userId: number,
   status: AdoptionProcessStatus
-): Promise<AdoptionDetail[]> {
+): Promise<AdoptionStatusSummary[]> {
   const params = new URLSearchParams({
     userId: String(userId),
     status,
   });
   const data = await api<unknown>(`/adoptions?${params.toString()}`);
-  if (Array.isArray(data)) {
-    return data.filter((item): item is AdoptionDetail => Boolean(item));
-  }
-  if (data && typeof data === "object") {
-    return [data as AdoptionDetail];
-  }
-  return [];
+  const rawItems = Array.isArray(data) ? data : data ? [data] : [];
+  return rawItems
+    .map((item) => normalizeAdoptionStatus(item))
+    .filter((item): item is AdoptionStatusSummary => Boolean(item));
 }
 
 export async function cancelAdoptionProcess(adoptionId: number): Promise<void> {
   await api<void>(`/adoptions/${adoptionId}`, { method: "DELETE" });
+}
+
+function normalizeAdoptionStatus(value: unknown): AdoptionStatusSummary | null {
+  if (!value || typeof value !== "object") return null;
+  const record = value as Record<string, unknown>;
+
+  const adoptionId = resolveAdoptionId(record);
+  const dogId = toNumber(record.dogId ?? record.dog_id);
+
+  if (!adoptionId || !dogId) return null;
+
+  return {
+    adoptionId,
+    dogId,
+    userId: toNumber(record.userId ?? record.user_id) ?? undefined,
+    imageUrl: typeof record.imageUrl === "string" ? record.imageUrl : undefined,
+    kindNm: typeof record.kindNm === "string" ? record.kindNm : undefined,
+    age: typeof record.age === "string" ? record.age : undefined,
+    weight: typeof record.weight === "string" ? record.weight : undefined,
+    careNm: typeof record.careNm === "string" ? record.careNm : undefined,
+    processStatus:
+      typeof record.processStatus === "string"
+        ? (record.processStatus as AdoptionProcessStatus)
+        : undefined,
+  };
 }
 
 export type CounselingResponse = {

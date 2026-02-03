@@ -38,6 +38,18 @@ export type AdoptionStepStatus =
 
 export type AdoptionProcessStatus = "IN_PROGRESS" | "COMPLETED" | "CANCELLED";
 
+export type AdoptionStatusSummary = {
+  adoptionId: number;
+  dogId: number;
+  userId?: number;
+  imageUrl?: string;
+  kindNm?: string;
+  age?: string;
+  weight?: string;
+  careNm?: string;
+  processStatus?: AdoptionProcessStatus | null;
+};
+
 export type AdoptionStepInstance = {
   id: number;
   stepName: string;

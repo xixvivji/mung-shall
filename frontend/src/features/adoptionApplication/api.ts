@@ -7,7 +7,7 @@ import type {
 } from "./types";
 
 const APPLICATION_PATH = (adoptionId: number | string) =>
-  `/adoptions/${adoptionId}/application`;
+  `/adoptions/${adoptionId}/survey`;
 
 type UnknownRecord = Record<string, unknown>;
 

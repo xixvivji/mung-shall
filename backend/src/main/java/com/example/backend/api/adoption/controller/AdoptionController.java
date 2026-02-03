@@ -40,17 +40,17 @@ public class AdoptionController {
         return ResponseEntity.status(HttpStatus.CREATED).body(Map.of("adoptionId", adoptionId));
     }
 
-    @Operation(summary = "입양 프로세스 취소", description = "진행 중인 입양 프로세스를 취소합니다.")
+    @Operation(summary = "입양 프로세스 삭제", description = "진행 중인 입양 프로세스를 삭제합니다.")
     @ApiResponses(value = {
-            @ApiResponse(responseCode = "200", description = "입양 프로세스 취소 성공"),
+            @ApiResponse(responseCode = "200", description = "입양 프로세스 삭제 성공"),
 
             @ApiResponse(responseCode = "404", description = "해당 입양 프로세스를 찾을 수 없음")
     })
     @DeleteMapping("/{adoptionId}")
-    public ResponseEntity<?> cancelAdoptionProcess(
-            @Parameter(description = "취소할 입양 프로세스 ID") @PathVariable Long adoptionId) {
-        adoptionService.cancelAdoptionProcess(adoptionId);
-        return ResponseEntity.ok(Map.of("message", "입양 프로세스가 성공적으로 취소되었습니다."));
+    public ResponseEntity<?> deleteAdoptionProcess(
+            @Parameter(description = "삭제할 입양 프로세스 ID") @PathVariable Long adoptionId) {
+        adoptionService.deleteAdoptionProcess(adoptionId);
+        return ResponseEntity.ok(Map.of("message", "입양 프로세스가 성공적으로 삭제되었습니다."));
     }
 
 

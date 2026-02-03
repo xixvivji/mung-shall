@@ -15,6 +15,7 @@ import com.example.backend.repository.adoption.AdoptionStepDefRepository;
 import com.example.backend.repository.adoption.AdoptionStepInstanceRepository;
 import com.example.backend.repository.UserRepository;
 import com.example.backend.repository.dog.AbandonedDogRepository;
+import com.example.backend.repository.adoption.survey.AdoptionSurveyRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -30,6 +31,7 @@ public class AdoptionService {
     private final AdoptionRepository adoptionRepository;
     private final AdoptionStepDefRepository adoptionStepDefRepository;
     private final AdoptionStepInstanceRepository adoptionStepInstanceRepository;
+    private final AdoptionSurveyRepository adoptionSurveyRepository; // Added
     private final UserRepository userRepository;
     private final AbandonedDogRepository abandonedDogRepository;
 
@@ -90,34 +92,27 @@ public class AdoptionService {
         return adoption.getId();
     }
 
+    // 흠 로직 확인해봐야..
     /**
-     * 입양 프로세스를 취소합니다.
+     * 입양 프로세스를 삭제합니다.
      *
-     * @param adoptionId 취소할 입양 프로세스 ID
+     * @param adoptionId 삭제할 입양 프로세스 ID
      */
-    public void cancelAdoptionProcess(Long adoptionId) {
+    public void deleteAdoptionProcess(Long adoptionId) {
         Adoption adoption = adoptionRepository.findById(adoptionId)
                 .orElseThrow(() -> new IllegalArgumentException("ID에 해당하는 입양을 찾을 수 없습니다: " + adoptionId));
 
-        // 요청 사용자 ID와 Adoption의 userId가 일치하는지 확인
-
-        // 완료되거나 취소된 입양 프로세스 취소 불가
-        if (adoption.getProcessStatus() == AdoptionProcessStatus.COMPLETED ||
-                adoption.getProcessStatus() == AdoptionProcessStatus.CANCELLED) {
-            throw new IllegalStateException("이미 완료되었거나 취소된 입양 프로세스는 취소할 수 없습니다.");
+        // 완료된 입양 프로세스는 삭제 불가
+        if (adoption.getProcessStatus() == AdoptionProcessStatus.COMPLETED) {
+            throw new IllegalStateException("완료된 입양 프로세스는 삭제할 수 없습니다.");
         }
 
-        adoption.setProcessStatus(AdoptionProcessStatus.CANCELLED);
-        adoptionRepository.save(adoption);
+        // AdoptionStepInstance에 연결된 AdoptionSurvey 먼저 삭제
+        adoption.getSteps().forEach(stepInstance ->
+                adoptionSurveyRepository.findById(stepInstance.getId()).ifPresent(adoptionSurveyRepository::delete)
+        );
 
-        // 모든 단계 인스턴스 상태도 CANCELLED로 변경
-        List<AdoptionStepInstance> stepInstances = adoptionStepInstanceRepository.findByAdoptionIdOrderByStepDefStepOrderAsc(adoptionId);
-        for (AdoptionStepInstance stepInstance : stepInstances) {
-            if (stepInstance.getStatus() != AdoptionStepStatus.COMPLETED) { // 완료된 단계는 유지 - 흠,, status 더 늘려서 관리해야하나 completed이나 cancelled된
-                stepInstance.setStatus(AdoptionStepStatus.CANCELLED);
-                adoptionStepInstanceRepository.save(stepInstance);
-            }
-        }
+        adoptionRepository.delete(adoption);
     }
 
     /**

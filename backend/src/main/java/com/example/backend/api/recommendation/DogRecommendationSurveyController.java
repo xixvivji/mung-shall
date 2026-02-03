@@ -4,6 +4,7 @@ import com.example.backend.api.recommendation.dto.DogRecommendationSurveyCreateR
 import com.example.backend.api.recommendation.dto.DogRecommendationSurveyResponse;
 import com.example.backend.api.recommendation.dto.DogRecommendationSurveyUpdateRequest;
 import com.example.backend.service.recommendation.DogRecommendationSurveyService;
+import com.example.backend.security.principal.CustomUserPrincipal;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.media.Content;
@@ -15,8 +16,11 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
 
+// {userId}를 쿼리 파라미터로 쓰지 말고, 인증 정보로 가져오기 파라미터 없이
 @Tag(name = "강아지 추천 설문 API", description = "유저의 강아지 추천 설문 CRUD API")
 @RestController
 @RequestMapping("/api/recommendation/survey")

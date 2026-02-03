@@ -1,5 +1,5 @@
 // src/features/adoption/api/adoptionApi.ts
-import { ApiError, api } from "@/shared/api/client";
+import { api } from "@/shared/api/client";
 import type { AdoptionDog } from "../types";
 
 // --- Types ---
@@ -41,10 +41,13 @@ type FetchAdoptionResult = {
   size: number;
 };
 
-type StartAdoptionResponse = {
-  id?: number;
-  adoptionId?: number;
-  adoption_id?: number;
+export type StartAdoptionRequest = {
+  userId: number;
+  abandonedDogId: number;
+};
+
+export type StartAdoptionResponse = {
+  adoptionId: string;
 };
 
 export type RegionItem = {
@@ -52,7 +55,7 @@ export type RegionItem = {
   name: string;
 };
 
-// --- ì¤‘ë³µ ?”ì²­ ë°©ì???ë³€??---
+// --- ì¤‘ë³µ ìš”ì²­ ë°©ì§€ ë³€ìˆ˜ ---
 let inflightKey = "";
 let inflightController: AbortController | null = null;
 const ALLOWED_SORT_FIELDS: string[] = [];
@@ -66,20 +69,20 @@ export async function fetchDogKinds(): Promise<string[]> {
   return data.filter((value): value is string => typeof value === "string");
 }
 
-/** ????ëª©ë¡ ì¡°íšŒ */
+/** ì‹œë„ ëª©ë¡ ì¡°íšŒ */
 export async function fetchSidoList(): Promise<RegionItem[]> {
   const data = await api<unknown[]>("/region/sido");
   return normalizeRegionItems(data);
 }
 
-/** ??êµ?êµ?ëª©ë¡ ì¡°íšŒ */
+/** ì‹œêµ°êµ¬ ëª©ë¡ ì¡°íšŒ */
 export async function fetchSigunguList(sidoOrgCd: string): Promise<RegionItem[]> {
   if (!sidoOrgCd) return [];
   const data = await api<unknown[]>(`/region/sido/${encodeURIComponent(sidoOrgCd)}/sigungu`);
   return normalizeRegionItems(data);
 }
 
-/** ? ê¸°ê²?ëª©ë¡ ì¡°íšŒ (?„í„°ë§? ?˜ì´ì§? */
+/** ì…ì–‘ê²¬ ëª©ë¡ ì¡°íšŒ (í•„í„°/í˜ì´ì§€) */
 export async function fetchAdoptionList({
                                           page = 0,
                                           size = 12,
@@ -104,7 +107,7 @@ export async function fetchAdoptionList({
 
   const requestPath = `/dogs?${params.toString()}`;
 
-  // ì¤‘ë³µ ?”ì²­ ì·¨ì†Œ ë¡œì§
+  // ì¤‘ë³µ ìš”ì²­ ì·¨ì†Œ ë¡œì§
   if (inflightKey === requestPath && inflightController) {
     inflightController.abort();
   }
@@ -143,34 +146,15 @@ export async function fetchAdoptionList({
 }
 
 /**
- * ÀÔ¾ç ½ÅÃ» ÇÁ·Î¼¼½º ½ÃÀÛ
- * - Swagger/Network ÅÇ¿¡¼­ ¿äÃ» ¹Ùµğ(ÇÊ¼ö/¼±ÅÃ)¿Í ÀÀ´ä Å°(adoptionId µî)¸¦ È®ÀÎÇÏ¼¼¿ä.
+ * ì…ì–‘ ì‹ ì²­ í”„ë¡œì„¸ìŠ¤ ì‹œì‘
+ * - Swagger/Network íƒ­ì—ì„œ ìš”ì²­ ë°”ë””(í•„ìˆ˜/ì„ íƒ)ì™€ ì‘ë‹µ í‚¤(adoptionId ë“±)ë¥¼ í™•ì¸í•˜ì„¸ìš”.
  */
-export async function startAdoption(dogId: number): Promise<{ adoptionId: number }> {
-  if (!Number.isFinite(dogId)) {
-    throw new Error("Invalid dogId.");
-  }
-
-  // NOTE: If the backend rejects a request body, it may respond with 415/400.
-  // Use the fallback below (retry without body) or remove the body per Swagger.
-  const payload = { dogId };
-
-  const request = (withBody: boolean) =>
-    api<StartAdoptionResponse | number | string | null>("/adoptions", {
-      method: "POST",
-      body: withBody ? JSON.stringify(payload) : undefined,
-    });
-
-  let data: StartAdoptionResponse | number | string | null;
-  try {
-    data = await request(true);
-  } catch (err) {
-    if (shouldRetryWithoutBody(err)) {
-      data = await request(false);
-    } else {
-      throw err;
-    }
-  }
+export async function startAdoption(payload: StartAdoptionRequest): Promise<StartAdoptionResponse> {
+  const data = await api<unknown>("/adoptions", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+  });
 
   const adoptionId = resolveAdoptionId(data);
   if (!adoptionId) {
@@ -179,41 +163,29 @@ export async function startAdoption(dogId: number): Promise<{ adoptionId: number
   return { adoptionId };
 }
 
-export async function startAdoptionProcess(dogId: number): Promise<{ adoptionId: number }> {
-  return startAdoption(dogId);
+export async function startAdoptionProcess(
+  payload: StartAdoptionRequest
+): Promise<StartAdoptionResponse> {
+  return startAdoption(payload);
 }
 
 // --- Helper Functions ---
 
-function toNumber(value: unknown): number | null {
-  if (typeof value === "number" && Number.isFinite(value)) return value;
-  if (typeof value === "string" && value.trim() !== "") {
-    const num = Number(value);
-    return Number.isFinite(num) ? num : null;
+function resolveAdoptionId(data: unknown): string | null {
+  if (typeof data === "string") {
+    const trimmed = data.trim();
+    return trimmed.length > 0 ? trimmed : null;
   }
-  return null;
-}
-
-function resolveAdoptionId(data: unknown): number | null {
-  if (typeof data === "number") return data;
-  if (typeof data === "string") return toNumber(data);
+  if (typeof data === "number" && Number.isFinite(data)) {
+    return String(data);
+  }
   if (!data || typeof data !== "object") return null;
   const record = data as Record<string, unknown>;
-  return (
-    toNumber(record.adoptionId) ??
-    toNumber(record.adoption_id) ??
-    toNumber(record.id) ??
-    null
-  );
+  const raw = record.adoptionId ?? record.adoption_id ?? record.id;
+  if (typeof raw === "string") return raw.trim().length > 0 ? raw : null;
+  if (typeof raw === "number" && Number.isFinite(raw)) return String(raw);
+  return null;
 }
-
-function shouldRetryWithoutBody(error: unknown): boolean {
-  if (!(error instanceof ApiError)) return false;
-  if (error.status === 415) return true;
-  if (error.status !== 400) return false;
-  return /body|payload|request|º»¹®|¹Ùµğ/i.test(error.message ?? "");
-}
-
 
 function normalizeRegionItems(data: unknown): RegionItem[] {
   if (!Array.isArray(data)) return [];

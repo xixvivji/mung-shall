@@ -6,8 +6,8 @@ import { Button } from "@/shared/ui/button";
 import { ROUTES } from "@/shared/constants/routes";
 import { ApiError } from "@/shared/api/client";
 
-// NOTE: 아래 타입과 API 함수는 예시입니다.
-// 실제 프로젝트의 구조에 맞게 Dog 상세 정보를 가져오는 API를 연동해야 합니다.
+// NOTE: 아래 데이터와 API 함수는 예시입니다.
+// 실제 프로젝트 구조에 맞게 Dog 상세 정보를 가져오는 API를 연동해야 합니다.
 type DogDetails = {
   id: number;
   name: string;
@@ -18,25 +18,27 @@ type DogDetails = {
 };
 
 async function fetchDogDetails(id: number): Promise<DogDetails> {
-  // 이 부분은 실제 API 호출로 대체되어야 합니다.
-  // 예: const response = await client.get(`/api/v1/dogs/${id}`); return response.data;
+  // TODO: 실제 API 호출로 대체하세요.
+  // 예) const response = await client.get(`/api/v1/dogs/${id}`); return response.data;
   console.log(`Fetching details for dog ${id}...`);
+
   return {
     id,
-    name: "백구",
+    name: "방구",
     breed: "진돗개",
     age: 2,
     imageUrl: `https://placedog.net/500/300?id=${id}`,
-    description: "사람을 아주 좋아하고 똑똑한 백구입니다. 좋은 가족을 기다리고 있어요.",
+    description: "사람을 아주 좋아하고 애교가 많은 방구입니다. 좋은 가족을 기다리고 있어요.",
   };
 }
 
 /**
- * 유기견 상세 페이지 및 입양 신청 시작점
+ * 유기견 상세 페이지 및 입양 신청 시작
  *
- * 라우팅 설정 참고:
- * 이 컴포넌트는 '/adoption/:dogId'와 같은 경로에 렌더링되어야 합니다.
- * React Router를 사용한다면 <Route path="/adoption/:dogId" element={<DogDetailPage />} />와 같이 설정할 수 있습니다.
+ * 라우트 설정 참고:
+ * 이 컴포넌트는 '/adoption/:dogId' 같은 경로로 렌더링되어야 합니다.
+ * React Router를 사용한다면:
+ * <Route path="/adoption/:dogId" element={<DogDetailPage />} />
  */
 export default function DogDetailPage() {
   const { dogId } = useParams<{ dogId: string }>();
@@ -51,7 +53,8 @@ export default function DogDetailPage() {
 
   useEffect(() => {
     const numericDogId = Number(dogId);
-    if (!dogId || isNaN(numericDogId)) {
+
+    if (!dogId || Number.isNaN(numericDogId)) {
       setError("유효하지 않은 ID입니다.");
       setIsLoading(false);
       return;
@@ -67,31 +70,38 @@ export default function DogDetailPage() {
     if (!dogId) return;
 
     if (!user) {
-      // 로그인 페이지로 보내고, 로그인 후 이 페이지로 돌아오도록 설정
+      // 로그인 페이지로 보내고, 로그인 성공 후 현재 페이지로 돌아오도록 state에 from을 전달
       alert("로그인이 필요합니다.");
       navigate(ROUTES.login, { state: { from: location.pathname } });
       return;
     }
 
     setIsApplying(true);
+
     try {
-      const { adoptionId } = await startAdoptionProcess(Number(dogId));
-      // 성공 시 manage 페이지로 이동하여 절차 진행
+      const { adoptionId } = await startAdoptionProcess({
+        userId: user.userId,
+        abandonedDogId: Number(dogId),
+      });
+
+      // 성공 시 manage 페이지로 이동
       alert("입양 신청이 시작되었습니다. 입양 관리 페이지로 이동합니다.");
       navigate(`/manage/${adoptionId}`);
     } catch (err) {
       if (err instanceof ApiError && err.status === 409) {
-        // 409 Conflict: 이미 진행 중인 입양 절차가 있는 경우.
-        // API 응답 본문에 기존 adoptionId가 포함되어 있다고 가정합니다.
-        const existingAdoptionId = (err.data as { adoptionId?: number })?.adoptionId;
+        // 409 Conflict: 이미 진행 중인 입양 프로세스가 있는 경우
+        // API 응답에 기존 adoptionId가 포함되어 있다고 가정
+        const existingAdoptionId = (err as unknown as { data?: { adoptionId?: number | string } }).data?.adoptionId;
+
         const proceed = window.confirm(
           "이미 진행 중인 입양 절차가 있습니다. 입양 관리 페이지로 이동하시겠습니까?"
         );
+
         if (proceed) {
           if (existingAdoptionId) {
             navigate(`/manage/${existingAdoptionId}`);
           } else {
-            alert("진행 중인 입양 절차의 정보를 가져올 수 없습니다. 내 정보 페이지로 이동합니다.");
+            alert("진행 중인 입양 절차 정보를 가져오지 못했습니다. 마이페이지로 이동합니다.");
             navigate(ROUTES.mypage);
           }
         }
@@ -119,14 +129,18 @@ export default function DogDetailPage() {
 
   return (
     <div className="mx-auto max-w-4xl p-8">
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+      <div className="grid grid-cols-1 gap-8 md:grid-cols-2">
         <div>
-          <img src={dog.imageUrl} alt={dog.name} className="w-full h-auto rounded-lg shadow-lg" />
+          <img src={dog.imageUrl} alt={dog.name} className="h-auto w-full rounded-lg shadow-lg" />
         </div>
+
         <div className="flex flex-col">
           <h1 className="text-4xl font-bold">{dog.name}</h1>
-          <p className="text-lg text-gray-600 mt-2">{dog.breed}, {dog.age}살</p>
-          <p className="mt-4 text-gray-800 flex-grow">{dog.description}</p>
+          <p className="mt-2 text-lg text-gray-600">
+            {dog.breed}, {dog.age}살
+          </p>
+          <p className="mt-4 flex-grow text-gray-800">{dog.description}</p>
+
           <Button size="lg" className="mt-6 w-full rounded-lg" onClick={handleApply} disabled={isApplying}>
             {isApplying ? "신청 처리 중..." : "입양 신청하기"}
           </Button>

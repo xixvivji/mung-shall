@@ -73,6 +73,7 @@ services:
     volumes:
       - ./openvidu/coturn:/run/secrets/coturn
       - /var/run/docker.sock:/var/run/docker.sock
+      - ./.env:/opt/openvidu/.env:ro
       - /opt/openvidu/owncert:/opt/openvidu/owncert:ro
     env_file:
       - .env

@@ -6,6 +6,21 @@ import imgRectangle9 from "@/assets/images/10069f785bc9dfbe2bcfa1948bee8f5324f62
 import imgRectangle10 from "@/assets/images/3cd9c99af3198d2940494a44b342281d246c9108.png";
 import imgMungshall1 from "@/assets/images/mung.png";
 
+import { useEffect, useState } from "react";
+import { getTodayStatusCounts } from "../api/todayApi";
+
+type TodayStats = {
+  보호중: number;
+  입양: number;
+  안락사: number;
+};
+
+const INITIAL_TODAY_STATS: TodayStats = {
+  보호중: 0,
+  입양: 0,
+  안락사: 0,
+};
+
 function IcoShape() {
   return (
     <div className="absolute inset-[31.25%_15.8%_35.42%_12.5%]" data-name="ico-shape">
@@ -30,7 +45,10 @@ function Arrow2RightLong() {
 function Group6() {
   return (
     <div className="absolute contents left-[54px] top-[24px]">
-      <p className="absolute css-ew64yg font-['Roboto:Regular','Noto_Sans_KR:Regular',sans-serif] font-normal leading-[12px] left-[54px] text-[12px] text-white top-[30px] tracking-[2.4px] uppercase" style={{ fontVariationSettings: "'wdth' 100" }}>
+      <p
+        className="absolute css-ew64yg font-['Roboto:Regular','Noto_Sans_KR:Regular',sans-serif] font-normal leading-[12px] left-[54px] text-[12px] text-white top-[30px] tracking-[2.4px] uppercase"
+        style={{ fontVariationSettings: "'wdth' 100" }}
+      >
         추천 받기
       </p>
       <Arrow2RightLong />
@@ -263,11 +281,11 @@ function About() {
   );
 }
 
-function StatInfo() {
+function StatInfo({ count }: { count: number }) {
   return (
     <div className="absolute contents left-[183.5px] text-center top-[1234.5px]" data-name="Stat Info.">
       <p className="absolute css-ew64yg font-['DM_Sans:Medium',sans-serif] font-medium leading-[50px] left-[253.5px] text-[#4598ff] text-[44px] top-[1234.5px] translate-x-[-50%]" style={{ fontVariationSettings: "'opsz' 14" }}>
-        34,567
+        {count.toLocaleString()}
       </p>
       <p className="absolute css-ew64yg font-['DM_Sans:Bold','Noto_Sans_KR:Bold',sans-serif] font-bold leading-[34px] left-[254px] text-[24px] text-[rgba(69,152,255,0.5)] top-[1288.5px] translate-x-[-50%]" style={{ fontVariationSettings: "'opsz' 14" }}>
         보호중
@@ -276,11 +294,11 @@ function StatInfo() {
   );
 }
 
-function StatInfo1() {
+function StatInfo1({ count }: { count: number }) {
   return (
     <div className="absolute contents left-[542px] text-center top-[1234.5px]" data-name="Stat Info.">
       <p className="absolute css-ew64yg font-['DM_Sans:Medium',sans-serif] font-medium leading-[50px] left-[599.5px] text-[#4598ff] text-[44px] top-[1234.5px] translate-x-[-50%]" style={{ fontVariationSettings: "'opsz' 14" }}>
-        2,345
+        {count.toLocaleString()}
       </p>
       <p className="absolute css-ew64yg font-['DM_Sans:Bold','Noto_Sans_KR:Bold',sans-serif] font-bold leading-[34px] left-[600px] text-[24px] text-[rgba(69,152,255,0.5)] top-[1288.5px] translate-x-[-50%]" style={{ fontVariationSettings: "'opsz' 14" }}>
         입양
@@ -289,24 +307,11 @@ function StatInfo1() {
   );
 }
 
-function StatInfo2() {
-  return (
-    <div className="absolute contents left-[872.5px] text-center top-[1234.5px]" data-name="Stat Info.">
-      <p className="absolute css-ew64yg font-['DM_Sans:Medium',sans-serif] font-medium leading-[50px] left-[906px] text-[#4598ff] text-[44px] top-[1234.5px] translate-x-[-50%]" style={{ fontVariationSettings: "'opsz' 14" }}>
-        125
-      </p>
-      <p className="absolute css-ew64yg font-['DM_Sans:Bold','Noto_Sans_KR:Bold',sans-serif] font-bold leading-[34px] left-[906px] text-[24px] text-[rgba(69,152,255,0.5)] top-[1288.5px] translate-x-[-50%]" style={{ fontVariationSettings: "'opsz' 14" }}>
-        구조
-      </p>
-    </div>
-  );
-}
-
-function StatInfo3() {
+function StatInfo3({ count }: { count: number }) {
   return (
     <div className="absolute contents left-[1206px] text-center top-[1234.5px]" data-name="Stat Info.">
       <p className="absolute css-ew64yg font-['DM_Sans:Medium',sans-serif] font-medium leading-[50px] left-[1239px] text-[#bcbacd] text-[44px] top-[1234.5px] translate-x-[-50%]" style={{ fontVariationSettings: "'opsz' 14" }}>
-        321
+        {count.toLocaleString()}
       </p>
       <p className="absolute css-ew64yg font-['DM_Sans:Bold','Noto_Sans_KR:Bold',sans-serif] font-bold leading-[34px] left-[1240px] text-[24px] text-[rgba(188,186,205,0.5)] top-[1288.5px] translate-x-[-50%]" style={{ fontVariationSettings: "'opsz' 14" }}>
         안락사
@@ -316,13 +321,36 @@ function StatInfo3() {
 }
 
 function Today() {
+  const [stats, setStats] = useState<TodayStats>(INITIAL_TODAY_STATS);
+
+  useEffect(() => {
+    const fetchTodayStats = async () => {
+      try {
+        const res = await getTodayStatusCounts();
+
+        const next = { ...INITIAL_TODAY_STATS };
+
+        res.forEach(({ status, count }) => {
+          if (status === "보호중") next.보호중 = count;
+          if (status === "종료(입양)") next.입양 = count;
+          if (status === "종료(안락사)") next.안락사 = count;
+        });
+
+        setStats(next);
+      } catch (error) {
+        console.error("Today stats fetch failed", error);
+      }
+    };
+
+    fetchTodayStats();
+  }, []);
+
   return (
     <div className="absolute contents left-[12px] top-[1052px]" data-name="Today">
       <div className="absolute bg-white h-[355px] left-[12px] top-[1052px] w-[1440px]" data-name="Container" />
-      <StatInfo />
-      <StatInfo1 />
-      <StatInfo2 />
-      <StatInfo3 />
+      <StatInfo count={stats.보호중} />
+      <StatInfo1 count={stats.입양} />
+      <StatInfo3 count={stats.안락사} />
       <p className="absolute css-ew64yg font-['Roboto:Light',sans-serif] font-light leading-[64px] left-[648px] text-[#bdbdbd] text-[64px] top-[1092px]" style={{ fontVariationSettings: "'wdth' 100" }}>
         Today
       </p>

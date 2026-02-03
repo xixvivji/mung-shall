@@ -4,6 +4,7 @@ import com.example.backend.api.adoption.dto.AdoptionDetailResponse;
 import com.example.backend.api.adoption.dto.AdoptionStepDefResponse;
 import com.example.backend.api.adoption.dto.AdoptionStepInstanceResponse;
 import com.example.backend.api.adoption.dto.AdoptionStatusResponse;
+import com.example.backend.api.adoption.dto.AdoptionStepSummaryResponse;
 import com.example.backend.domain.adoption.Adoption;
 import com.example.backend.domain.adoption.enums.AdoptionProcessStatus;
 import com.example.backend.domain.adoption.AdoptionStepDef;
@@ -117,7 +118,7 @@ public class AdoptionService {
     }
 
     /**
-     * 입양 상세 정보를 조회합니다.
+     * 입양 스텝별 상태 정보를 조회합니다.
      *
      * @param adoptionId 조회할 입양 프로세스 ID
      * @return 입양 상세 정보 DTO
@@ -128,20 +129,10 @@ public class AdoptionService {
 
         // 요청 사용자 ID와 Adoption의 userId가 일치하는지 확인 or 담당 shelter
 
-        List<AdoptionStepInstanceResponse> stepResponses = adoption.getSteps().stream()
-                .map(stepInstance -> AdoptionStepInstanceResponse.builder()
+        List<AdoptionStepSummaryResponse> stepResponses = adoption.getSteps().stream()
+                .map(stepInstance -> AdoptionStepSummaryResponse.builder()
                         .id(stepInstance.getId())
-                        .stepDef(AdoptionStepDefResponse.builder()
-                                .id(stepInstance.getStepDef().getId())
-                                .stepOrder(stepInstance.getStepDef().getStepOrder())
-                                .stepName(stepInstance.getStepDef().getStepName())
-                                .description(stepInstance.getStepDef().getDescription())
-                                .build())
                         .status(stepInstance.getStatus())
-                        .submittedAt(stepInstance.getSubmittedAt())
-                        .approvedAt(stepInstance.getApprovedAt())
-                        .completedAt(stepInstance.getCompletedAt())
-                        .rejectionReason(stepInstance.getRejectionReason())
                         .build())
                 .collect(Collectors.toList());
 

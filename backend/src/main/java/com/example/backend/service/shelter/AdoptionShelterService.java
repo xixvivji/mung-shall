@@ -108,7 +108,7 @@ public class AdoptionShelterService {
                 .processStatus(adoption.getProcessStatus())
                 .status(adoption.getStatus())
                 .rejectionReason(adoption.getRejectionReason())
-                .steps(stepResponses)
+// 임시                .steps(stepResponses)
                 .build();
     }
 

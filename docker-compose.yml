@@ -143,7 +143,8 @@ services:
       options:
         max-size: "${DOCKER_LOGS_MAX_SIZE:-100M}"
     networks:
-      - app-network
+      app-network:
+        ipv4_address: 172.30.0.10
 
   # 6. MySQL
   mysql:
@@ -224,3 +225,6 @@ volumes:
 networks:
   app-network:
     driver: bridge
+    ipam:
+      config:
+        - subnet: 172.30.0.0/16

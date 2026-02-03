@@ -81,7 +81,7 @@ pipeline {
                         echo "COTURN_SHARED_SECRET_KEY=${OV_SECRET}" >> .env
                         echo "COTURN_IP=13.125.3.38" >> .env
                         echo "COTURN_PUBLIC_IP=13.125.3.38" >> .env
-                        echo "COTURN_PRIVATE_IP=172.26.11.106" >> .env
+                        echo "COTURN_PRIVATE_IP=172.30.0.10" >> .env
                         echo "COTURN_PORT=8700" >> .env
                         echo "COTURN_MIN_PORT=8701" >> .env
                         echo "COTURN_MAX_PORT=8900" >> .env

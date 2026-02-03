@@ -86,6 +86,11 @@ export async function refreshAccessToken(reason: RefreshReason = "reactive"): Pr
       }
       throw error;
     }
+
+    const { accessToken } = await response.json();
+    if (accessToken) {
+      localStorage.setItem("accessToken", accessToken);
+    }
   })();
 
   try {
@@ -96,7 +101,7 @@ export async function refreshAccessToken(reason: RefreshReason = "reactive"): Pr
 }
 
 async function apiRequest(path: string, options: ApiOptions): Promise<Response> {
-  const { skipAuth: _skipAuth, skipRefresh, retry, credentials: _credentials, ...init } = options;
+  const { skipAuth, skipRefresh, retry, credentials: _credentials, ...init } = options;
   const headers = new Headers(init.headers);
   const hasBody = init.body !== undefined;
   const isFormData = typeof FormData !== "undefined" && init.body instanceof FormData;
@@ -118,10 +123,16 @@ async function apiRequest(path: string, options: ApiOptions): Promise<Response> 
     });
   }
 
+  const accessToken = localStorage.getItem("accessToken");
+
+  if (!skipAuth && accessToken && !headers.has("Authorization")) {
+    headers.set("Authorization", `Bearer ${accessToken}`);
+  }
+
   const response = await fetch(`${API_BASE}${path}`, {
     ...init,
     headers,
-    credentials: "include",
+    credentials: "omit",
   });
 
   if (response.status === 401 && !skipRefresh && !retry && !isRefreshPath(path)) {

@@ -1,21 +1,47 @@
 const API_BASE = "/api";
+const ACCESS_TOKEN_KEY = "accessToken";
+const AUTH_USER_KEY = "authUser";
+const REFRESH_WINDOW_MS = 2 * 60 * 1000;
+
+let cachedToken: string | null = null;
+let cachedExpMs: number | null = null;
+let refreshPromise: Promise<string> | null = null;
+
+export function getAccessToken() {
+  const token = localStorage.getItem(ACCESS_TOKEN_KEY);
+  if (token !== cachedToken) {
+    cachedToken = token;
+    cachedExpMs = token ? getJwtExpMs(token) : null;
+  }
+  return token;
+}
+
+export function setAccessToken(token: string) {
+  localStorage.setItem(ACCESS_TOKEN_KEY, token);
+  cachedToken = token;
+  cachedExpMs = token ? getJwtExpMs(token) : null;
+}
+
+export function clearAccessToken() {
+  localStorage.removeItem(ACCESS_TOKEN_KEY);
+  cachedToken = null;
+  cachedExpMs = null;
+}
+
+export function setAuthTokens(accessToken: string) {
+  setAccessToken(accessToken);
+}
+
+export function clearAuthTokens() {
+  clearAccessToken();
+  localStorage.removeItem(AUTH_USER_KEY);
+}
 
 type ApiOptions = RequestInit & {
   skipAuth?: boolean;
   skipRefresh?: boolean;
   retry?: boolean;
 };
-
-export type RefreshReason = "reactive" | "proactive";
-
-type AuthExpiredHandler = (reason: RefreshReason, error: ApiError) => void;
-
-let authExpiredHandler: AuthExpiredHandler | null = null;
-let refreshPromise: Promise<void> | null = null;
-
-export function setAuthExpiredHandler(handler: AuthExpiredHandler | null) {
-  authExpiredHandler = handler;
-}
 
 export class ApiError extends Error {
   status: number;
@@ -28,10 +54,84 @@ export class ApiError extends Error {
 }
 
 export async function api<T>(path: string, options: ApiOptions = {}): Promise<T> {
-  const response = await apiRequest(path, options);
+  const { skipAuth, skipRefresh, retry, credentials, ...init } = options;
+  const headers = new Headers(init.headers);
+  const hasBody = init.body !== undefined;
+  const isFormData = typeof FormData !== "undefined" && init.body instanceof FormData;
+
+  if (!skipAuth && !skipRefresh) {
+    const token = getAccessToken();
+    const remainingMs = token ? getTokenRemainingMs(token) : null;
+    if (remainingMs !== null && remainingMs <= REFRESH_WINDOW_MS && remainingMs > 0) {
+      if (import.meta.env.DEV) {
+        console.debug("[auth] token expiring soon", { remainingMs });
+      }
+      await refreshAccessToken();
+    }
+  }
+
+  if (hasBody && !isFormData && !headers.has("Content-Type")) {
+    headers.set("Content-Type", "application/json");
+  }
+
+  const requestId = createRequestId();
+  if (!headers.has("X-Request-Id")) {
+    headers.set("X-Request-Id", requestId);
+  }
+
+  if (!skipAuth) {
+    const token = getAccessToken();
+    if (token && !headers.has("Authorization")) {
+      headers.set("Authorization", `Bearer ${token}`);
+    } else if (!token && headers.has("Authorization")) {
+      headers.delete("Authorization");
+    }
+  }
+
+  if (import.meta.env.DEV) {
+    const authHeader = headers.get("Authorization");
+    console.debug("[http] request", {
+      requestId,
+      path,
+      method: init.method ?? "GET",
+      hasAuth: Boolean(authHeader),
+      authMasked: authHeader ? `${authHeader.slice(0, 10)}...` : null,
+    });
+  }
+
+  const shouldIncludeCredentials =
+    credentials ?? (path.startsWith("/auth/") ? "include" : "omit");
+
+  const response = await fetch(`${API_BASE}${path}`, {
+    ...init,
+    headers,
+    credentials: shouldIncludeCredentials,
+  });
+
+  if (response.status === 401 && !skipAuth && !skipRefresh && !retry && !isRefreshPath(path)) {
+    try {
+      await refreshAccessToken();
+      if (import.meta.env.DEV) {
+        console.debug("[auth] retrying request after refresh", { path });
+      }
+      return api<T>(path, { ...options, retry: true });
+    } catch {
+      // Refresh errors handled in refreshAccessToken.
+    }
+  }
 
   if (!response.ok) {
-    throw await buildApiError(response);
+    const errorText = await response.text();
+    let message = errorText || response.statusText;
+    try {
+      const parsed = JSON.parse(errorText);
+      if (parsed && typeof parsed.message === "string") {
+        message = parsed.message;
+      }
+    } catch {
+      // ignore JSON parse errors
+    }
+    throw new ApiError(response.status, message || response.statusText);
   }
 
   if (response.status === 204) {
@@ -46,29 +146,49 @@ export async function api<T>(path: string, options: ApiOptions = {}): Promise<T>
   return (await response.text()) as T;
 }
 
-export async function apiBlob(path: string, options: ApiOptions = {}): Promise<Blob> {
-  const response = await apiRequest(path, options);
-
-  if (!response.ok) {
-    throw await buildApiError(response);
+function createRequestId() {
+  if (typeof crypto !== "undefined" && "randomUUID" in crypto) {
+    return crypto.randomUUID();
   }
-
-  return response.blob();
+  return `req_${Date.now()}_${Math.random().toString(16).slice(2)}`;
 }
 
-export async function refreshAccessToken(reason: RefreshReason = "reactive"): Promise<void> {
-  if (refreshPromise) {
-    if (import.meta.env.DEV) {
-      console.info("[auth] refresh lock used", { reason });
-    }
-    return refreshPromise;
-  }
+function isRefreshPath(path: string) {
+  return path.startsWith("/auth/refresh");
+}
 
-  if (import.meta.env.DEV) {
-    console.warn("[auth] refresh attempt", { reason });
+function getTokenRemainingMs(token: string) {
+  const expMs = token === cachedToken ? cachedExpMs : getJwtExpMs(token);
+  if (!expMs) return null;
+  return expMs - Date.now();
+}
+
+function getJwtExpMs(token: string) {
+  const payload = decodeJwtPayload(token);
+  if (!payload || typeof payload.exp !== "number") return null;
+  return payload.exp * 1000;
+}
+
+function decodeJwtPayload(token: string): { exp?: number } | null {
+  const parts = token.split(".");
+  if (parts.length < 2) return null;
+  try {
+    const base64 = parts[1].replace(/-/g, "+").replace(/_/g, "/");
+    const padded = base64.padEnd(base64.length + ((4 - (base64.length % 4)) % 4), "=");
+    const decoded = atob(padded);
+    return JSON.parse(decoded) as { exp?: number };
+  } catch {
+    return null;
   }
+}
+
+async function refreshAccessToken(): Promise<string> {
+  if (refreshPromise) return refreshPromise;
 
   refreshPromise = (async () => {
+    if (import.meta.env.DEV) {
+      console.debug("[auth] refresh start");
+    }
     const requestId = createRequestId();
     const response = await fetch(`${API_BASE}/auth/refresh`, {
       method: "POST",
@@ -80,114 +200,37 @@ export async function refreshAccessToken(reason: RefreshReason = "reactive"): Pr
     });
 
     if (!response.ok) {
-      const error = await buildApiError(response);
-      if (response.status === 401 || response.status === 403) {
-        authExpiredHandler?.(reason, error);
+      const errorText = await response.text();
+      if (import.meta.env.DEV) {
+        console.debug("[auth] refresh failed", {
+          status: response.status,
+          errorText,
+        });
       }
-      throw error;
+      if (response.status === 401 || response.status === 403) {
+        clearAuthTokens();
+        if (typeof window !== "undefined") {
+          window.location.assign("/auth/login");
+        }
+      }
+      throw new ApiError(response.status, errorText || response.statusText);
     }
 
-    const { accessToken } = await response.json();
-    if (accessToken) {
-      localStorage.setItem("accessToken", accessToken);
+    const data = (await response.json()) as { accessToken?: string };
+    if (!data.accessToken) {
+      throw new ApiError(500, "Missing accessToken in refresh response.");
     }
+    setAuthTokens(data.accessToken);
+
+    if (import.meta.env.DEV) {
+      console.debug("[auth] refresh success");
+    }
+    return data.accessToken;
   })();
 
   try {
-    await refreshPromise;
+    return await refreshPromise;
   } finally {
     refreshPromise = null;
   }
 }
-
-async function apiRequest(path: string, options: ApiOptions): Promise<Response> {
-  const { skipAuth, skipRefresh, retry, credentials, ...init } = options;
-  const headers = new Headers(init.headers);
-  const token = localStorage.getItem("accessToken");
-  if (token && !_skipAuth) {
-    headers.set("Authorization", `Bearer ${token}`);
-  }
-
-  const hasBody = init.body !== undefined;
-  const isFormData = typeof FormData !== "undefined" && init.body instanceof FormData;
-
-  if (hasBody && !isFormData && !headers.has("Content-Type")) {
-    headers.set("Content-Type", "application/json");
-  }
-
-  const requestId = createRequestId();
-  if (!headers.has("X-Request-Id")) {
-    headers.set("X-Request-Id", requestId);
-  }
-
-  if (import.meta.env.DEV) {
-    if (skipAuth) {
-      console.debug("[auth] skipAuth enabled", { path, requestId });
-    }
-    if (credentials && credentials !== "include") {
-      console.warn("[http] credentials override ignored", { path, requestId, credentials });
-    }
-    console.debug("[http] request", {
-      requestId,
-      path,
-      method: init.method ?? "GET",
-    });
-  }
-
-  const accessToken = localStorage.getItem("accessToken");
-
-  if (!skipAuth && accessToken && !headers.has("Authorization")) {
-    headers.set("Authorization", `Bearer ${accessToken}`);
-  }
-
-  const response = await fetch(`${API_BASE}${path}`, {
-    ...init,
-    headers,
-    credentials: "omit",
-  });
-
-  if (response.status === 401 && !skipRefresh && !retry && !isAuthPath(path)) {
-    try {
-      await refreshAccessToken("reactive");
-      if (import.meta.env.DEV) {
-        console.debug("[auth] retrying request after refresh", { path });
-      }
-      return apiRequest(path, { ...options, retry: true });
-    } catch {
-      // refreshAccessToken handles auth expiry.
-    }
-  }
-
-  return response;
-}
-
-async function buildApiError(response: Response): Promise<ApiError> {
-  const errorText = await response.text();
-  const message = parseErrorMessage(errorText) || response.statusText;
-  return new ApiError(response.status, message || response.statusText);
-}
-
-function parseErrorMessage(errorText: string) {
-  if (!errorText) return "";
-  try {
-    const parsed = JSON.parse(errorText);
-    if (parsed && typeof parsed.message === "string") {
-      return parsed.message;
-    }
-  } catch {
-    // ignore JSON parse errors
-  }
-  return errorText;
-}
-
-function createRequestId() {
-  if (typeof crypto !== "undefined" && "randomUUID" in crypto) {
-    return crypto.randomUUID();
-  }
-  return `req_${Date.now()}_${Math.random().toString(16).slice(2)}`;
-}
-
-function isAuthPath(path: string) {
-  return path.startsWith("/auth");
-}
-

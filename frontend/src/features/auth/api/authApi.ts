@@ -1,4 +1,4 @@
-import { api, refreshAccessToken } from "@/shared/api/client";
+import { api, setAuthTokens } from "@/shared/api/client";
 import type { AuthCredentials, AuthUser, SignUpRequest } from "../types";
 
 type LoginResponse = {
@@ -6,21 +6,20 @@ type LoginResponse = {
 };
 
 export async function login(credentials: AuthCredentials): Promise<AuthUser> {
-  const res = await api<LoginResponse>("/auth/login", {
+  const { accessToken } = await api<LoginResponse>("/auth/login", {
     method: "POST",
     body: JSON.stringify(credentials),
     skipAuth: true,
-    skipRefresh: true,
   });
 
-  await refreshAccessToken("proactive");
-  return fetchMe({ skipRefresh: true });
+  setAuthTokens(accessToken);
+  return fetchMe(accessToken);
 }
 
-export async function fetchMe(options?: { skipRefresh?: boolean }): Promise<AuthUser> {
+export async function fetchMe(accessToken?: string): Promise<AuthUser> {
+  const authHeader = accessToken?.startsWith("Bearer ") ? accessToken : accessToken ? `Bearer ${accessToken}` : undefined;
   return api<AuthUser>("/members/me", {
-    method: "GET",
-    skipRefresh: options?.skipRefresh,
+    headers: authHeader ? { Authorization: authHeader } : undefined,
   });
 }
 

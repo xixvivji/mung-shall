@@ -20,12 +20,13 @@ function mapShelterProfile(response: ShelterProfileResponse): CenterProfile {
   };
 }
 
-export async function fetchCenterProfile(): Promise<CenterProfile> {
+export async function fetchCenterProfile(_shelterId: number): Promise<CenterProfile> {
   const response = await api<ShelterProfileResponse>("/shelters/me");
   return mapShelterProfile(response);
 }
 
 export async function upsertCenterProfile(
+  _shelterId: number,
   payload: CenterProfileUpdateRequest
 ): Promise<CenterProfile> {
   const requestPayload: ShelterProfileUpdateRequest = {

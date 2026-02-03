@@ -1,10 +1,10 @@
-﻿import imgImage48 from "@/assets/images/social_login_kakao.png";
+import imgImage48 from "@/assets/images/social_login_kakao.png";
 import imgImage47 from "@/assets/images/sicial_login_naver.png";
 import imgImage46 from "@/assets/images/social_login_google.png";
 import imgMungshall2 from "@/assets/images/mung.png";
 import useAuth from "@/features/auth/hooks/useAuth";
-import { useEffect, useState, type FormEvent } from "react";
-import { Link, useLocation, useNavigate } from "react-router-dom";
+import { useState, type FormEvent } from "react";
+import { Link, useNavigate } from "react-router-dom";
 import { ROUTES } from "@/shared/constants/routes";
 import AlertModal from "@/shared/components/AlertModal";
 import { useAlertModal } from "@/shared/hooks/useAlertModal";
@@ -82,8 +82,9 @@ function Divider() {
 type SocialProvider = "google" | "naver" | "kakao";
 
 const getOAuthUrl = (provider: SocialProvider) => {
-  const apiBase = (import.meta.env.VITE_API_BASE_URL ?? "/api").replace(/\/$/, "");
-  return `${apiBase}/auth/oauth/${provider}`;
+  const apiBase = import.meta.env.VITE_API_BASE_URL ?? "/api";
+  const origin = apiBase.startsWith("http") ? new URL(apiBase).origin : "";
+  return `${origin}/oauth2/authorization/${provider}`;
 };
 
 const DEFAULT_ERROR_MESSAGE = "서버 오류가 발생했습니다. 잠시 후 다시 시도해 주세요.";
@@ -121,18 +122,10 @@ function resolveErrorMessage(err: unknown) {
 function Login() {
   const { login } = useAuth();
   const navigate = useNavigate();
-  const location = useLocation();
   const { openAlert, alertProps } = useAlertModal();
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
-
-  useEffect(() => {
-    const state = location.state as { error?: string } | null;
-    if (!state?.error) return;
-    openAlert({ title: "로그인 필요", message: state.error });
-    navigate(location.pathname, { replace: true, state: null });
-  }, [location, navigate, openAlert]);
 
   const handleLogin = async () => {
     if (!username.trim() || !password.trim()) {
@@ -173,16 +166,16 @@ function Login() {
         Login
       </p>
 
-            <input
+      <input
         className="absolute left-[905px] top-[370px] h-[36px] w-[350px] rounded-[8px] border border-[#e5e5e5] px-[12px] text-[14px] shadow-[0px_1px_2px_0px_rgba(0,0,0,0.1)] outline-none"
-        placeholder="Username"
+        placeholder="아이디"
         value={username}
         onChange={(event) => setUsername(event.target.value)}
       />
       <input
         type="password"
         className="absolute left-[905px] top-[422px] h-[36px] w-[350px] rounded-[8px] border border-[#e5e5e5] px-[12px] text-[14px] shadow-[0px_1px_2px_0px_rgba(0,0,0,0.1)] outline-none"
-        placeholder="Password"
+        placeholder="비밀번호"
         value={password}
         onChange={(event) => setPassword(event.target.value)}
       />

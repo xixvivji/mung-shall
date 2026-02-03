@@ -2,6 +2,7 @@ import { useCallback, useSyncExternalStore } from "react";
 import type { AuthCredentials } from "../types";
 import { login as loginApi, logout as logoutApi } from "../api/authApi";
 import { authStore } from "../store/authStore";
+import axios from "axios";
 
 export default function useAuth() {
   const user = useSyncExternalStore(authStore.subscribe, authStore.getSnapshot, authStore.getSnapshot);
@@ -9,17 +10,27 @@ export default function useAuth() {
 
   const login = useCallback(async (credentials: AuthCredentials) => {
     const loggedInUser = await loginApi(credentials);
+
     authStore.setUser(loggedInUser);
+
+    if (loggedInUser?.accessToken) {
+
+      localStorage.setItem("accessToken", loggedInUser.accessToken);
+      axios.defaults.headers.common["Authorization"] = `Bearer ${loggedInUser.accessToken}`;
+    }
+
     return loggedInUser;
   }, []);
 
   const logout = useCallback(async () => {
     try {
       await logoutApi();
-    } catch {
-      // Ignore logout errors to ensure local state is still cleared.
+
     } finally {
       authStore.setUser(null);
+
+      localStorage.removeItem("accessToken");
+      delete axios.defaults.headers.common["Authorization"];
     }
   }, []);
 

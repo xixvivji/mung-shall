@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { VideoCallModal } from "@/features/video-call";
 import { Button } from "@/shared/ui/button";
 import { CheckCircle2, Circle, Video, Calendar } from "lucide-react";
 import { ApiError } from "@/shared/api/client";
@@ -70,6 +71,7 @@ export function PostAdoptionTools({
   const [completeError, setCompleteError] = useState<string | null>(null);
   const [completeMessage, setCompleteMessage] = useState<string | null>(null);
   const [rejectReason, setRejectReason] = useState("");
+  const [isVideoCallOpen, setIsVideoCallOpen] = useState(false);
 
   const orderedSteps = useMemo(() => {
     if (!steps) return [];
@@ -387,30 +389,36 @@ export function PostAdoptionTools({
             <Video className="w-7 h-7 text-white" />
           </div>
           <div>
-            <h2 className="text-xl text-gray-900 mb-1">?? ?? ??</h2>
-            <p className="text-sm text-gray-600">???? 1:1 ??? ?????.</p>
+            <h2 className="text-xl text-gray-900 mb-1">화상 미팅 입장</h2>
+            <p className="text-sm text-gray-600">담당자와 1:1 상담 진행</p>
           </div>
         </div>
 
         <div className="bg-white rounded-xl p-5 mb-6">
           <div className="flex items-center gap-3 mb-3">
             <Calendar className="w-5 h-5 text-gray-400" />
-            <span className="text-sm text-gray-600">??? ??</span>
+            <span className="text-sm text-gray-600">예약된 일정</span>
           </div>
           <div className="flex items-baseline gap-2 mb-1">
-            <span className="text-2xl font-semibold text-gray-900">1? 28?</span>
-            <span className="text-gray-500">???</span>
+            <span className="text-2xl font-semibold text-gray-900">2월 28일</span>
+            <span className="text-gray-500">화요일</span>
           </div>
-          <p className="text-lg text-blue-600">?? 2:00 - 2:30</p>
+          <p className="text-lg text-blue-600">오후 2:00 - 2:30</p>
         </div>
 
-        <Button className="w-full bg-blue-400 hover:bg-blue-500 text-white rounded-lg h-12">
-          ?? ?? ????
+        <Button className="w-full bg-blue-400 hover:bg-blue-500 text-white rounded-lg h-12" onClick={() => setIsVideoCallOpen(true)}>
+          통화 입장하기
         </Button>
 
         <button className="w-full mt-3 text-sm text-blue-600 hover:text-blue-700">
-          ?? ????
+          예약 변경하기
         </button>
+
+        <VideoCallModal
+          open={isVideoCallOpen}
+          onClose={() => setIsVideoCallOpen(false)}
+          roomId={postAdoptionId ? String(postAdoptionId) : undefined}
+        />
       </div>
     </div>
   );

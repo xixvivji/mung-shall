@@ -156,9 +156,7 @@ EOF
                         sh 'docker rm -f backend-server frontend-server openvidu-server openvidu-coturn kms || true'
                         sh 'docker-compose down || true'
 
-                        sh 'docker-compose up -d --force-recreate --build backend frontend openvidu-server kms coturn mysql redis prometheus grafana node-exporter'
-
-                        sh 'docker image prune -f'
+                        sh 'docker-compose up -d --force-recreate backend frontend openvidu-server kms coturn mysql redis prometheus grafana node-exporter'
                     }
                 }
             }

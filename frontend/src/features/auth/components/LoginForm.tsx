@@ -3,8 +3,8 @@ import imgImage47 from "@/assets/images/sicial_login_naver.png";
 import imgImage46 from "@/assets/images/social_login_google.png";
 import imgMungshall2 from "@/assets/images/mung.png";
 import useAuth from "@/features/auth/hooks/useAuth";
-import { useState, type FormEvent } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { useEffect, useState, type FormEvent } from "react";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import { ROUTES } from "@/shared/constants/routes";
 import AlertModal from "@/shared/components/AlertModal";
 import { useAlertModal } from "@/shared/hooks/useAlertModal";
@@ -25,15 +25,15 @@ function Text() {
     >
       <p className="text-center text-[14px] leading-[20px] text-[#737373]">
         <Link className="underline" to="/auth/signup">
-          회원가입
+          ?�원가??
         </Link>
         <span>{`  |  `}</span>
         <Link className="underline" to="/auth/find-id">
-          아이디찾기
+          ?�이?�찾�?
         </Link>
         <span>{`  |  `}</span>
         <Link className="underline" to="/auth/find-pw">
-          비밀번호 찾기
+          비�?번호 찾기
         </Link>
       </p>
     </div>
@@ -82,12 +82,11 @@ function Divider() {
 type SocialProvider = "google" | "naver" | "kakao";
 
 const getOAuthUrl = (provider: SocialProvider) => {
-  const apiBase = import.meta.env.VITE_API_BASE_URL ?? "/api";
-  const origin = apiBase.startsWith("http") ? new URL(apiBase).origin : "";
-  return `${origin}/oauth2/authorization/${provider}`;
+  const apiBase = (import.meta.env.VITE_API_BASE_URL ?? "/api").replace(/\/$/, "");
+  return `${apiBase}/auth/oauth/${provider}`;
 };
 
-const DEFAULT_ERROR_MESSAGE = "서버 오류가 발생했습니다. 잠시 후 다시 시도해 주세요.";
+const DEFAULT_ERROR_MESSAGE = "?�버 ?�류가 발생?�습?�다. ?�시 ???�시 ?�도??주세??";
 
 function parseErrorMessage(rawMessage: string) {
   const trimmed = rawMessage.trim();
@@ -107,9 +106,9 @@ function resolveErrorMessage(err: unknown) {
   if (err instanceof ApiError) {
     const parsed = parseErrorMessage(err.message);
     if (parsed) return parsed;
-    if (err.status === 400) return "입력값을 확인해 주세요.";
-    if (err.status === 401 || err.status === 403) return "로그인이 필요하거나 권한이 없습니다.";
-    if (err.status === 404) return "요청한 기능을 찾을 수 없습니다.";
+    if (err.status === 400) return "?�력값을 ?�인??주세??";
+    if (err.status === 401 || err.status === 403) return "로그?�이 ?�요?�거??권한???�습?�다.";
+    if (err.status === 404) return "?�청??기능??찾을 ???�습?�다.";
     if (err.status === 500) return DEFAULT_ERROR_MESSAGE;
     return DEFAULT_ERROR_MESSAGE;
   }
@@ -122,14 +121,22 @@ function resolveErrorMessage(err: unknown) {
 function Login() {
   const { login } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
   const { openAlert, alertProps } = useAlertModal();
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
 
+  useEffect(() => {
+    const state = location.state as { error?: string } | null;
+    if (!state?.error) return;
+    openAlert({ title: "�α��� �ʿ�", message: state.error });
+    navigate(location.pathname, { replace: true, state: null });
+  }, [location, navigate, openAlert]);
+
   const handleLogin = async () => {
     if (!username.trim() || !password.trim()) {
-      openAlert({ title: "로그인 실패", message: "아이디와 비밀번호를 입력해주세요." });
+      openAlert({ title: "로그???�패", message: "?�이?��? 비�?번호�??�력?�주?�요." });
       return;
     }
     setLoading(true);
@@ -139,7 +146,7 @@ function Login() {
       const nextRoute = userType === "shelter" || userType === "center" ? ROUTES.center : ROUTES.mypage;
       navigate(nextRoute);
     } catch (err) {
-      openAlert({ title: "로그인 실패", message: resolveErrorMessage(err) });
+      openAlert({ title: "로그???�패", message: resolveErrorMessage(err) });
     } finally {
       setLoading(false);
     }
@@ -168,14 +175,14 @@ function Login() {
 
       <input
         className="absolute left-[905px] top-[370px] h-[36px] w-[350px] rounded-[8px] border border-[#e5e5e5] px-[12px] text-[14px] shadow-[0px_1px_2px_0px_rgba(0,0,0,0.1)] outline-none"
-        placeholder="아이디"
+        placeholder="?�이??
         value={username}
         onChange={(event) => setUsername(event.target.value)}
       />
       <input
         type="password"
         className="absolute left-[905px] top-[422px] h-[36px] w-[350px] rounded-[8px] border border-[#e5e5e5] px-[12px] text-[14px] shadow-[0px_1px_2px_0px_rgba(0,0,0,0.1)] outline-none"
-        placeholder="비밀번호"
+        placeholder="비�?번호"
         value={password}
         onChange={(event) => setPassword(event.target.value)}
       />
@@ -185,7 +192,7 @@ function Login() {
         type="submit"
         disabled={loading}
       >
-        {loading ? "로그인 중..." : "Log In"}
+        {loading ? "로그??�?.." : "Log In"}
       </button>
 
       <Divider />
@@ -235,3 +242,8 @@ export default function Component051Login() {
     </div>
   );
 }
+
+
+
+
+

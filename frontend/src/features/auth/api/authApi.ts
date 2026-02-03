@@ -1,25 +1,21 @@
-import { api, setAuthTokens } from "@/shared/api/client";
+import { api } from "@/shared/api/client";
 import type { AuthCredentials, AuthUser, SignUpRequest } from "../types";
 
-type LoginResponse = {
-  accessToken: string;
-};
-
 export async function login(credentials: AuthCredentials): Promise<AuthUser> {
-  const { accessToken } = await api<LoginResponse>("/auth/login", {
+  await api<void>("/auth/login", {
     method: "POST",
     body: JSON.stringify(credentials),
     skipAuth: true,
+    skipRefresh: true,
   });
 
-  setAuthTokens(accessToken);
-  return fetchMe(accessToken);
+  return fetchMe();
 }
 
-export async function fetchMe(accessToken?: string): Promise<AuthUser> {
-  const authHeader = accessToken?.startsWith("Bearer ") ? accessToken : accessToken ? `Bearer ${accessToken}` : undefined;
+export async function fetchMe(options?: { skipRefresh?: boolean }): Promise<AuthUser> {
   return api<AuthUser>("/members/me", {
-    headers: authHeader ? { Authorization: authHeader } : undefined,
+    method: "GET",
+    skipRefresh: options?.skipRefresh,
   });
 }
 

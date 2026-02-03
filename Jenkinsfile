@@ -73,17 +73,17 @@ pipeline {
                         sh """
                         # --- OpenVidu ---
                         echo "OPENVIDU_SECRET=${OV_SECRET}" > .env
-                        echo "OPENVIDU_URL=https://host.docker.internal:5443" >> .env
-                        echo "OPENVIDU_PUBLIC_URL=https://i14c109.p.ssafy.io/openvidu" >> .env
+                        echo "OPENVIDU_URL=https://host.docker.internal:8443" >> .env
+                        echo "OPENVIDU_PUBLIC_URL=https://i14c109.p.ssafy.io:8443" >> .env
                         echo "DOMAIN_OR_PUBLIC_IP=i14c109.p.ssafy.io" >> .env
                         echo "OPENVIDU_CERTIFICATE_TYPE=owncert" >> .env
                         echo "COTURN_SHARED_SECRET_KEY=${OV_SECRET}" >> .env
                         echo "COTURN_IP=13.125.3.38" >> .env
                         echo "COTURN_PUBLIC_IP=13.125.3.38" >> .env
                         echo "COTURN_PRIVATE_IP=172.26.11.106" >> .env
-                        echo "COTURN_PORT=3478" >> .env
-                        echo "COTURN_MIN_PORT=60000" >> .env
-                        echo "COTURN_MAX_PORT=60100" >> .env
+                        echo "COTURN_PORT=8700" >> .env
+                        echo "COTURN_MIN_PORT=8701" >> .env
+                        echo "COTURN_MAX_PORT=8900" >> .env
                         echo "OPENVIDU_RECORDING_PATH=/opt/openvidu/recordings" >> .env
                         echo "OPENVIDU_RECORDING_CUSTOM_LAYOUT=/opt/openvidu/custom-layout" >> .env
                         echo "OPENVIDU_CDR_PATH=/opt/openvidu/cdr" >> .env

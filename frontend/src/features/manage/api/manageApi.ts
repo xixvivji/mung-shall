@@ -72,7 +72,7 @@ export async function fetchLikedDogs(): Promise<FetchLikedDogsResult> {
 export async function createAdoptionProcess(
   payload: CreateAdoptionRequest
 ): Promise<number> {
-  const data = await api<unknown>("/adoptions/", {
+  const data = await api<unknown>("/adoptions", {
     method: "POST",
     body: JSON.stringify(payload),
   });

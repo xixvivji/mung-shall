@@ -59,11 +59,15 @@ public class AdoptionApplicationService {
                 .orElseThrow(() -> new IllegalArgumentException("입양 신청서 제출 단계를 찾을 수 없습니다."));
 
         // 1단계(입양 신청서 제출)이 가능 상태인지 확인
-        if (applicationStep.getStatus() != AdoptionStepStatus.PENDING && // 제출 대기
-                applicationStep.getStatus() != AdoptionStepStatus.SUBMITTED && // 제출시 수정 가능
-                applicationStep.getStatus() != AdoptionStepStatus.REJECTED && // 반려되었을 경우 재제출 가능
-                adoption.getProcessStatus() == AdoptionProcessStatus.IN_PROGRESS
-        ) {
+        boolean canSubmitStep =
+                applicationStep.getStatus() == AdoptionStepStatus.PENDING ||
+                        applicationStep.getStatus() == AdoptionStepStatus.SUBMITTED ||
+                        applicationStep.getStatus() == AdoptionStepStatus.REJECTED;
+
+        boolean isProcessActive =
+                adoption.getProcessStatus() == AdoptionProcessStatus.IN_PROGRESS;
+
+        if (!canSubmitStep || !isProcessActive) {
             throw new IllegalStateException("입양 신청서를 제출할 수 있는 상태가 아닙니다");
         }
 
@@ -114,7 +118,7 @@ public class AdoptionApplicationService {
 
         // 제출된 상태가 아니면 삭제할 필요 없음
         if (applicationStep.getStatus() == AdoptionStepStatus.PENDING || applicationStep.getStatus() == AdoptionStepStatus.NOT_STARTED) {
-            return; // 이미 비어있는 상태이므로 아무것도 하지 않음
+            return; // 이미 비어있는 상태이므로 아무것도 하지 않음, 상태 코드로 알려주기??
         }
 
         // 관리자에 의해 완료된 상태라면 사용자가 임의로 삭제할 수 없음

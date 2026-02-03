@@ -18,6 +18,7 @@ import com.example.backend.repository.adoption.AdoptionStepInstanceRepository;
 import com.example.backend.repository.UserRepository;
 import com.example.backend.repository.dog.AbandonedDogRepository;
 import com.example.backend.repository.adoption.survey.AdoptionSurveyRepository;
+import com.example.backend.repository.dog.interest.UserDogInterestRepository; // Added
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -36,6 +37,7 @@ public class AdoptionService {
     private final AdoptionSurveyRepository adoptionSurveyRepository; // Added
     private final UserRepository userRepository;
     private final AbandonedDogRepository abandonedDogRepository;
+    private final UserDogInterestRepository userDogInterestRepository; // Added
 
 
     /**
@@ -57,6 +59,9 @@ public class AdoptionService {
         if (adoptionRepository.findByAbandonedDogAndProcessStatus(dog, AdoptionProcessStatus.IN_PROGRESS).isPresent()) {
             throw new IllegalArgumentException("이미 해당 유기견에 대한 입양 절차가 진행 중입니다.");
         }
+
+        // 강아지가 좋아요 표시되어 있는지 확인하고, 좋아요가 있다면 취소
+        userDogInterestRepository.findByUserAndAbandonedDog(user, dog).ifPresent(userDogInterestRepository::delete);
 
         // 입양 정보 생성
         Adoption adoption = new Adoption();

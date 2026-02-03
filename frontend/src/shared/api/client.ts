@@ -98,6 +98,11 @@ export async function refreshAccessToken(reason: RefreshReason = "reactive"): Pr
 async function apiRequest(path: string, options: ApiOptions): Promise<Response> {
   const { skipAuth: _skipAuth, skipRefresh, retry, credentials: _credentials, ...init } = options;
   const headers = new Headers(init.headers);
+  const token = localStorage.getItem("accessToken");
+  if (token && !_skipAuth) {
+    headers.set("Authorization", `Bearer ${token}`);
+  }
+
   const hasBody = init.body !== undefined;
   const isFormData = typeof FormData !== "undefined" && init.body instanceof FormData;
 

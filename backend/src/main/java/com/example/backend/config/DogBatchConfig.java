@@ -2,9 +2,16 @@ package com.example.backend.config;
 
 import com.example.backend.api.dog.dto.PublicApiResponse;
 import com.example.backend.domain.dog.AbandonedDog;
+import com.example.backend.domain.dog.DogKind;
+import com.example.backend.domain.dog.personality.DogPersonality;
+import com.example.backend.domain.shelter.Shelter;
 import com.example.backend.repository.dog.AbandonedDogRepository;
+import com.example.backend.repository.dog.DogKindRepository;
+import com.example.backend.repository.dog.personality.DogPersonalityRepository;
+import com.example.backend.repository.shelter.ShelterRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.batch.core.Job;
 import org.springframework.batch.core.Step;
 import org.springframework.batch.core.job.builder.JobBuilder;
@@ -18,11 +25,13 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.web.client.RestClient;
+import org.springframework.web.client.RestTemplate;
 import org.springframework.web.util.UriComponentsBuilder;
 
 import java.net.URI;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
@@ -34,13 +43,26 @@ public class DogBatchConfig {
 
     private final JobRepository jobRepository;
     private final PlatformTransactionManager transactionManager;
+
     private final AbandonedDogRepository abandonedDogRepository;
+    private final ShelterRepository shelterRepository;
+    private final DogKindRepository dogKindRepository;
+    private final DogPersonalityRepository dogPersonalityRepository;
+
+    private final RestTemplate restTemplate;
+    private final ChatClient.Builder chatClientBuilder;
+
+    @Value("${api.abandoned-dog.url}")
+    private String apiUrl;
 
     @Value("${api.abandoned-dog.serviceKey}")
     private String serviceKey;
 
-    @Value("${api.abandoned-dog.url}")
-    private String apiUrl;
+    @Value("${api.abandoned-dog.upkind}")
+    private String upkind;
+
+    @Value("${api.abandoned-dog.numOfRows}")
+    private int numOfRows;
 
     @Bean
     public Job updateDogDataJob() {
@@ -64,22 +86,19 @@ public class DogBatchConfig {
 
     @Bean
     public ItemReader<PublicApiResponse.Item> publicApiItemReader() {
-        // 실제로는 페이징 처리가 필요하지만, 일단 오늘 날짜 기준 1회 호출로 가정
-        // 데이터가 많다면 PaginationItemReader 등을 구현해야 함
-
         return new ItemReader<PublicApiResponse.Item>() {
-            private boolean isRead = false; // 한 번만 읽도록 플래그 설정
-            private List<PublicApiResponse.Item> items = null;
+            private List<PublicApiResponse.Item> items;
             private int nextIndex = 0;
 
             @Override
             public PublicApiResponse.Item read() {
-                if (!isRead) {
+                if (items == null) {
+                    log.info("[Batch] 공공데이터 API 전체 수집 시작...");
                     items = fetchDogsFromApi();
-                    isRead = true;
+                    log.info("[Batch] 수집 완료. 총 {}건 처리 대기 중. ", items.size());
                 }
 
-                if (items != null && nextIndex < items.size()) {
+                if (nextIndex < items.size()) {
                     return items.get(nextIndex++);
                 }
                 return null; // 데이터 끝
@@ -87,73 +106,77 @@ public class DogBatchConfig {
         };
     }
 
-    // 실제 API 호출 로직 (RestClient 사용)
+    // API 페이징 루프 로직
     private List<PublicApiResponse.Item> fetchDogsFromApi() {
-        try {
-            // 날짜 범위 설정 (어제 ~ 오늘 데이터 갱신)
-            String today = LocalDate.now().format(DateTimeFormatter.ofPattern("yyyyMMdd"));
-            String yesterday = LocalDate.now().minusDays(1).format(DateTimeFormatter.ofPattern("yyyyMMdd"));
+        int pageNo = 1;
+        List<PublicApiResponse.Item> allItems = new ArrayList<>();
 
-            URI uri = UriComponentsBuilder.fromHttpUrl(apiUrl)
-                    .queryParam("serviceKey", serviceKey)
-                    .queryParam("bgnde", yesterday) // 시작일
-                    .queryParam("endde", today)     // 종료일
-                    .queryParam("numOfRows", "100") // 한 번에 가져올 개수
-                    .queryParam("_type", "json")    // JSON 요청
-                    .build(true)
-                    .toUri();
+        // 첫 페이지 호출
+        PublicApiResponse firstResponse = callApi(pageNo);
+        if(firstResponse == null || firstResponse.getResponse().getBody() == null) return allItems;
 
-            log.info("📡 공공데이터 API 호출: {}", uri);
+        int totalCount = firstResponse.getResponse().getBody().getTotalCount();
+        if(totalCount == 0) return allItems;
 
-            PublicApiResponse response = RestClient.create().get()
-                    .uri(uri)
-                    .retrieve()
-                    .body(PublicApiResponse.class);
+        List<PublicApiResponse.Item> firstItems = firstResponse.getResponse().getBody().getItems().getItem();
+        if(firstItems != null) allItems.addAll(firstItems);
 
-            if (response != null && response.getResponse() != null
-                    && response.getResponse().getBody() != null
-                    && response.getResponse().getBody().getItems() != null) {
+        int totalPages = (int)Math.ceil((double)totalCount / numOfRows);
 
-                return response.getResponse().getBody().getItems().getItem();
+        // 나머지 페이지 호출
+        for(pageNo = 2; pageNo <= totalPages; pageNo++) {
+            PublicApiResponse response = callApi(pageNo);
+            if(response != null && response.getResponse().getBody() != null && response.getResponse().getBody().getItems().getItem() != null) {
+                allItems.addAll(response.getResponse().getBody().getItems().getItem());
             }
-        } catch (Exception e) {
-            log.error("❌ API 호출 실패: {}", e.getMessage());
         }
-        return Collections.emptyList();
+
+        return allItems;
     }
 
+    private PublicApiResponse callApi(int pageNo) {
+        URI uri = UriComponentsBuilder.fromUriString(apiUrl)
+                .queryParam("serviceKey", serviceKey)
+                .queryParam("upkind", upkind)
+                .queryParam("numOfRows", numOfRows)
+                .queryParam("pageNo", pageNo)
+                .queryParam("_type", "json")
+                .build(true)
+                .toUri();
 
-    // --- [2. Processor] DTO -> Entity 변환 ---
+        return restTemplate.getForObject(uri, PublicApiResponse.class);
+    }
+
+    // --- [2. Processor] DTO -> Entity 변환 + AI 분석 ---
     @Bean
     public ItemProcessor<PublicApiResponse.Item, AbandonedDog> dogItemProcessor() {
         return item -> {
-            // 1. 기존 데이터 확인 (중복 방지)
-            Optional<AbandonedDog> existingDog = abandonedDogRepository.findByDesertionNo(item.getDesertionNo());
+            boolean exists = abandonedDogRepository.existsByDesertionNo(item.getDesertionNo());
+            if(exists) return null;
 
-            AbandonedDog dog;
-            if (existingDog.isPresent()) {
-                // 이미 존재하면 업데이트 (상태 변경 등)
-                dog = existingDog.get();
-                log.debug("🔄 기존 강아지 업데이트: {}", item.getDesertionNo());
-            } else {
-                // 없으면 신규 생성
-                dog = new AbandonedDog();
-                dog.setDesertionNo(item.getDesertionNo());
-                log.info("✨ 신규 강아지 발견: {}", item.getDesertionNo());
-
-                // TODO: [AI 파트] 신규 강아지인 경우 여기서 Spring AI를 호출하여 성향 분석
-                // analyzeAndSaveVector(dog, item.getSpecialMark());
+            String kindNm = item.getKindNm();
+            if(kindNm != null && !kindNm.trim().isEmpty()) {
+                if(!dogKindRepository.existsByName(kindNm)) {
+                    dogKindRepository.save(new DogKind(kindNm));
+                }
             }
 
-            // 필드 매핑 (Entity <-> DTO)
-            mapDtoToEntity(dog, item);
+            AbandonedDog dog = mapItemToAbandonedDog(item);
+
+            try {
+                analyzePersonalityWithAI(dog, item.getSpecialMark());
+            } catch(Exception e) {
+                log.error("AI 분석 실패(유기번호: {}): {}", item.getDesertionNo(), e.getMessage());
+            }
 
             return dog;
         };
     }
 
-    // DTO 데이터를 Entity로 매핑하는 헬퍼 메서드
-    private void mapDtoToEntity(AbandonedDog dog, PublicApiResponse.Item item) {
+    private AbandonedDog mapItemToAbandonedDog(PublicApiResponse.Item item) {
+        AbandonedDog dog = new AbandonedDog();
+
+        dog.setDesertionNo(item.getDesertionNo());
         dog.setHappenDt(item.getHappenDt());
         dog.setHappenPlace(item.getHappenPlace());
         dog.setKindCd(item.getKindCd());
@@ -164,8 +187,8 @@ public class DogBatchConfig {
         dog.setNoticeNo(item.getNoticeNo());
         dog.setNoticeSdt(item.getNoticeSdt());
         dog.setNoticeEdt(item.getNoticeEdt());
-        dog.setPopfile1(item.getPopfile1()); // image
-        dog.setPopfile2(item.getPopfile2()); // thumbnail
+        dog.setPopfile1(item.getPopfile1());
+        dog.setPopfile2(item.getPopfile2());
         dog.setProcessState(item.getProcessState());
         dog.setSexCd(item.getSexCd());
         dog.setNeuterYn(item.getNeuterYn());
@@ -177,18 +200,71 @@ public class DogBatchConfig {
         dog.setCareRegNo(item.getCareRegNo());
         dog.setCareOwnerNm(item.getCareOwnerNm());
         dog.setUpdTm(item.getUpdTm());
+
+        String careNm = item.getCareNm();
+        String careAddr = item.getCareAddr();
+
+        Shelter shelter = shelterRepository.findByCareNmAndAddress(careNm, careAddr)
+                .orElseGet(() -> shelterRepository.save(Shelter.builder()
+                        .careNm(careNm)
+                        .address(careAddr)
+                        .tel(item.getCareTel())
+                        .shelterRegNo(item.getCareRegNo())
+                        .build()));
+        dog.setShelter(shelter);
+
+        return dog;
     }
 
+    // AI가 유기견의 특징을 분석하여 강이지의 성향을 벡터화하여 채워넣음
+    private void analyzePersonalityWithAI(AbandonedDog dog, String specialMark) {
+        String info = String.format("품종:[%s], 나이:[%s], 체중:[%s], 성별:[%s], 특징:[%s]",
+                dog.getKindNm(), dog.getAge(), dog.getWeight(), dog.getSexCd(), (specialMark != null ? specialMark: "정보 없음"));
+
+        String promptText = """
+                너는 유기견 보호소의 베테랑 행동 전문가야.
+                아래 강아지의 기본 정보를 바탕으로 성향 점수(1~5)를 추론하고, 입양 희망자에게 보여줄 '따뜻한 관찰 코멘트'를 작성해줘.
+                
+                [강아지 정보]
+                %s
+                
+                [추론 가이드]
+                1. 특징 텍스트가 부족하면 '품종(Breed)'과 '나이(Age)'를 적극적으로 참고해라.
+                   - 예: 1살 미만 -> 활동성(5), 분리불안(4) 높음
+                   - 예: 노령견 -> 활동성(1~2) 낮음
+                   - 예: 리트리버/보더콜리 -> 활동성(5), 친화력(5)
+                2. 'aiObservation'은 2~3문장으로, "이 강아지는 ~한 특징이 있습니다. ~한 분께 추천해요!" 같은 느낌으로 작성해.
+                
+                [응답 JSON 필드]
+                - activity (1~5): 활동 에너지
+                - barking (1~5): 짖음 빈도
+                - separationAnxiety (1~5): 분리불안 가능성
+                - sheddingLevel (1~5): 털빠짐 정도
+                - strangerFriendliness (1~5): 낯선 사람에 대한 친화력(경계심)
+                - aiObservation: 전문가의 관찰 코멘트 (한국어)
+                """.formatted(specialMark);
+
+        DogPersonality personality = chatClientBuilder.build()
+                .prompt()
+                .user(promptText)
+                .call()
+                .entity(DogPersonality.class);
+
+        if(personality != null) {
+            personality.setAbandonedDog(dog);
+            dogPersonalityRepository.save(personality);
+            log.info("AI 추론 완료: {} -> {}", dog.getKindNm(), personality.getAiObservation());
+        }
+    }
 
     // --- [3. Writer] DB 저장 ---
     @Bean
     public ItemWriter<AbandonedDog> dogItemWriter() {
         return items -> {
-            log.info("💾 DB 저장 시작: {} 건", items.size());
+            log.info("💾 [Batch] 신규 유기견 {} 마리 저장 완료", items.size());
             abandonedDogRepository.saveAll(items);
 
-            // TODO: [Redis 파트] 저장된 강아지들의 성향 점수를 Redis에 캐싱
-            // redisService.saveScores(items);
+            // TODO: 추후 Redis 캐싱 로직 추가 (redisService.saveAll(items))
         };
     }
 }

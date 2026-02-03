@@ -7,6 +7,7 @@ import lombok.*;
 @Entity
 @Table(name = "dog_personality")
 @Getter
+@Setter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 @AllArgsConstructor
 @Builder
@@ -16,7 +17,6 @@ public class DogPersonality {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Setter
     @OneToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "abandoned_dog_id", nullable = false)
     private AbandonedDog abandonedDog;
@@ -24,10 +24,10 @@ public class DogPersonality {
     private int activity;             // 활동성
     private int barking;              // 짖음
     private int separationAnxiety;    // 분리 불안
-    private int shedding_level;       // 털 빠짐 정도
-    private int strangerFriendliness; // 낯선 사람에 대한 친화도(경계심)
+    private int sheddingLevel;       // 털 빠짐 정도
+    private int strangerFriendliness; // 낯선 사람에 대한 친화력(경계심)
 
-    @Column(length = 1000)
-    private String aiComment;
+    @Column(columnDefinition = "TEXT")
+    private String aiObservation;
 
 }

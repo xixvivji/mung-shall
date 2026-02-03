@@ -1,4 +1,4 @@
-package com.example.backend;
+package com.example.backend.scheduler;
 
 import com.example.backend.api.dog.dto.PublicApiResponse;
 import com.example.backend.domain.dog.AbandonedDog;

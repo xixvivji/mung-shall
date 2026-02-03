@@ -27,23 +27,18 @@ pipeline {
         }
 
         stage('Build & Docker Image') {
-            parallel {
-                stage('Backend Build') {
-                    steps {
-                        dir('backend') {
-                            sh 'chmod +x ./gradlew'
-                            sh './gradlew build -x test'
-                            sh 'docker build -t backend-image:latest .'
-                        }
-                    }
+            // [수정 1] parallel 제거 -> 순차 실행으로 메모리 부족 방지
+            steps {
+                // 1. Backend Build
+                dir('backend') {
+                    sh 'chmod +x ./gradlew'
+                    sh './gradlew build -x test'
+                    sh 'docker build -t backend-image:latest .'
                 }
 
-                stage('Frontend Build') {
-                    steps {
-                        dir('frontend') {
-                            sh 'docker build -t frontend-image:latest .'
-                        }
-                    }
+                // 2. Frontend Build
+                dir('frontend') {
+                    sh 'docker build -t frontend-image:latest .'
                 }
             }
         }
@@ -128,12 +123,10 @@ pipeline {
                         echo "COOKIE_SAMESITE=None" >> .env
                         """
 
-                        // 2. prometheus.yml 파일 생성 (폴더 내부에 생성)
+                        // 2. prometheus.yml 파일 생성
                         sh '''
                         mkdir -p monitoring
-                        # 기존 파일/폴더 삭제 후 새로 생성 (안전장치)
                         rm -rf monitoring/prometheus.yml
-
                         cat <<EOF > monitoring/prometheus.yml
 global:
   scrape_interval: 15s
@@ -146,19 +139,21 @@ scrape_configs:
   - job_name: 'node-exporter'
     static_configs:
       - targets: ['node-exporter:9100']
-
-  # - job_name: 'ai-server'
-  #   metrics_path: '/metrics'
-  #   static_configs:
-  #     - targets: ['ai-server:8000']
 EOF
                         '''
 
-                        // 3. 배포 실행
-                        sh 'docker rm -f backend-server frontend-server openvidu-server openvidu-coturn kms || true'
-                        sh 'docker-compose down || true'
+                        // 3. 배포 실행 (⚡ 여기가 핵심 수정!)
 
-                        sh 'docker-compose up -d --force-recreate backend frontend openvidu-server kms coturn mysql redis prometheus grafana node-exporter'
+                        // [수정 2] docker rm, docker-compose down 삭제 (충돌 방지)
+
+                        // [단계 1] 인프라: 꺼져있을 때만 켭니다 (재생성 X -> 속도 UP)
+                        sh 'docker-compose up -d mysql redis openvidu-server kms coturn prometheus grafana node-exporter'
+
+                        // [단계 2] 앱: 코드가 바뀐 백엔드/프론트엔드만 강제로 새로 만듭니다
+                        sh 'docker-compose up -d --force-recreate --build backend frontend'
+
+                        // 뒷정리
+                        sh 'docker image prune -f'
                     }
                 }
             }

@@ -11,6 +11,6 @@ import java.util.List;
 @Getter
 @Setter
 public class AdoptionDocumentUploadRequest {
-    private Long adoptionApplicationId; // 어떤 입양 신청에 대한 문서인지 식별
+    private Long adoptionSurveyId; // 어떤 입양 설문에 대한 문서인지 식별
     private List<DocumentFileDto> documents; // 업로드할 문서 목록
 }

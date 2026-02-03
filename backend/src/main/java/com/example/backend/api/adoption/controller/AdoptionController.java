@@ -3,6 +3,7 @@ package com.example.backend.api.adoption.controller;
 import com.example.backend.api.adoption.dto.AdoptionCreateRequest;
 import com.example.backend.api.adoption.dto.AdoptionDetailResponse;
 import com.example.backend.api.adoption.dto.AdoptionStepInstanceResponse;
+import com.example.backend.api.adoption.dto.AdoptionStatusResponse;
 import com.example.backend.domain.adoption.enums.AdoptionProcessStatus;
 import com.example.backend.service.adoption.AdoptionService;
 import io.swagger.v3.oas.annotations.Operation;
@@ -57,14 +58,14 @@ public class AdoptionController {
     @Operation(summary = "상태별 입양 프로세스 목록 조회", description = "사용자 ID와 입양 프로세스 상태에 따라 입양 프로세스 목록을 조회합니다.")
     @ApiResponses(value = {
             @ApiResponse(responseCode = "200", description = "입양 프로세스 목록 조회 성공",
-                    content = @Content(schema = @Schema(implementation = AdoptionDetailResponse.class))),
+                    content = @Content(schema = @Schema(implementation = AdoptionStatusResponse.class))),
             @ApiResponse(responseCode = "400", description = "잘못된 요청 데이터"),
     })
     @GetMapping
-    public ResponseEntity<List<AdoptionDetailResponse>> getAdoptionsByStatus(
+    public ResponseEntity<List<AdoptionStatusResponse>> getAdoptionsByStatus(
             @Parameter(description = "사용자 ID") @RequestParam Long userId,
             @Parameter(description = "입양 프로세스 상태 (예: IN_PROGRESS, COMPLETED)") @RequestParam AdoptionProcessStatus status) {
-        List<AdoptionDetailResponse> response = adoptionService.getAdoptionsByUserIdAndStatus(userId, status);
+        List<AdoptionStatusResponse> response = adoptionService.getAdoptionsByUserIdAndStatus(userId, status);
         return ResponseEntity.ok(response);
     }
 

@@ -3,6 +3,7 @@ package com.example.backend.service.adoption;
 import com.example.backend.api.adoption.dto.AdoptionDetailResponse;
 import com.example.backend.api.adoption.dto.AdoptionStepDefResponse;
 import com.example.backend.api.adoption.dto.AdoptionStepInstanceResponse;
+import com.example.backend.api.adoption.dto.AdoptionStatusResponse;
 import com.example.backend.domain.adoption.Adoption;
 import com.example.backend.domain.adoption.enums.AdoptionProcessStatus;
 import com.example.backend.domain.adoption.AdoptionStepDef;
@@ -192,14 +193,24 @@ public class AdoptionService {
      * @return 입양 상세 정보 DTO 목록
      */
     @Transactional(readOnly = true)
-    public List<AdoptionDetailResponse> getAdoptionsByUserIdAndStatus(Long userId, AdoptionProcessStatus status) {
+    public List<AdoptionStatusResponse> getAdoptionsByUserIdAndStatus(Long userId, AdoptionProcessStatus status) {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new IllegalArgumentException("ID와 일치하는 유저가 없습니다: " + userId));
 
         List<Adoption> adoptions = adoptionRepository.findByUserAndProcessStatus(user, status);
 
         return adoptions.stream()
-                .map(adoption -> getAdoptionDetail(adoption.getId()))
+                .map(adoption -> AdoptionStatusResponse.builder()
+                        .userId(adoption.getUser().getUserId())
+                        .dogId(adoption.getAbandonedDog().getId())
+                        .adoptionId(adoption.getId())
+                        .imageUrl(adoption.getAbandonedDog().getPopfile1())
+                        .kindNm(adoption.getAbandonedDog().getKindCd())
+                        .age(adoption.getAbandonedDog().getAge())
+                        .weight(adoption.getAbandonedDog().getWeight())
+                        .careNm(adoption.getAbandonedDog().getCareNm())
+                        .processStatus(adoption.getProcessStatus())
+                        .build())
                 .collect(Collectors.toList());
     }
 }

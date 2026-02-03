@@ -75,7 +75,7 @@ pipeline {
                         echo "OPENVIDU_SECRET=${OV_SECRET}" > .env
                         echo "OPENVIDU_URL=https://host.docker.internal:8443" >> .env
                         echo "OPENVIDU_PUBLIC_URL=https://i14c109.p.ssafy.io:8443" >> .env
-                        echo "DOMAIN_OR_PUBLIC_IP=i14c109.p.ssafy.io" >> .env
+
                         echo "OPENVIDU_CERTIFICATE_TYPE=owncert" >> .env
                         echo "COTURN_SHARED_SECRET_KEY=${OV_SECRET}" >> .env
                         echo "COTURN_IP=13.125.3.38" >> .env

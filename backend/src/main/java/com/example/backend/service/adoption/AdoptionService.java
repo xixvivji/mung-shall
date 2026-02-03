@@ -188,4 +188,23 @@ public class AdoptionService {
                 .rejectionReason(stepInstance.getRejectionReason())
                 .build();
     }
+
+    /**
+     * 특정 사용자의 특정 상태에 해당하는 입양 프로세스 목록을 조회합니다.
+     *
+     * @param userId 조회할 사용자 ID
+     * @param status 조회할 입양 프로세스 상태 (IN_PROGRESS, COMPLETED 등)
+     * @return 입양 상세 정보 DTO 목록
+     */
+    @Transactional(readOnly = true)
+    public List<AdoptionDetailResponse> getAdoptionsByUserIdAndStatus(Long userId, AdoptionProcessStatus status) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new IllegalArgumentException("ID와 일치하는 유저가 없습니다: " + userId));
+
+        List<Adoption> adoptions = adoptionRepository.findByUserAndProcessStatus(user, status);
+
+        return adoptions.stream()
+                .map(adoption -> getAdoptionDetail(adoption.getId()))
+                .collect(Collectors.toList());
+    }
 }

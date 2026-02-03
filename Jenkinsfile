@@ -73,7 +73,7 @@ pipeline {
                         sh """
                         # --- OpenVidu ---
                         echo "OPENVIDU_SECRET=${OV_SECRET}" > .env
-                        echo "OPENVIDU_URL=https://host.docker.internal:8443" >> .env
+                        echo "OPENVIDU_URL=https://openvidu-server:8443" >> .env
                         echo "OPENVIDU_PUBLICURL=https://i14c109.p.ssafy.io" >> .env
                         echo "OPENVIDU_PUBLIC_URL=https://i14c109.p.ssafy.io" >> .env
                         echo "DOMAIN_OR_PUBLIC_IP=i14c109.p.ssafy.io" >> .env

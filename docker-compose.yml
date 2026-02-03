@@ -8,8 +8,6 @@ services:
     ports:
       - "80:80"
       - "443:443"
-    extra_hosts:
-      - "host.docker.internal:host-gateway"
     volumes:
       - /etc/letsencrypt:/etc/letsencrypt:ro
     networks:
@@ -24,8 +22,6 @@ services:
     image: backend-image:latest
     ports:
       - "8080:8080"
-    extra_hosts:
-      - "host.docker.internal:host-gateway"
     environment:
       - SPRING_DATASOURCE_URL=jdbc:mysql://mysql-container:3306/mydb?useSSL=false&allowPublicKeyRetrieval=true&characterEncoding=UTF-8
       - SPRING_DATASOURCE_USERNAME=root
@@ -68,7 +64,8 @@ services:
     image: openvidu/openvidu-server:2.32.1
     container_name: openvidu-server
     restart: on-failure
-    network_mode: host
+    ports:
+      - "8443:8443"
     entrypoint: ['/usr/local/bin/entrypoint.sh']
     volumes:
       - ./openvidu/coturn:/run/secrets/coturn
@@ -80,19 +77,22 @@ services:
     environment:
       - SERVER_SSL_ENABLED=true
       - SERVER_PORT=8443
-      - KMS_URIS=["ws://localhost:8888/kurento"]
+      - KMS_URIS=["ws://kms:8888/kurento"]
       - COTURN_IP=${COTURN_IP:-auto-ipv4}
       - COTURN_PORT=${COTURN_PORT:-8700}
     logging:
       options:
         max-size: "${DOCKER_LOGS_MAX_SIZE:-100M}"
+    networks:
+      - app-network
 
   # 4. KMS
   kms:
     image: ${KMS_IMAGE:-kurento/kurento-media-server:7.3.0}
     container_name: kms
     restart: always
-    network_mode: host
+    ports:
+      - "8500-8699:8000-8199/udp"
     ulimits:
       core: -1
       nofile:
@@ -102,21 +102,26 @@ services:
       - /opt/openvidu/kms-crashes:/opt/openvidu/kms-crashes
       - /opt/openvidu/kurento-logs:/opt/openvidu/kurento-logs
     environment:
-      - KMS_MIN_PORT=8500
-      - KMS_MAX_PORT=8699
+      - KMS_MIN_PORT=8000
+      - KMS_MAX_PORT=8199
       - GST_DEBUG=${KMS_DOCKER_ENV_GST_DEBUG:-}
       - KURENTO_LOG_FILE_SIZE=${KMS_DOCKER_ENV_KURENTO_LOG_FILE_SIZE:-100}
       - KURENTO_LOGS_PATH=/opt/openvidu/kurento-logs
     logging:
       options:
         max-size: "${DOCKER_LOGS_MAX_SIZE:-100M}"
+    networks:
+      - app-network
 
   # 5. Coturn
   coturn:
     image: openvidu/openvidu-coturn:2.32.1
     container_name: openvidu-coturn
     restart: on-failure
-    network_mode: host
+    ports:
+      - "8700:8700/tcp"
+      - "8700:8700/udp"
+      - "8701-8900:8701-8900/udp"
     env_file:
       - .env
     volumes:
@@ -137,6 +142,8 @@ services:
     logging:
       options:
         max-size: "${DOCKER_LOGS_MAX_SIZE:-100M}"
+    networks:
+      - app-network
 
   # 6. MySQL
   mysql:

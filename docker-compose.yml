@@ -73,15 +73,15 @@ services:
     volumes:
       - ./openvidu/coturn:/run/secrets/coturn
       - /var/run/docker.sock:/var/run/docker.sock
-      - /etc/letsencrypt/live/i14c109.p.ssafy.io:/opt/openvidu/owncert:ro
+      - /opt/openvidu/owncert:/opt/openvidu/owncert:ro
     env_file:
       - .env
     environment:
       - SERVER_SSL_ENABLED=true
-      - SERVER_PORT=5443
+      - SERVER_PORT=8443
       - KMS_URIS=["ws://localhost:8888/kurento"]
       - COTURN_IP=${COTURN_IP:-auto-ipv4}
-      - COTURN_PORT=${COTURN_PORT:-3478}
+      - COTURN_PORT=${COTURN_PORT:-8700}
     logging:
       options:
         max-size: "${DOCKER_LOGS_MAX_SIZE:-100M}"
@@ -101,8 +101,8 @@ services:
       - /opt/openvidu/kms-crashes:/opt/openvidu/kms-crashes
       - /opt/openvidu/kurento-logs:/opt/openvidu/kurento-logs
     environment:
-      - KMS_MIN_PORT=40000
-      - KMS_MAX_PORT=57000
+      - KMS_MIN_PORT=8500
+      - KMS_MAX_PORT=8699
       - GST_DEBUG=${KMS_DOCKER_ENV_GST_DEBUG:-}
       - KURENTO_LOG_FILE_SIZE=${KMS_DOCKER_ENV_KURENTO_LOG_FILE_SIZE:-100}
       - KURENTO_LOGS_PATH=/opt/openvidu/kurento-logs
@@ -122,13 +122,13 @@ services:
       - ./openvidu/coturn:/run/secrets/coturn
     command:
       - --log-file=stdout
-      - --listening-port=${COTURN_PORT:-3478}
+      - --listening-port=${COTURN_PORT:-8700}
       - --listening-ip=0.0.0.0
       - --relay-ip=${COTURN_PRIVATE_IP}
       - --external-ip=${COTURN_PUBLIC_IP}/${COTURN_PRIVATE_IP}
       - --fingerprint
-      - --min-port=${COTURN_MIN_PORT:-60000}
-      - --max-port=${COTURN_MAX_PORT:-60100}
+      - --min-port=${COTURN_MIN_PORT:-8701}
+      - --max-port=${COTURN_MAX_PORT:-8900}
       - --realm=openvidu
       - --verbose
       - --use-auth-secret

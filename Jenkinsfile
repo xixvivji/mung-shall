@@ -85,6 +85,8 @@ pipeline {
                         echo "COTURN_SHARED_SECRET_KEY=${OV_SECRET}" >> .env
                         echo "COTURN_IP=auto-ipv4" >> .env
                         echo "COTURN_PORT=3478" >> .env
+                        echo "COTURN_MIN_PORT=57001" >> .env
+                        echo "COTURN_MAX_PORT=65535" >> .env
                         echo "OPENVIDU_RECORDING_PATH=/opt/openvidu/recordings" >> .env
                         echo "OPENVIDU_RECORDING_CUSTOM_LAYOUT=/opt/openvidu/custom-layout" >> .env
                         echo "OPENVIDU_CDR_PATH=/opt/openvidu/cdr" >> .env

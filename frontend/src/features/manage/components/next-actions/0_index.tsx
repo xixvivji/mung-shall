@@ -1,4 +1,4 @@
-﻿import { useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import type { AdoptionStep } from "@/features/manage/types";
 
 import { ApplicationStep } from "./before/ApplicationStep";
@@ -82,13 +82,13 @@ function stepLabel(step: AdoptionStep) {
       return "입양 교육";
     // B(입양 중)
     case "CONSULT":
-      return "3단계 · 입양 상담";
+      return "[진행중] 3단계 · 입양 상담";
     case "DOCUMENT":
-      return "4단계 · 입양 문서";
+      return "[진행중] 4단계 · 입양 문서";
     case "CONTRACT":
-      return "5단계 · 입양 계약서";
+      return "[진행중] 5단계 · 입양 계약서";
     case "APPROVAL":
-      return "6단계 · 입양 심사";
+      return "[진행중] 6단계 · 입양 심사";
 
     // C(입양 후)
     case "PICKUP":

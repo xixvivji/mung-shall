@@ -115,7 +115,7 @@ function AdopterManagePage() {
 
   const [summaries, setSummaries] = useState<AdoptionSummary[]>(() => readSummaries());
   const [selectedAdoptionId, setSelectedAdoptionId] = useState<number | null>(
-    () => numericId ?? summaries[0]?.adoptionId ?? null
+    () => numericId ?? null
   );
   const [isSelecting, setIsSelecting] = useState(() => summaries.length === 0);
   const [cancellingIds, setCancellingIds] = useState<Set<number>>(new Set());
@@ -130,12 +130,6 @@ function AdopterManagePage() {
   }, [summaries]);
 
   useEffect(() => {
-    if (!selectedAdoptionId && summaries.length > 0) {
-      setSelectedAdoptionId(summaries[0].adoptionId);
-    }
-  }, [selectedAdoptionId, summaries]);
-
-  useEffect(() => {
     if (!user?.userId) return;
     let mounted = true;
     setIsLoadingInProgress(true);
@@ -144,10 +138,6 @@ function AdopterManagePage() {
         if (!mounted) return;
         const serverSummaries = items.map(toAdoptionSummary);
         setSummaries((prev) => mergeSummaries(serverSummaries, prev));
-        if (!numericId) {
-          const latest = pickLatestAdoption(items);
-          setSelectedAdoptionId((prev) => prev ?? latest?.id ?? null);
-        }
       })
       .catch(() => {
         if (!mounted) return;
@@ -159,6 +149,13 @@ function AdopterManagePage() {
       mounted = false;
     };
   }, [numericId, user?.userId]);
+
+  useEffect(() => {
+    if (!selectedAdoptionId) return;
+    if (isLoadingInProgress) return;
+    const exists = summaries.some((item) => item.adoptionId === selectedAdoptionId);
+    if (!exists) setSelectedAdoptionId(null);
+  }, [selectedAdoptionId, summaries, isLoadingInProgress]);
 
   const {
     adoptionLoading,
@@ -253,11 +250,7 @@ function AdopterManagePage() {
       try {
         await cancelAdoptionProcess(adoptionId);
         setSummaries((prev) => prev.filter((item) => item.adoptionId !== adoptionId));
-        setSelectedAdoptionId((prev) => {
-          if (prev !== adoptionId) return prev;
-          const remaining = summaries.filter((item) => item.adoptionId !== adoptionId);
-          return remaining.length > 0 ? remaining[0].adoptionId : null;
-        });
+        setSelectedAdoptionId((prev) => (prev === adoptionId ? null : prev));
         openAlert({ title: "입양 취소", message: "입양 절차를 취소했어요." });
       } catch (err) {
         const message = err instanceof Error ? err.message : "입양 취소에 실패했습니다.";
@@ -270,24 +263,17 @@ function AdopterManagePage() {
         });
       }
     },
-    [cancellingIds, openAlert, summaries]
+    [cancellingIds, openAlert]
   );
 
-  const noInProgress =
-    summaries.length === 0 && !selectedAdoptionId && !isLoadingInProgress;
+  const hasOngoing = summaries.length > 0;
+  const selectedOngoing = useMemo(
+    () => summaries.find((item) => item.adoptionId === selectedAdoptionId) ?? null,
+    [summaries, selectedAdoptionId]
+  );
+  const shouldShowTimeline = hasOngoing && Boolean(selectedOngoing);
 
-  const displaySummaries = useMemo(() => {
-    if (summaries.length > 0) return summaries;
-    if (selectedAdoptionId) {
-      return [
-        {
-          adoptionId: selectedAdoptionId,
-          dogId: "",
-        },
-      ];
-    }
-    return [];
-  }, [summaries, selectedAdoptionId]);
+  const displaySummaries = useMemo(() => summaries, [summaries]);
 
   // API 에러가 발생한 경우
   if (adoptionError) {
@@ -378,7 +364,7 @@ function AdopterManagePage() {
         <div className="text-sm text-gray-500">입양 정보를 불러오는 중...</div>
       )}
 
-      {selectedAdoptionId ? (
+      {shouldShowTimeline ? (
         <>
           <AdoptionTimeline
             currentStep={currentStep}
@@ -392,13 +378,13 @@ function AdopterManagePage() {
             onSelectStep={setSelectedStep}
             onAdvanceStep={advanceTo}
             onSubmitStep={handleSubmitStep}
-            adoptionId={selectedAdoptionId}
+            adoptionId={selectedAdoptionId ?? undefined}
           />
         </>
       ) : (
         <div className="rounded-2xl border border-gray-200 bg-gray-50 p-12 text-center">
           <h3 className="text-lg font-semibold text-gray-800">
-            {noInProgress ? "진행 중인 입양 절차가 없습니다." : "입양 프로세스를 선택해주세요."}
+            입양 프로세스를 선택해주세요.
           </h3>
           <div className="mt-3">
             <Button asChild className="rounded-lg">

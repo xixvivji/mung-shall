@@ -29,6 +29,7 @@ export default function AppRoutes() {
           <Route path="/adoption" element={<AdoptionPage />} />
           <Route path="/adoption/:id" element={<AdoptionDetailPage />} />
           <Route path="/adoption-recommend" element={<AdoptionRecommendPage />} />
+          <Route path="/adoptions/:adoptionId" element={<ManagePage />} />
           <Route path="/boards" element={<BoardListPage />} />
           <Route path="/boards/new" element={<BoardCreatePage />} />
           <Route path="/boards/:id" element={<BoardDetailPage />} />

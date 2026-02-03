@@ -1,9 +1,13 @@
 ﻿import { useCallback, useEffect, useMemo, useState } from "react";
-import { Link, useNavigate, useParams } from "react-router-dom";
+import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { AdoptionTimeline, NextActions } from "@/features/manage";
 import useMyPage from "@/features/mypage/hooks/useMyPage";
-import type { AdoptionStep, LikedDog } from "@/features/manage/types";
-import { cancelAdoptionProcess, createAdoptionProcess } from "@/features/manage/api/manageApi";
+import type { AdoptionDetail, AdoptionStep, LikedDog } from "@/features/manage/types";
+import {
+  cancelAdoptionProcess,
+  createAdoptionProcess,
+  fetchAdoptionsByStatus,
+} from "@/features/manage/api/manageApi";
 import { SelectStep } from "@/features/manage/components/next-actions/before/SelectStep";
 import AlertModal from "@/shared/components/AlertModal";
 import { useAlertModal } from "@/shared/hooks/useAlertModal";
@@ -53,19 +57,61 @@ const writeSummaries = (items: AdoptionSummary[]) => {
   localStorage.setItem(ADOPTION_SUMMARY_KEY, JSON.stringify(items));
 };
 
+const parseAdoptionId = (value?: string | null): number | null => {
+  if (!value) return null;
+  const id = Number(value);
+  return Number.isFinite(id) && id > 0 ? id : null;
+};
+
+const toAdoptionSummary = (item: AdoptionDetail): AdoptionSummary => ({
+  adoptionId: item.id,
+  dogId: item.dogId ? String(item.dogId) : "",
+});
+
+const mergeSummaries = (
+  serverSummaries: AdoptionSummary[],
+  previous: AdoptionSummary[]
+) => {
+  const prevById = new Map(previous.map((item) => [item.adoptionId, item]));
+  return serverSummaries.map((item) => {
+    const prev = prevById.get(item.adoptionId);
+    return {
+      ...item,
+      dogId: item.dogId || prev?.dogId || "",
+      dogName: item.dogName ?? prev?.dogName,
+      dogImageUrl: item.dogImageUrl ?? prev?.dogImageUrl,
+      createdAt: item.createdAt ?? prev?.createdAt,
+    };
+  });
+};
+
+const pickLatestAdoption = (items: AdoptionDetail[]) => {
+  if (items.length === 0) return null;
+  return items.reduce((latest, current) => {
+    if (!latest) return current;
+    if (typeof current.id === "number" && typeof latest.id === "number") {
+      return current.id > latest.id ? current : latest;
+    }
+    return latest;
+  }, null as AdoptionDetail | null);
+};
+
 /**
  * 입양자(Adopter) 전용 입양 관리 페이지 컴포넌트.
  * 진행 중인 입양이 있으면 카드로 선택하고 과정을 관리합니다.
  */
 function AdopterManagePage() {
-  const { adoptionId: adoptionIdFromUrl } = useParams<{ adoptionId: string }>();
+  const { adoptionId: adoptionIdFromPath } = useParams<{ adoptionId: string }>();
+  const [searchParams] = useSearchParams();
+  const navigate = useNavigate();
   const { user } = useAuth();
   const { openAlert, alertProps } = useAlertModal();
 
   const numericId = useMemo(() => {
-    const id = Number(adoptionIdFromUrl);
-    return Number.isFinite(id) && id > 0 ? id : null;
-  }, [adoptionIdFromUrl]);
+    const queryId = parseAdoptionId(searchParams.get("adoptionId"));
+    if (queryId) return queryId;
+    return parseAdoptionId(adoptionIdFromPath);
+  }, [adoptionIdFromPath, searchParams]);
 
   const [summaries, setSummaries] = useState<AdoptionSummary[]>(() => readSummaries());
   const [selectedAdoptionId, setSelectedAdoptionId] = useState<number | null>(
@@ -73,6 +119,7 @@ function AdopterManagePage() {
   );
   const [isSelecting, setIsSelecting] = useState(() => summaries.length === 0);
   const [cancellingIds, setCancellingIds] = useState<Set<number>>(new Set());
+  const [isLoadingInProgress, setIsLoadingInProgress] = useState(false);
 
   useEffect(() => {
     if (numericId) setSelectedAdoptionId(numericId);
@@ -87,6 +134,31 @@ function AdopterManagePage() {
       setSelectedAdoptionId(summaries[0].adoptionId);
     }
   }, [selectedAdoptionId, summaries]);
+
+  useEffect(() => {
+    if (!user?.userId) return;
+    let mounted = true;
+    setIsLoadingInProgress(true);
+    fetchAdoptionsByStatus(user.userId, "IN_PROGRESS")
+      .then((items) => {
+        if (!mounted) return;
+        const serverSummaries = items.map(toAdoptionSummary);
+        setSummaries((prev) => mergeSummaries(serverSummaries, prev));
+        if (!numericId) {
+          const latest = pickLatestAdoption(items);
+          setSelectedAdoptionId((prev) => prev ?? latest?.id ?? null);
+        }
+      })
+      .catch(() => {
+        if (!mounted) return;
+      })
+      .finally(() => {
+        if (mounted) setIsLoadingInProgress(false);
+      });
+    return () => {
+      mounted = false;
+    };
+  }, [numericId, user?.userId]);
 
   const {
     adoptionLoading,
@@ -128,11 +200,27 @@ function AdopterManagePage() {
   const handleAdopt = useCallback(
     async (dog: LikedDog) => {
       if (!user?.userId) {
+        openAlert({ title: "로그인이 필요합니다.", message: "로그인 후 다시 시도해주세요." });
         throw new Error("로그인이 필요합니다.");
       }
       const dogId = Number(dog.id);
       if (!Number.isFinite(dogId)) {
         throw new Error("잘못된 강아지 ID입니다.");
+      }
+      const existing = await fetchAdoptionsByStatus(user.userId, "IN_PROGRESS");
+      if (existing.length > 0) {
+        const currentAdoption = pickLatestAdoption(existing) ?? existing[0];
+        if (!currentAdoption?.id) {
+          throw new Error("진행 중인 입양 정보를 찾지 못했습니다.");
+        }
+        setSummaries((prev) => mergeSummaries(existing.map(toAdoptionSummary), prev));
+        setSelectedAdoptionId(currentAdoption.id);
+        navigate(`/manage?adoptionId=${currentAdoption.id}`);
+        openAlert({
+          title: "진행 중인 입양",
+          message: "이미 진행 중인 입양이 있어 관리 페이지로 이동합니다.",
+        });
+        return;
       }
       const adoptionId = await createAdoptionProcess({
         userId: user.userId,
@@ -153,8 +241,9 @@ function AdopterManagePage() {
         ];
       });
       setSelectedAdoptionId(adoptionId);
+      navigate(`/manage?adoptionId=${adoptionId}`);
     },
-    [user]
+    [navigate, openAlert, user]
   );
 
   const handleCancelAdoption = useCallback(
@@ -184,7 +273,8 @@ function AdopterManagePage() {
     [cancellingIds, openAlert, summaries]
   );
 
-  const hasActiveAdoptions = summaries.length > 0 || Boolean(selectedAdoptionId);
+  const noInProgress =
+    summaries.length === 0 && !selectedAdoptionId && !isLoadingInProgress;
 
   const displaySummaries = useMemo(() => {
     if (summaries.length > 0) return summaries;
@@ -222,7 +312,7 @@ function AdopterManagePage() {
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {displaySummaries.length === 0 ? (
             <div className="rounded-2xl border border-dashed border-gray-200 bg-gray-50 p-6 text-sm text-gray-500">
-              진행 중인 입양이 없습니다.
+              진행 중인 입양 절차가 없습니다.
             </div>
           ) : (
             displaySummaries.map((summary) => {
@@ -307,7 +397,9 @@ function AdopterManagePage() {
         </>
       ) : (
         <div className="rounded-2xl border border-gray-200 bg-gray-50 p-12 text-center">
-          <h3 className="text-lg font-semibold text-gray-800">입양 프로세스를 선택해주세요.</h3>
+          <h3 className="text-lg font-semibold text-gray-800">
+            {noInProgress ? "진행 중인 입양 절차가 없습니다." : "입양 프로세스를 선택해주세요."}
+          </h3>
           <div className="mt-3">
             <Button asChild className="rounded-lg">
               <Link to={ROUTES.adoption}>유기견 보러가기</Link>

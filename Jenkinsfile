@@ -83,7 +83,9 @@ pipeline {
                         echo "DOMAIN_OR_PUBLIC_IP=i14c109.p.ssafy.io" >> .env
                         echo "OPENVIDU_CERTIFICATE_TYPE=owncert" >> .env
                         echo "COTURN_SHARED_SECRET_KEY=${OV_SECRET}" >> .env
-                        echo "COTURN_IP=i14c109.p.ssafy.io" >> .env
+                        echo "COTURN_IP=13.125.3.38" >> .env
+                        echo "COTURN_PUBLIC_IP=13.125.3.38" >> .env
+                        echo "COTURN_PRIVATE_IP=172.26.11.106" >> .env
                         echo "COTURN_PORT=3478" >> .env
                         echo "COTURN_MIN_PORT=60000" >> .env
                         echo "COTURN_MAX_PORT=60100" >> .env

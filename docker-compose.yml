@@ -115,11 +115,7 @@ services:
     image: openvidu/openvidu-coturn:2.32.1
     container_name: openvidu-coturn
     restart: on-failure
-    ports:
-      - "${COTURN_PORT:-3478}:${COTURN_PORT:-3478}/tcp"
-      - "${COTURN_PORT:-3478}:${COTURN_PORT:-3478}/udp"
-      - "${COTURN_MIN_PORT:-60000}-${COTURN_MAX_PORT:-60100}:${COTURN_MIN_PORT:-60000}-${COTURN_MAX_PORT:-60100}/udp"
-      - "${COTURN_MIN_PORT:-60000}-${COTURN_MAX_PORT:-60100}:${COTURN_MIN_PORT:-60000}-${COTURN_MAX_PORT:-60100}/tcp"
+    network_mode: host
     env_file:
       - .env
     volumes:
@@ -127,10 +123,12 @@ services:
     command:
       - --log-file=stdout
       - --listening-port=${COTURN_PORT:-3478}
-      - --external-ip=${COTURN_IP}
+      - --listening-ip=0.0.0.0
+      - --relay-ip=${COTURN_PRIVATE_IP}
+      - --external-ip=${COTURN_PUBLIC_IP}/${COTURN_PRIVATE_IP}
       - --fingerprint
-      - --min-port=${COTURN_MIN_PORT:-57001}
-      - --max-port=${COTURN_MAX_PORT:-65535}
+      - --min-port=${COTURN_MIN_PORT:-60000}
+      - --max-port=${COTURN_MAX_PORT:-60100}
       - --realm=openvidu
       - --verbose
       - --use-auth-secret

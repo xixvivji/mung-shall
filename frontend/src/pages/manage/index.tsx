@@ -2,7 +2,7 @@
 import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { AdoptionTimeline, NextActions } from "@/features/manage";
 import useMyPage from "@/features/mypage/hooks/useMyPage";
-import type { AdoptionDetail, AdoptionStep, LikedDog } from "@/features/manage/types";
+import type { AdoptionStatusSummary, AdoptionStep, LikedDog } from "@/features/manage/types";
 import {
   cancelAdoptionProcess,
   createAdoptionProcess,
@@ -26,6 +26,11 @@ type AdoptionSummary = {
 
 const ADOPTION_SUMMARY_KEY = "adoptionProcessSummaries";
 
+const normalizeImageUrl = (url?: string) => {
+  if (!url) return "";
+  return url.replace(/^http:\/\//i, "https://");
+};
+
 const readSummaries = (): AdoptionSummary[] => {
   try {
     const raw = localStorage.getItem(ADOPTION_SUMMARY_KEY);
@@ -36,14 +41,20 @@ const readSummaries = (): AdoptionSummary[] => {
       .map((item) => {
         if (!item || typeof item !== "object") return null;
         const record = item as Record<string, unknown>;
-        const adoptionId = Number(record.adoptionId);
+        const adoptionId = Number(record.adoptionId ?? record.id ?? record.adoption_id);
         const dogId = typeof record.dogId === "string" ? record.dogId : String(record.dogId ?? "");
         if (!Number.isFinite(adoptionId) || !dogId) return null;
+        const rawImage =
+          typeof record.dogImageUrl === "string"
+            ? record.dogImageUrl
+            : typeof record.imageUrl === "string"
+              ? record.imageUrl
+              : undefined;
         return {
           adoptionId,
           dogId,
           dogName: typeof record.dogName === "string" ? record.dogName : undefined,
-          dogImageUrl: typeof record.dogImageUrl === "string" ? record.dogImageUrl : undefined,
+          dogImageUrl: rawImage ? normalizeImageUrl(rawImage) : undefined,
           createdAt: typeof record.createdAt === "string" ? record.createdAt : undefined,
         } satisfies AdoptionSummary;
       })
@@ -63,10 +74,15 @@ const parseAdoptionId = (value?: string | null): number | null => {
   return Number.isFinite(id) && id > 0 ? id : null;
 };
 
-const toAdoptionSummary = (item: AdoptionDetail): AdoptionSummary => ({
-  adoptionId: item.id,
-  dogId: item.dogId ? String(item.dogId) : "",
-});
+const toAdoptionSummary = (item: AdoptionStatusSummary): AdoptionSummary => {
+  const normalizedImage = normalizeImageUrl(item.imageUrl);
+  return {
+    adoptionId: item.adoptionId,
+    dogId: item.dogId ? String(item.dogId) : "",
+    dogName: item.kindNm && item.kindNm.trim() ? item.kindNm : undefined,
+    dogImageUrl: normalizedImage || undefined,
+  };
+};
 
 const mergeSummaries = (
   serverSummaries: AdoptionSummary[],
@@ -85,15 +101,18 @@ const mergeSummaries = (
   });
 };
 
-const pickLatestAdoption = (items: AdoptionDetail[]) => {
+const pickLatestAdoption = (items: AdoptionStatusSummary[]) => {
   if (items.length === 0) return null;
   return items.reduce((latest, current) => {
     if (!latest) return current;
-    if (typeof current.id === "number" && typeof latest.id === "number") {
-      return current.id > latest.id ? current : latest;
+    if (
+      typeof current.adoptionId === "number" &&
+      typeof latest.adoptionId === "number"
+    ) {
+      return current.adoptionId > latest.adoptionId ? current : latest;
     }
     return latest;
-  }, null as AdoptionDetail | null);
+  }, null as AdoptionStatusSummary | null);
 };
 
 /**
@@ -207,12 +226,12 @@ function AdopterManagePage() {
       const existing = await fetchAdoptionsByStatus(user.userId, "IN_PROGRESS");
       if (existing.length > 0) {
         const currentAdoption = pickLatestAdoption(existing) ?? existing[0];
-        if (!currentAdoption?.id) {
+        if (!currentAdoption?.adoptionId) {
           throw new Error("진행 중인 입양 정보를 찾지 못했습니다.");
         }
         setSummaries((prev) => mergeSummaries(existing.map(toAdoptionSummary), prev));
-        setSelectedAdoptionId(currentAdoption.id);
-        navigate(`/manage?adoptionId=${currentAdoption.id}`);
+        setSelectedAdoptionId(currentAdoption.adoptionId);
+        navigate(`/manage?adoptionId=${currentAdoption.adoptionId}`);
         openAlert({
           title: "진행 중인 입양",
           message: "이미 진행 중인 입양이 있어 관리 페이지로 이동합니다.",
@@ -226,12 +245,13 @@ function AdopterManagePage() {
       setSummaries((prev) => {
         const exists = prev.some((item) => item.adoptionId === adoptionId);
         if (exists) return prev;
+        const normalizedImage = normalizeImageUrl(dog.imageUrl);
         return [
           {
             adoptionId,
             dogId: String(dogId),
             dogName: dog.name,
-            dogImageUrl: dog.imageUrl,
+            dogImageUrl: normalizedImage || undefined,
             createdAt: new Date().toISOString(),
           },
           ...prev,
@@ -275,23 +295,15 @@ function AdopterManagePage() {
 
   const displaySummaries = useMemo(() => summaries, [summaries]);
 
-  // API 에러가 발생한 경우
-  if (adoptionError) {
-    return (
-      <section className="mx-auto max-w-[1200px] px-6 py-16 space-y-6">
-        <h1 className="text-2xl font-semibold">입양 관리</h1>
-        <div className="mt-8 rounded-2xl border border-red-200 bg-red-50 p-8 text-center">
-          <h3 className="text-lg font-semibold text-red-800">오류가 발생했습니다</h3>
-          <p className="mt-2 text-sm text-red-600">{adoptionError}</p>
-        </div>
-        <AlertModal {...alertProps} />
-      </section>
-    );
-  }
-
   return (
     <section className="mx-auto max-w-[1200px] px-6 py-16 space-y-6">
       <h1 className="text-2xl font-semibold">입양 관리</h1>
+
+      {adoptionError && (
+        <div className="rounded-2xl border border-red-200 bg-red-50 p-4 text-sm text-red-700">
+          {adoptionError}
+        </div>
+      )}
 
       <div className="space-y-3">
         <h2 className="text-lg font-semibold text-gray-900">진행 중인 입양</h2>
@@ -331,11 +343,24 @@ function AdopterManagePage() {
                     onClick={() => setSelectedAdoptionId(summary.adoptionId)}
                     className="flex w-full items-center gap-4 text-left"
                   >
-                    <img
-                      src={summary.dogImageUrl || imgFallback}
-                      alt={summary.dogName ?? "입양 예정 강아지"}
-                      className="h-20 w-20 rounded-xl object-cover"
-                    />
+                    {summary.dogImageUrl ? (
+                      <img
+                        src={normalizeImageUrl(summary.dogImageUrl)}
+                        alt={summary.dogName ?? "입양 예정 강아지"}
+                        className="h-20 w-20 rounded-xl object-cover"
+                        onError={(event) => {
+                          event.currentTarget.onerror = null;
+                          event.currentTarget.src = imgFallback;
+                        }}
+                      />
+                    ) : (
+                      <div
+                        className="flex h-20 w-20 items-center justify-center rounded-xl bg-gray-100 text-[11px] text-gray-400"
+                        aria-label="이미지 없음"
+                      >
+                        이미지 없음
+                      </div>
+                    )}
                     <div className="flex-1 space-y-1">
                       <div className="text-sm font-semibold text-gray-900">
                         {summary.dogName ?? "입양 진행 중"}

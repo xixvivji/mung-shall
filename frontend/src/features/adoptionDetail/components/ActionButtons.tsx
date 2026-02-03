@@ -1,4 +1,4 @@
-import { useState } from "react";
+﻿import { useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import AlertModal from "@/shared/components/AlertModal";
 import { useAlertModal } from "@/shared/hooks/useAlertModal";
@@ -31,42 +31,54 @@ export default function ActionButtons({ dogId }: Props) {
   const handleToggleLike = async () => {
     const result = await toggleFavorite(id);
     if (result.status === "unauthenticated") {
-      openAlert({ title: "로그인 필요", message: "로그인 후 이용해주세요." });
+      openAlert({ title: "로그인 필요", message: "로그인이 필요합니다." });
       return;
     }
     if (result.status === "error") {
-      openAlert({ title: "관심등록 실패", message: resolveFavoriteErrorMessage(result.error) });
+      openAlert({ title: "관심강아지 처리 실패", message: resolveFavoriteErrorMessage(result.error) });
     }
   };
 
   const handleStartAdoption = async () => {
     const numericDogId = Number(dogId);
+    const resolvedUserId =
+      typeof user?.userId === "number"
+        ? user.userId
+        : typeof (user as { id?: number } | null)?.id === "number"
+          ? (user as { id?: number }).id
+          : null;
+
     if (!Number.isFinite(numericDogId)) {
       openAlert({ title: "입양 신청 실패", message: "유효하지 않은 강아지 ID입니다." });
       return;
     }
 
     if (!user) {
-      openAlert({ title: "로그인 필요", message: "입양을 시작하려면 로그인이 필요합니다." });
+      openAlert({ title: "로그인 필요", message: "입양을 진행하려면 로그인이 필요합니다." });
       navigate(ROUTES.login, { state: { from: location.pathname } });
+      return;
+    }
+
+    if (typeof resolvedUserId !== "number" || !Number.isFinite(resolvedUserId)) {
+      openAlert({ title: "입양 신청 실패", message: "유효하지 않은 사용자 정보입니다." });
       return;
     }
 
     if (isStarting) return;
     setIsStarting(true);
     try {
-      const { adoptionId } = await startAdoption(numericDogId);
+      const { adoptionId } = await startAdoption({
+        userId: resolvedUserId,
+        abandonedDogId: numericDogId,
+      });
       navigate(`/adoptions/${adoptionId}`);
     } catch (err) {
       if (err instanceof ApiError && (err.status === 401 || err.status === 403)) {
-        openAlert({ title: "로그인 필요", message: "입양을 시작하려면 로그인이 필요합니다." });
+        openAlert({ title: "로그인 필요", message: "입양을 진행하려면 로그인이 필요합니다." });
         navigate(ROUTES.login, { state: { from: location.pathname } });
         return;
       }
-      openAlert({
-        title: "입양 신청 실패",
-        message: "입양 신청 중 오류가 발생했습니다. 잠시 후 다시 시도해 주세요.",
-      });
+      openAlert({ title: "입양 신청 실패", message: "입양 신청 중 오류가 발생했습니다. 잠시 후 다시 시도해 주세요." });
       console.error(err);
     } finally {
       setIsStarting(false);

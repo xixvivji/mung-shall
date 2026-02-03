@@ -1,5 +1,5 @@
 ﻿import { ApiError, api } from "@/shared/api/client";
-import type { LikedDog } from "../types";
+import type { AdoptionDetail, AdoptionProcessStatus, LikedDog } from "../types";
 
 type CreateAdoptionRequest = {
   userId: number;
@@ -81,6 +81,24 @@ export async function createAdoptionProcess(
     throw new Error("Failed to resolve adoptionId from create response.");
   }
   return adoptionId;
+}
+
+export async function fetchAdoptionsByStatus(
+  userId: number,
+  status: AdoptionProcessStatus
+): Promise<AdoptionDetail[]> {
+  const params = new URLSearchParams({
+    userId: String(userId),
+    status,
+  });
+  const data = await api<unknown>(`/adoptions?${params.toString()}`);
+  if (Array.isArray(data)) {
+    return data.filter((item): item is AdoptionDetail => Boolean(item));
+  }
+  if (data && typeof data === "object") {
+    return [data as AdoptionDetail];
+  }
+  return [];
 }
 
 export async function cancelAdoptionProcess(adoptionId: number): Promise<void> {

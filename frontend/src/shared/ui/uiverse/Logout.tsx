@@ -1,5 +1,5 @@
 import React from "react";
-import "./Logout.css";
+import "@/shared/styles/uiverse/Logout.css";
 
 interface LogoutProps {
   onLogout?: () => void;

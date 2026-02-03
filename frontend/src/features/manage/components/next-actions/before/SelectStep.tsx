@@ -1,21 +1,24 @@
-import { useEffect, useMemo, useState } from "react";
+﻿import { useEffect, useMemo, useState } from "react";
 import { Button } from "@/shared/ui/button";
 import { GripVertical, Heart, X } from "lucide-react";
 import imgFallback from "@/assets/images/7d7c0c4fb5f5ec351d4a2c2c80e08bf92b1c3de5.png";
-import type { LikedDog } from "@/features/mypage/types";
-import { fetchLikedDogs } from "@/features/mypage/api/mypageApi";
+import type { LikedDog } from "@/features/manage/types";
+import { fetchLikedDogs } from "@/features/manage/api/manageApi";
 
 type Props = {
-  onSubmitSuccess: () => void;
+  onSubmitSuccess?: () => void;
+  onAdopt?: (dog: LikedDog) => Promise<void> | void;
 };
 
 type LoadStatus = "loading" | "ok" | "unauthenticated" | "error";
 
-export function SelectStep({ onSubmitSuccess }: Props) {
+export function SelectStep({ onSubmitSuccess, onAdopt }: Props) {
   const [favoriteDogs, setFavoriteDogs] = useState<LikedDog[]>([]);
   const [status, setStatus] = useState<LoadStatus>("loading");
   const [selectedDogId, setSelectedDogId] = useState<string | null>(null);
   const [isDragOver, setIsDragOver] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState<string | null>(null);
 
   useEffect(() => {
     let mounted = true;
@@ -41,7 +44,7 @@ export function SelectStep({ onSubmitSuccess }: Props) {
     [favoriteDogs, selectedDogId]
   );
 
-  const canSubmit = Boolean(selectedDogId);
+  const canSubmit = Boolean(selectedDogId) && !isSubmitting;
 
   const onDragStartDog = (e: React.DragEvent<HTMLDivElement>, dogId: string) => {
     e.dataTransfer.setData("text/plain", dogId);
@@ -65,6 +68,21 @@ export function SelectStep({ onSubmitSuccess }: Props) {
   };
 
   const clearSelection = () => setSelectedDogId(null);
+
+  const handleSubmit = async () => {
+    if (!selectedDog) return;
+    setSubmitError(null);
+    setIsSubmitting(true);
+    try {
+      await onAdopt?.(selectedDog);
+      onSubmitSuccess?.();
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "입양 절차를 시작하지 못했습니다.";
+      setSubmitError(message);
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
 
   return (
     <div className="space-y-6">
@@ -204,16 +222,22 @@ export function SelectStep({ onSubmitSuccess }: Props) {
           )}
         </div>
 
+        {submitError && (
+          <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+            {submitError}
+          </div>
+        )}
+
         <div className="mt-8 flex justify-end">
           <Button
             disabled={!canSubmit}
-            onClick={onSubmitSuccess}
+            onClick={handleSubmit}
             className={[
               "rounded-md bg-[#0064FF] hover:bg-[#0056E6]",
               canSubmit ? "bg-[#5f7cf7] text-white" : "cursor-not-allowed bg-gray-300 text-gray-500",
             ].join(" ")}
           >
-            입양하기
+            {isSubmitting ? "처리 중..." : "입양하기"}
           </Button>
         </div>
       </div>

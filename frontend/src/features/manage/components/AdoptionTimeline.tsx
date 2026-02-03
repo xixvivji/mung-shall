@@ -1,6 +1,6 @@
-import { Check, CheckCircle2, Lock } from "lucide-react";
+﻿import { Check, CheckCircle2, Lock } from "lucide-react";
 import { useMemo } from "react";
-import type { AdoptionStep } from "@/features/mypage/types";
+import type { AdoptionStep } from "@/features/manage/types";
 
 type StageStatus = "completed" | "current" | "pending";
 type StepStatus = "completed" | "current" | "pending";
@@ -16,18 +16,18 @@ type Stage = {
 
 /** =========================
  *  NEW FLOW (UI + REAL ORDER)
- *  A(입양 전): APPLICATION -> EDUCATION_CERT -> SELECT
+ *  A(입양 전): APPLICATION -> EDUCATION_CERT
  *  B(입양 중): CONSULT -> DOCUMENT -> CONTRACT -> APPROVAL
  *  C(입양 후): PICKUP -> CARE
  *
- *  SURVEY는 플로우/타임라인에서 제거.
- *  다만 서버에서 SURVEY가 들어올 수 있으니 normalize로 방어.
+ *  SELECT/SURVEY는 플로우/타임라인에서 제거.
+ *  다만 서버에서 들어올 수 있으니 normalize로 방어.
  *  ========================= */
 
 const STAGE_INDEX: Record<StageId, number> = { A: 0, B: 1, C: 2 };
 
 const STAGE_STEPS: Record<StageId, AdoptionStep[]> = {
-  A: ["APPLICATION", "EDUCATION_CERT", "SELECT"],
+  A: ["APPLICATION", "EDUCATION_CERT"],
   B: ["CONSULT", "DOCUMENT", "CONTRACT", "APPROVAL"],
   C: ["PICKUP", "CARE"],
 };
@@ -37,8 +37,6 @@ const STEP_TITLE: Partial<Record<AdoptionStep, string>> = {
 
   // SURVEY: 타임라인에서는 숨기지만, 혹시 current로 들어오면 텍스트 표시용
   SURVEY: "성향 설문 작성",
-
-  SELECT: "유기견 선택",
 
   APPLICATION: "입양 설문 작성",
   EDUCATION_CERT: "입양 교육",
@@ -55,8 +53,9 @@ function titleOf(step: AdoptionStep) {
   return STEP_TITLE[step] ?? step;
 }
 
-/** ✅ SURVEY가 들어오면 APPLICATION로 치환 (UI/진행률/상단바 계산 안정화) */
+/** ✅ SELECT/SURVEY가 들어오면 APPLICATION로 치환 (UI/진행률/상단바 계산 안정화) */
 function normalizeStep(step: AdoptionStep): AdoptionStep {
+  if (step === "SELECT") return "APPLICATION";
   if (step === "SURVEY") return "APPLICATION";
   return step;
 }
@@ -322,3 +321,6 @@ export function AdoptionTimeline({
     </div>
   );
 }
+
+
+

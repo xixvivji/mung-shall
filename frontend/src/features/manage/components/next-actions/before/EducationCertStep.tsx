@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+﻿import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Button } from "@/shared/ui/button";
 import { ApiError } from "@/shared/api/client";
 import {
@@ -6,7 +6,7 @@ import {
   fetchEducationCert,
   uploadEducationCert,
 } from "@/features/postAdoption/api/postAdoptionApi";
-import type { EducationCertResponse } from "@/features/mypage/types";
+import type { EducationCertResponse } from "@/features/manage/types";
 
 type Props = {
   isEditable: boolean;
@@ -37,7 +37,8 @@ function resolveApiErrorMessage(error: unknown, fallback: string) {
   if (error instanceof ApiError) {
     if (error.status === 401) return "Login required.";
     if (error.status === 403) return "You do not have permission.";
-    if (error.status === 404) return "Certificate not found.";
+    if (error.status === 400) return "교육 수료증이 존재하지 않습니다.";
+    if (error.status === 404) return "교육 수료증이 존재하지 않습니다.";
     if (error.status === 409) return "The certificate status has changed. Please refresh.";
     if (error.status >= 500) return "Server error. Please try again.";
     return error.message || fallback;
@@ -51,7 +52,7 @@ export function EducationCertStep({ isEditable, onSubmitSuccess, adoptionId }: P
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [tempFile, setTempFile] = useState<File | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
-  const [educationInstitution, setEducationInstitution] = useState("");
+  const [educationInstitution, setEducationInstitution] = useState("동물사랑배움터");
   const [certificateNumber, setCertificateNumber] = useState("");
   const [completionDate, setCompletionDate] = useState("");
   const [submitting, setSubmitting] = useState(false);
@@ -98,14 +99,14 @@ export function EducationCertStep({ isEditable, onSubmitSuccess, adoptionId }: P
         setSubmitted(true);
         setFile(null);
         setTempFile(null);
-        setEducationInstitution(data.educationInstitution ?? "");
+        setEducationInstitution(data.educationInstitution ?? "동물사랑배움터");
         setCertificateNumber(data.certificateNumber ?? "");
         setCompletionDate(normalizeDateTimeInput(data.completionDate ?? ""));
         if (import.meta.env.DEV) {
           console.debug("[education-cert] fetched", data);
         }
       } catch (err) {
-        if (err instanceof ApiError && err.status === 404) {
+        if (err instanceof ApiError && (err.status === 400 || err.status === 404)) {
           setCertificate(null);
           setSubmitted(false);
           setCertError(null);
@@ -186,7 +187,7 @@ export function EducationCertStep({ isEditable, onSubmitSuccess, adoptionId }: P
       setSubmitted(false);
       setFile(null);
       setTempFile(null);
-      setEducationInstitution("");
+      setEducationInstitution("동물사랑배움터");
       setCertificateNumber("");
       setCompletionDate("");
       await loadCertificate(adoptionId, { silent: true });
@@ -280,15 +281,15 @@ export function EducationCertStep({ isEditable, onSubmitSuccess, adoptionId }: P
         ) : certificate ? (
           <div className="mt-4 space-y-3 rounded-xl bg-gray-50 p-4 text-sm text-gray-700">
             <div>
-              <p className="text-xs font-semibold text-gray-500">Institution</p>
+              <p className="text-xs font-semibold text-gray-500">기관명</p>
               <p className="text-sm text-gray-900">{certificate.educationInstitution}</p>
             </div>
             <div>
-              <p className="text-xs font-semibold text-gray-500">Certificate No.</p>
+              <p className="text-xs font-semibold text-gray-500">자격 번호</p>
               <p className="text-sm text-gray-900">{certificate.certificateNumber}</p>
             </div>
             <div>
-              <p className="text-xs font-semibold text-gray-500">Completion Date</p>
+              <p className="text-xs font-semibold text-gray-500">수료일자</p>
               <p className="text-sm text-gray-900">
                 {formatDateTime(certificate.completionDate)}
               </p>
@@ -396,10 +397,10 @@ export function EducationCertStep({ isEditable, onSubmitSuccess, adoptionId }: P
         {/* ✅ 제출 버튼은 항상 보이되, canSubmit일 때만 활성 */}
         <div className="mt-5 grid gap-4 sm:grid-cols-2">
           <div className="space-y-2">
-            <label className="text-xs font-semibold text-gray-700">Institution</label>
+            <label className="text-xs font-semibold text-gray-700">기관명</label>
             <input
               className="h-10 w-full rounded-[12px] border border-[#E5E7EB] px-3 text-sm text-[#1F2937] placeholder:text-[#6B7280] focus:border-transparent focus:ring-2 focus:ring-[#5B7CFA]"
-              placeholder="?? ??"
+              placeholder="동물사랑배움터"
               value={educationInstitution}
               onChange={(event) => setEducationInstitution(event.target.value)}
               disabled={fieldsDisabled}
@@ -407,10 +408,10 @@ export function EducationCertStep({ isEditable, onSubmitSuccess, adoptionId }: P
           </div>
 
           <div className="space-y-2">
-            <label className="text-xs font-semibold text-gray-700">Certificate No.</label>
+            <label className="text-xs font-semibold text-gray-700">자격 번호</label>
             <input
               className="h-10 w-full rounded-[12px] border border-[#E5E7EB] px-3 text-sm text-[#1F2937] placeholder:text-[#6B7280] focus:border-transparent focus:ring-2 focus:ring-[#5B7CFA]"
-              placeholder="??? ??"
+              placeholder="제 2026-xxxx-xxxxx"
               value={certificateNumber}
               onChange={(event) => setCertificateNumber(event.target.value)}
               disabled={fieldsDisabled}
@@ -418,7 +419,7 @@ export function EducationCertStep({ isEditable, onSubmitSuccess, adoptionId }: P
           </div>
 
           <div className="space-y-2 sm:col-span-2">
-            <label className="text-xs font-semibold text-gray-700">Completion Date</label>
+            <label className="text-xs font-semibold text-gray-700">수료일자</label>
             <input
               type="datetime-local"
               className="h-10 w-full rounded-[12px] border border-[#E5E7EB] px-3 text-sm text-[#1F2937] focus:border-transparent focus:ring-2 focus:ring-[#5B7CFA]"
@@ -618,3 +619,8 @@ export function EducationCertStep({ isEditable, onSubmitSuccess, adoptionId }: P
     </div>
   );
 }
+
+
+
+
+

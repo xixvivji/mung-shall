@@ -35,7 +35,7 @@ public class AdoptionController {
             @ApiResponse(responseCode = "201", description = "입양 프로세스 생성 성공",
                     content = @Content(schema = @Schema(implementation = Map.class))),
             })
-    @PostMapping("/")
+    @PostMapping("")
     public ResponseEntity<?> createAdoptionProcess(@Valid @RequestBody AdoptionCreateRequest request) {
         Long adoptionId = adoptionService.createAdoptionProcess(request.getUserId(), request.getAbandonedDogId());
         return ResponseEntity.status(HttpStatus.CREATED).body(Map.of("adoptionId", adoptionId));

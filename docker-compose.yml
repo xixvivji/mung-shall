@@ -132,7 +132,7 @@ services:
       - --realm=openvidu
       - --verbose
       - --use-auth-secret
-      - --static-auth-secret=$${COTURN_SHARED_SECRET_KEY}
+      - --static-auth-secret=${COTURN_SHARED_SECRET_KEY}
     logging:
       options:
         max-size: "${DOCKER_LOGS_MAX_SIZE:-100M}"

@@ -1,4 +1,4 @@
-import imgImage48 from "@/assets/images/social_login_kakao.png";
+﻿import imgImage48 from "@/assets/images/social_login_kakao.png";
 import imgImage47 from "@/assets/images/sicial_login_naver.png";
 import imgImage46 from "@/assets/images/social_login_google.png";
 import imgMungshall2 from "@/assets/images/mung.png";
@@ -25,15 +25,15 @@ function Text() {
     >
       <p className="text-center text-[14px] leading-[20px] text-[#737373]">
         <Link className="underline" to="/auth/signup">
-          ?�원가??
+          회원가입
         </Link>
         <span>{`  |  `}</span>
         <Link className="underline" to="/auth/find-id">
-          ?�이?�찾�?
+          아이디찾기
         </Link>
         <span>{`  |  `}</span>
         <Link className="underline" to="/auth/find-pw">
-          비�?번호 찾기
+          비밀번호 찾기
         </Link>
       </p>
     </div>
@@ -86,7 +86,7 @@ const getOAuthUrl = (provider: SocialProvider) => {
   return `${apiBase}/auth/oauth/${provider}`;
 };
 
-const DEFAULT_ERROR_MESSAGE = "?�버 ?�류가 발생?�습?�다. ?�시 ???�시 ?�도??주세??";
+const DEFAULT_ERROR_MESSAGE = "서버 오류가 발생했습니다. 잠시 후 다시 시도해 주세요.";
 
 function parseErrorMessage(rawMessage: string) {
   const trimmed = rawMessage.trim();
@@ -106,9 +106,9 @@ function resolveErrorMessage(err: unknown) {
   if (err instanceof ApiError) {
     const parsed = parseErrorMessage(err.message);
     if (parsed) return parsed;
-    if (err.status === 400) return "?�력값을 ?�인??주세??";
-    if (err.status === 401 || err.status === 403) return "로그?�이 ?�요?�거??권한???�습?�다.";
-    if (err.status === 404) return "?�청??기능??찾을 ???�습?�다.";
+    if (err.status === 400) return "입력값을 확인해 주세요.";
+    if (err.status === 401 || err.status === 403) return "로그인이 필요하거나 권한이 없습니다.";
+    if (err.status === 404) return "요청한 기능을 찾을 수 없습니다.";
     if (err.status === 500) return DEFAULT_ERROR_MESSAGE;
     return DEFAULT_ERROR_MESSAGE;
   }
@@ -130,13 +130,13 @@ function Login() {
   useEffect(() => {
     const state = location.state as { error?: string } | null;
     if (!state?.error) return;
-    openAlert({ title: "�α��� �ʿ�", message: state.error });
+    openAlert({ title: "로그인 필요", message: state.error });
     navigate(location.pathname, { replace: true, state: null });
   }, [location, navigate, openAlert]);
 
   const handleLogin = async () => {
     if (!username.trim() || !password.trim()) {
-      openAlert({ title: "로그???�패", message: "?�이?��? 비�?번호�??�력?�주?�요." });
+      openAlert({ title: "로그인 실패", message: "아이디와 비밀번호를 입력해주세요." });
       return;
     }
     setLoading(true);
@@ -146,7 +146,7 @@ function Login() {
       const nextRoute = userType === "shelter" || userType === "center" ? ROUTES.center : ROUTES.mypage;
       navigate(nextRoute);
     } catch (err) {
-      openAlert({ title: "로그???�패", message: resolveErrorMessage(err) });
+      openAlert({ title: "로그인 실패", message: resolveErrorMessage(err) });
     } finally {
       setLoading(false);
     }
@@ -173,16 +173,16 @@ function Login() {
         Login
       </p>
 
-      <input
+            <input
         className="absolute left-[905px] top-[370px] h-[36px] w-[350px] rounded-[8px] border border-[#e5e5e5] px-[12px] text-[14px] shadow-[0px_1px_2px_0px_rgba(0,0,0,0.1)] outline-none"
-        placeholder="?�이??
+        placeholder="Username"
         value={username}
         onChange={(event) => setUsername(event.target.value)}
       />
       <input
         type="password"
         className="absolute left-[905px] top-[422px] h-[36px] w-[350px] rounded-[8px] border border-[#e5e5e5] px-[12px] text-[14px] shadow-[0px_1px_2px_0px_rgba(0,0,0,0.1)] outline-none"
-        placeholder="비�?번호"
+        placeholder="Password"
         value={password}
         onChange={(event) => setPassword(event.target.value)}
       />
@@ -192,7 +192,7 @@ function Login() {
         type="submit"
         disabled={loading}
       >
-        {loading ? "로그??�?.." : "Log In"}
+        {loading ? "로그인 중..." : "Log In"}
       </button>
 
       <Divider />
@@ -242,8 +242,3 @@ export default function Component051Login() {
     </div>
   );
 }
-
-
-
-
-

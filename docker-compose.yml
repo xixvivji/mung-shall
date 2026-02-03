@@ -73,7 +73,7 @@ services:
     volumes:
       - ./openvidu/coturn:/run/secrets/coturn
       - /var/run/docker.sock:/var/run/docker.sock
-      - /etc/letsencrypt/live/i14c109.p.ssafy.io:/opt/openvidu/owncert:ro
+      - /opt/openvidu/owncert:/opt/openvidu/owncert:ro
     env_file:
       - .env
     environment:

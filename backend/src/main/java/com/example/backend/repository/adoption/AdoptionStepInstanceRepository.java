@@ -12,5 +12,5 @@ public interface AdoptionStepInstanceRepository extends JpaRepository<AdoptionSt
     List<AdoptionStepInstance> findByAdoptionIdOrderByStepDefStepOrderAsc(Long adoptionId);
     Optional<AdoptionStepInstance> findByAdoptionIdAndStepDefStepOrder(Long adoptionId, Integer stepOrder);
 
-    Optional<Object> findByIdAndAdoptionId(Long stepInstanceId, Long adoptionId);
+    Optional<AdoptionStepInstance> findByIdAndAdoptionId(Long stepInstanceId, Long adoptionId);
 }

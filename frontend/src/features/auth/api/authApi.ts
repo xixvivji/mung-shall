@@ -1,8 +1,12 @@
 import { api, refreshAccessToken } from "@/shared/api/client";
 import type { AuthCredentials, AuthUser, SignUpRequest } from "../types";
 
+type LoginResponse = {
+  accessToken: string;
+};
+
 export async function login(credentials: AuthCredentials): Promise<AuthUser> {
-  await api<void>("/auth/login", {
+  const res = await api<LoginResponse>("/auth/login", {
     method: "POST",
     body: JSON.stringify(credentials),
     skipAuth: true,

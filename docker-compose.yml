@@ -127,6 +127,7 @@ services:
     command:
       - --log-file=stdout
       - --listening-port=${COTURN_PORT:-3478}
+      - --external-ip=${COTURN_IP}
       - --fingerprint
       - --min-port=${COTURN_MIN_PORT:-57001}
       - --max-port=${COTURN_MAX_PORT:-65535}

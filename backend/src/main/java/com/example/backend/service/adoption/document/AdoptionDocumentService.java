@@ -48,7 +48,7 @@ public class AdoptionDocumentService {
 
         // '문서 제출' 단계 인스턴스 찾기
         AdoptionStepInstance documentStepInstance = adoptionStepInstanceRepository
-                .findByAdoptionIdAndStepDefStepOrder(adoptionId, 1)
+                .findByAdoptionIdAndStepDefStepOrder(adoptionId, 4)
                 .orElseThrow(() -> new IllegalArgumentException("문서 제출 단계를 찾을 수 없습니다."));
 
         // 현재 단계가 PENDING, SUBMITTED, REJECTED 상태인지 확인

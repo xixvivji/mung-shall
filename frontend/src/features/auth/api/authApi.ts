@@ -1,22 +1,21 @@
 import { api } from "@/shared/api/client";
 import type { AuthCredentials, AuthUser, SignUpRequest } from "../types";
 
-export async function login(credentials: AuthCredentials): Promise<AuthUser & { accessToken?: string }> {
+type LoginResponse = {
+  accessToken: string;
+};
 
-  const response = await api<{ accessToken: string }>("/auth/login", {
+export async function login(credentials: AuthCredentials): Promise<AuthUser> {
+  const res = await api<LoginResponse>("/auth/login", {
     method: "POST",
     body: JSON.stringify(credentials),
     skipAuth: true,
     skipRefresh: true,
   });
 
-  if (response && response.accessToken) {
-    localStorage.setItem("accessToken", response.accessToken);
-  }
+  localStorage.setItem("accessToken", res.accessToken);
 
-  const user = await fetchMe();
-
-  return { ...user, accessToken: response?.accessToken };
+  return fetchMe();
 }
 
 export async function fetchMe(options?: { skipRefresh?: boolean }): Promise<AuthUser> {

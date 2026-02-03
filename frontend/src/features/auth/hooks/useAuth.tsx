@@ -9,28 +9,32 @@ export default function useAuth() {
   const isAuthenticated = Boolean(user);
 
   const login = useCallback(async (credentials: AuthCredentials) => {
+
     const loggedInUser = await loginApi(credentials);
 
-    authStore.setUser(loggedInUser);
 
-    if (loggedInUser?.accessToken) {
-
+    if (loggedInUser && loggedInUser.accessToken) {
       localStorage.setItem("accessToken", loggedInUser.accessToken);
+
+
       axios.defaults.headers.common["Authorization"] = `Bearer ${loggedInUser.accessToken}`;
     }
 
+    authStore.setUser(loggedInUser);
     return loggedInUser;
   }, []);
 
   const logout = useCallback(async () => {
     try {
       await logoutApi();
+    } catch {
 
     } finally {
-      authStore.setUser(null);
 
       localStorage.removeItem("accessToken");
       delete axios.defaults.headers.common["Authorization"];
+
+      authStore.setUser(null);
     }
   }, []);
 

@@ -1,5 +1,3 @@
-// ✅ StepList.tsx (전체 코드: 3단계 meeting에서 SUBMITTED면 승인/반려 버튼 노출)
-
 import * as React from "react";
 import { Badge } from "@/shared/ui/badge";
 import type {
@@ -7,6 +5,8 @@ import type {
   ShelterAdoptionDetail,
   AdoptionSurveyResponse,
   AdoptionEducationCertResponse,
+  AdoptionDocumentItem,
+  AdoptionContractResponse,
 } from "../api/centerApplicationsApi";
 import { stepNameByOrder, stepBadgeVariant, stepStatusLabel } from "./utils/labels";
 import { formatDateTime } from "./utils/format";
@@ -15,6 +15,8 @@ export type StepDetailData =
   | { kind: "survey"; data: AdoptionSurveyResponse }
   | { kind: "educationCert"; data: AdoptionEducationCertResponse }
   | { kind: "meeting"; data: { stepInstanceId: number } }
+  | { kind: "documents"; data: AdoptionDocumentItem[] }
+  | { kind: "contract"; data: AdoptionContractResponse }
   | null;
 
 type Props = {
@@ -32,6 +34,18 @@ type Props = {
 
   actionLoading: boolean;
 };
+
+function formatFileSize(bytes?: number) {
+  if (!bytes || bytes <= 0) return "-";
+  const units = ["B", "KB", "MB", "GB"];
+  let n = bytes;
+  let i = 0;
+  while (n >= 1024 && i < units.length - 1) {
+    n /= 1024;
+    i += 1;
+  }
+  return `${n.toFixed(i === 0 ? 0 : 1)} ${units[i]}`;
+}
 
 export function StepList({
   selected,
@@ -57,10 +71,7 @@ export function StepList({
             const order = idx + 1;
             const status = String(s.status).toUpperCase();
 
-            // ✅ 조회(열람) 가능한 상태: 제출됨/승인/반려/완료 모두
             const isOpenable = ["SUBMITTED", "APPROVED", "REJECTED", "COMPLETED"].includes(status);
-
-            // ✅ 승인/반려 버튼은 제출됨일 때만
             const isActionable = status === "SUBMITTED";
 
             const isExpanded = selectedStepOrder === order;
@@ -85,7 +96,6 @@ export function StepList({
                   <Badge variant={stepBadgeVariant(String(s.status)) as any}>{stepStatusLabel(s.status)}</Badge>
                 </button>
 
-                {/* ✅ 열람 가능한 상태면 확장 영역 렌더 */}
                 {isOpenable && isExpanded ? (
                   <div className="border-t border-slate-200 px-3 py-3">
                     {stepDetailLoading ? (
@@ -130,7 +140,6 @@ export function StepList({
                               )}
                             </div>
 
-                            {/* ✅ 제출됨일 때만 승인/반려 노출 */}
                             {isActionable ? (
                               <div className="pt-2 flex flex-wrap gap-2">
                                 <button
@@ -177,7 +186,6 @@ export function StepList({
                               <span className="text-slate-900">{survey.email || "-"}</span>
                             </div>
 
-                            {/* ✅ 제출됨일 때만 승인/반려 노출 */}
                             {isActionable ? (
                               <div className="pt-2 flex flex-wrap gap-2">
                                 <button
@@ -206,7 +214,6 @@ export function StepList({
                       <div className="space-y-2 text-sm">
                         <div className="text-xs text-slate-500">상담 단계입니다. 제출 데이터 조회는 없습니다.</div>
 
-                        {/* ✅ 3단계도 제출됨일 때 승인/반려 노출 */}
                         {isActionable ? (
                           <div className="pt-2 flex flex-wrap gap-2">
                             <button
@@ -229,6 +236,124 @@ export function StepList({
                           </div>
                         ) : null}
                       </div>
+                    ) : stepDetail.kind === "documents" ? (
+                      <div className="space-y-3">
+                        <div className="text-xs text-slate-500">업로드된 입양 문서 목록</div>
+
+                        {stepDetail.data.length === 0 ? (
+                          <div className="text-xs text-slate-500">업로드된 문서가 없습니다.</div>
+                        ) : (
+                          <ul className="space-y-2">
+                            {stepDetail.data.map((doc) => (
+                              <li key={doc.id} className="rounded-xl border border-slate-200 p-3">
+                                <div className="flex items-start justify-between gap-3">
+                                  <div className="min-w-0">
+                                    <div className="text-sm font-medium text-slate-900 truncate">
+                                      {doc.originalFileName || "-"}
+                                    </div>
+                                    <div className="mt-1 text-xs text-slate-500">
+                                      유형: {String(doc.documentType)} · 크기: {formatFileSize(doc.fileSize)}
+                                    </div>
+                                  </div>
+
+                                  {doc.filePath ? (
+                                    <a
+                                      href={doc.filePath}
+                                      target="_blank"
+                                      rel="noreferrer"
+                                      className="shrink-0 text-sm text-slate-900 underline"
+                                    >
+                                      열기
+                                    </a>
+                                  ) : null}
+                                </div>
+                              </li>
+                            ))}
+                          </ul>
+                        )}
+
+                        {isActionable ? (
+                          <div className="pt-2 flex flex-wrap gap-2">
+                            <button
+                              type="button"
+                              disabled={actionLoading}
+                              onClick={onStepApprove}
+                              className="rounded-xl bg-slate-900 px-3 py-2 text-sm font-medium text-white hover:bg-slate-800 disabled:bg-slate-200 disabled:text-slate-500"
+                            >
+                              승인
+                            </button>
+
+                            <button
+                              type="button"
+                              disabled={actionLoading}
+                              onClick={onStepReject}
+                              className="rounded-xl bg-red-600 px-3 py-2 text-sm font-medium text-white hover:bg-red-500 disabled:bg-red-200 disabled:text-red-400"
+                            >
+                              반려
+                            </button>
+                          </div>
+                        ) : null}
+                      </div>
+                    ) : stepDetail.kind === "contract" ? (
+                      (() => {
+                        const c = stepDetail.data;
+                        return (
+                          <div className="space-y-2 text-sm">
+                            <div className="flex justify-between">
+                              <span className="text-slate-500">파일명</span>
+                              <span className="text-slate-900">{c.originalFileName || "-"}</span>
+                            </div>
+
+                            <div className="flex justify-between">
+                              <span className="text-slate-500">파일 크기</span>
+                              <span className="text-slate-900">{formatFileSize(c.fileSize)}</span>
+                            </div>
+
+                            <div className="flex justify-between">
+                              <span className="text-slate-500">업로드 일시</span>
+                              <span className="text-slate-900">{formatDateTime(c.uploadedAt) || "-"}</span>
+                            </div>
+
+                            <div className="flex items-center justify-between gap-2">
+                              <span className="text-slate-500">파일</span>
+                              {c.contractFileUrl ? (
+                                <a
+                                  href={c.contractFileUrl}
+                                  target="_blank"
+                                  rel="noreferrer"
+                                  className="text-sm text-slate-900 underline"
+                                >
+                                  계약서 열기
+                                </a>
+                              ) : (
+                                <span className="text-slate-900">-</span>
+                              )}
+                            </div>
+
+                            {isActionable ? (
+                              <div className="pt-2 flex flex-wrap gap-2">
+                                <button
+                                  type="button"
+                                  disabled={actionLoading}
+                                  onClick={onStepApprove}
+                                  className="rounded-xl bg-slate-900 px-3 py-2 text-sm font-medium text-white hover:bg-slate-800 disabled:bg-slate-200 disabled:text-slate-500"
+                                >
+                                  승인
+                                </button>
+
+                                <button
+                                  type="button"
+                                  disabled={actionLoading}
+                                  onClick={onStepReject}
+                                  className="rounded-xl bg-red-600 px-3 py-2 text-sm font-medium text-white hover:bg-red-500 disabled:bg-red-200 disabled:text-red-400"
+                                >
+                                  반려
+                                </button>
+                              </div>
+                            ) : null}
+                          </div>
+                        );
+                      })()
                     ) : (
                       <div className="text-xs text-slate-500">제출 데이터가 없습니다.</div>
                     )}

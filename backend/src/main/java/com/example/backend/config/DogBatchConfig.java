@@ -82,26 +82,21 @@ public class DogBatchConfig {
             public PublicApiResponse.Item read() {
                 if (items == null) {
                     log.info("[Batch] 공공데이터 API 전체 수집 시작...");
-                    items = fetchDogsFromApi();
-                    log.info("[Batch] 수집 완료. 총 {}건 처리 대기 중.", items.size());
+                    FetchResult fetch = fetchDogsFromApi();
+                    items = fetch.items();
+                    log.info("[Batch] 수집 완료. totalCount={}, totalPages={}, collectedItems={}",
+                            fetch.totalCount(), fetch.totalPages(), items.size());
 
-                    // ✅ 품종 업데이트는 수집 직후 1회
+                    // 수집 직후 1회 품종 업데이트
                     updateDogKinds(items);
                 }
 
-                if (nextIndex < items.size()) {
-                    return items.get(nextIndex++);
-                }
+                if (nextIndex < items.size()) return items.get(nextIndex++);
                 return null;
             }
         };
     }
 
-    /**
-     * Processor: 중복 제거 + 엔티티 매핑
-     * - 매 item마다 existsByDesertionNo() 호출 X
-     * - 최초 1회 findAllDesertionNos()로 Set 로딩 후 contains 체크
-     */
     @Bean
     public ItemProcessor<PublicApiResponse.Item, AbandonedDog> dogItemProcessor() {
         return new ItemProcessor<>() {
@@ -118,7 +113,6 @@ public class DogBatchConfig {
                 String desertionNo = item.getDesertionNo();
                 if (desertionNo == null || desertionNo.isBlank()) return null;
 
-                // 이미 존재하면 스킵
                 if (existingDogIds.contains(desertionNo)) return null;
 
                 // 이번 런에서 중복 방지
@@ -139,40 +133,52 @@ public class DogBatchConfig {
     }
 
     // ------------------------------
-    // 아래는 기존 코드 유지 + 안정성만 조금 보강
+    // API Fetch
     // ------------------------------
-
-    private List<PublicApiResponse.Item> fetchDogsFromApi() {
+    private FetchResult fetchDogsFromApi() {
         int pageNo = 1;
         List<PublicApiResponse.Item> allItems = new ArrayList<>();
 
-        PublicApiResponse firstResponse = callApi(pageNo);
-        if (firstResponse == null || firstResponse.getResponse() == null || firstResponse.getResponse().getBody() == null) {
+        PublicApiResponse first = callApi(pageNo);
+        if (first == null || first.getResponse() == null || first.getResponse().getBody() == null) {
             log.warn("[Batch] API 첫 페이지 응답이 비어있습니다.");
-            return allItems;
+            return new FetchResult(0, 0, allItems);
         }
 
-        int totalCount = firstResponse.getResponse().getBody().getTotalCount();
-        if (totalCount == 0) return allItems;
+        int totalCount = first.getResponse().getBody().getTotalCount();
+        if (totalCount == 0) return new FetchResult(0, 0, allItems);
 
-        List<PublicApiResponse.Item> firstItems = Optional.ofNullable(firstResponse.getResponse().getBody().getItems())
-                .map(PublicApiResponse.Items::getItem)
-                .orElse(Collections.emptyList());
+        List<PublicApiResponse.Item> firstItems =
+                Optional.ofNullable(first.getResponse().getBody().getItems())
+                        .map(PublicApiResponse.Items::getItem)
+                        .orElse(Collections.emptyList());
+
         allItems.addAll(firstItems);
 
         int totalPages = (int) Math.ceil((double) totalCount / numOfRows);
 
-        for (pageNo = 2; pageNo <= totalPages; pageNo++) {
-            PublicApiResponse response = callApi(pageNo);
-            if (response == null || response.getResponse() == null || response.getResponse().getBody() == null) continue;
+        // ✅ 운영 확인용 핵심 로그
+        log.info("[Batch] totalCount={}, numOfRows={}, totalPages={}", totalCount, numOfRows, totalPages);
 
-            List<PublicApiResponse.Item> items = Optional.ofNullable(response.getResponse().getBody().getItems())
-                    .map(PublicApiResponse.Items::getItem)
-                    .orElse(Collections.emptyList());
+        for (pageNo = 2; pageNo <= totalPages; pageNo++) {
+            PublicApiResponse resp = callApi(pageNo);
+            if (resp == null || resp.getResponse() == null || resp.getResponse().getBody() == null) {
+                log.warn("[Batch] page {} 응답이 비어있습니다. skip", pageNo);
+                continue;
+            }
+
+            List<PublicApiResponse.Item> items =
+                    Optional.ofNullable(resp.getResponse().getBody().getItems())
+                            .map(PublicApiResponse.Items::getItem)
+                            .orElse(Collections.emptyList());
+
             allItems.addAll(items);
+
+            // 너무 시끄러우면 DEBUG로 낮춰도 됨
+            log.info("[Batch] fetched page {}/{} (added={})", pageNo, totalPages, items.size());
         }
 
-        return allItems;
+        return new FetchResult(totalCount, totalPages, allItems);
     }
 
     private PublicApiResponse callApi(int pageNo) {
@@ -196,13 +202,16 @@ public class DogBatchConfig {
                 .filter(s -> !s.isEmpty())
                 .collect(Collectors.toSet());
 
-        if (uniqueKindNames.isEmpty()) return;
+        if (uniqueKindNames.isEmpty()) {
+            log.info("[Batch] DogKind 업데이트 스킵 (품종 없음)");
+            return;
+        }
 
         Set<String> existing = new HashSet<>(dogKindRepository.findAllNames());
 
         List<DogKind> toInsert = uniqueKindNames.stream()
                 .filter(name -> !existing.contains(name))
-                .map(DogKind::new) // DogKind(name) 생성자 이미 사용 중이었지
+                .map(DogKind::new)
                 .toList();
 
         if (!toInsert.isEmpty()) {
@@ -212,9 +221,9 @@ public class DogBatchConfig {
         log.info("[Batch] DogKind 업데이트 완료. 신규 품종 {}개", toInsert.size());
     }
 
-
     private AbandonedDog mapItemToAbandonedDog(PublicApiResponse.Item item) {
         AbandonedDog dog = new AbandonedDog();
+
         dog.setDesertionNo(item.getDesertionNo());
         dog.setHappenDt(item.getHappenDt());
         dog.setHappenPlace(item.getHappenPlace());
@@ -243,6 +252,7 @@ public class DogBatchConfig {
         String careNm = item.getCareNm();
         String careAddr = item.getCareAddr();
 
+        // ⚠️ 동시성 중복 삽입 가능성: (careNm, address) 유니크 제약이 가장 확실한 해결
         Shelter shelter = shelterRepository.findByCareNmAndAddress(careNm, careAddr)
                 .orElseGet(() -> shelterRepository.save(Shelter.builder()
                         .careNm(careNm)
@@ -254,4 +264,6 @@ public class DogBatchConfig {
         dog.setShelter(shelter);
         return dog;
     }
+
+    private record FetchResult(int totalCount, int totalPages, List<PublicApiResponse.Item> items) {}
 }

@@ -51,6 +51,11 @@ export default function DogCard({
   const content = (
     <>
       <div className="relative mb-3 w-full aspect-[4/3] overflow-hidden rounded-t-2xl bg-neutral-50">
+        {dog.adopting === true && (
+          <span className="absolute left-3 top-3 rounded-full bg-amber-500/90 px-2 py-0.5 text-[10px] font-semibold text-white shadow">
+            입양 진행 중
+          </span>
+        )}
         {dog.imageUrl ? (
           <img
             src={dog.imageUrl}

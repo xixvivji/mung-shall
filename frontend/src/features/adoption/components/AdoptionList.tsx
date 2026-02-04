@@ -102,7 +102,7 @@ export default function AdoptionList() {
           prev.cityLabel === next.cityLabel &&
           prev.status === next.status;
         if (isSame) return prev;
-        goToPage1(1); // ? ?? ??? 1????
+        goToPage1(1);
         return next;
       });
     },

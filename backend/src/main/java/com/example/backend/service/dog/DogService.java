@@ -41,31 +41,15 @@ public class DogService {
      * @param pageable 페이지 요청 정보 (page, size, sort)
      * @return Page<DogSummaryResponse>
      */
-    public Page<DogSummaryResponse> getDogs(String region, String kindNm, String sexCd, String processState, Pageable pageable) {
+    public Page<DogSummaryResponse> getDogs(String region, String kindNm, String sexCd, String processState, Pageable pageable, Long userId) {
         // Specification으로 동적 쿼리 생성
         Specification<AbandonedDog> spec = AbandonedDogSpecification.createSpecification(region, kindNm, sexCd, processState);
         Page<AbandonedDog> dogPage = abandonedDogRepository.findAll(spec, pageable);
-        Long currentUserId = null;
-        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-
-
-        if (authentication != null && authentication.isAuthenticated() && !"anonymousUser".equals(authentication.getPrincipal())) {
-
-            Object principal = authentication.getPrincipal();
-
-            if (principal instanceof CustomUserPrincipal) {
-                CustomUserPrincipal userPrincipal = (CustomUserPrincipal) principal;
-
-                currentUserId = userPrincipal.getUserId();
-            }
-        }
-
-        final Long finalCurrentUserId = currentUserId;
 
         return dogPage.map(dog -> {
             DogSummaryResponse dto = DogSummaryResponse.fromEntity(dog);
-            if (finalCurrentUserId != null) {
-                userRepository.findById(finalCurrentUserId).ifPresent(user -> {
+            if (userId != null) {
+                userRepository.findById(userId).ifPresent(user -> {
                     dto.setLiked(userDogInterestRepository.existsByUserAndAbandonedDog(user, dog));
                 });
             }

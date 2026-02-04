@@ -4,8 +4,8 @@ import com.example.backend.api.adoption.dto.AdoptionCreateRequest;
 import com.example.backend.api.adoption.dto.AdoptionDetailResponse;
 import com.example.backend.api.adoption.dto.AdoptionStepInstanceResponse;
 import com.example.backend.api.adoption.dto.AdoptionStatusResponse;
-import com.example.backend.common.util.SecurityUtil;
 import com.example.backend.domain.adoption.enums.AdoptionProcessStatus;
+import com.example.backend.security.principal.CustomUserPrincipal;
 import com.example.backend.service.adoption.AdoptionService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
@@ -43,10 +43,7 @@ public class AdoptionController {
             @Valid @RequestBody AdoptionCreateRequest request,
             @Parameter(hidden = true) Authentication authentication
     ) {
-        Long currentUserId = SecurityUtil.getCurrentUserId();
-        if (currentUserId == null) {
-            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(Map.of("message", "인증되지 않은 사용자입니다."));
-        }
+        Long currentUserId = ((CustomUserPrincipal) authentication.getPrincipal()).getUserId();
         Long adoptionId = adoptionService.createAdoptionProcess(currentUserId, request.getAbandonedDogId());
         return ResponseEntity.status(HttpStatus.CREATED).body(Map.of("adoptionId", adoptionId));
     }
@@ -76,10 +73,8 @@ public class AdoptionController {
     public ResponseEntity<?> getAdoptionsByStatus(
             @Parameter(description = "입양 프로세스 상태 (예: IN_PROGRESS, COMPLETED)") @RequestParam AdoptionProcessStatus status,
             @Parameter(hidden = true) Authentication authentication) {
-        Long currentUserId = SecurityUtil.getCurrentUserId();
-        if (currentUserId == null) {
-            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(Map.of("message", "인증되지 않은 사용자입니다."));
-        }
+        Long currentUserId = ((CustomUserPrincipal) authentication.getPrincipal()).getUserId();
+
         List<AdoptionStatusResponse> response = adoptionService.getAdoptionsByUserIdAndStatus(currentUserId, status);
         return ResponseEntity.ok(response);
     }

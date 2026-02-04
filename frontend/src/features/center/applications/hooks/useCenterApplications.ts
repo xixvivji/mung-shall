@@ -20,6 +20,7 @@ import { resolveApiErrorMessage } from "../utils/errors";
 export type StepDetailData =
   | { kind: "survey"; data: AdoptionSurveyResponse }
   | { kind: "educationCert"; data: AdoptionEducationCertResponse }
+  | { kind: "meeting"; data: { stepInstanceId: number } }
   | null;
 
 export function useCenterApplications() {
@@ -233,34 +234,52 @@ export function useCenterApplications() {
     }
   };
 
-  const fetchStepDetail = React.useCallback(async (adoptionId: number, stepOrder: number) => {
-    setStepDetailLoading(true);
-    setStepDetailError(null);
+  const fetchStepDetail = React.useCallback(
+    async (adoptionId: number, stepOrder: number) => {
+      setStepDetailLoading(true);
+      setStepDetailError(null);
 
-    try {
-      setSelectedStepOrder(stepOrder);
+      try {
+        setSelectedStepOrder(stepOrder);
 
-      if (stepOrder === 1) {
-        const survey = await getAdoptionSurvey(adoptionId);
-        setStepDetail({ kind: "survey", data: survey });
-        return;
+        if (stepOrder === 1) {
+          const survey = await getAdoptionSurvey(adoptionId);
+          setStepDetail({ kind: "survey", data: survey });
+          return;
+        }
+
+        if (stepOrder === 2) {
+          const cert = await getAdoptionEducationCert(adoptionId);
+          setStepDetail({ kind: "educationCert", data: cert });
+          return;
+        }
+
+        if (stepOrder === 3) {
+          // ✅ 3단계는 데이터 호출 필요 없음: detail.steps에서 stepInstanceId만 꺼내서 세팅
+          const step = detail?.steps?.[2] as any;
+          const stepInstanceId = step?.stepInstanceId ?? step?.id ?? null;
+
+          if (!stepInstanceId) {
+            setStepDetail(null);
+            setStepDetailError("3단계 stepInstanceId를 찾지 못했어요.");
+            return;
+          }
+
+          setStepDetail({ kind: "meeting", data: { stepInstanceId } });
+          return;
+        }
+
+        setStepDetail(null);
+        setStepDetailError("현재는 1~3단계만 조회할 수 있어요.");
+      } catch (err) {
+        setStepDetail(null);
+        setStepDetailError(resolveApiErrorMessage(err, "단계 데이터를 불러오지 못했습니다."));
+      } finally {
+        setStepDetailLoading(false);
       }
-
-      if (stepOrder === 2) {
-        const cert = await getAdoptionEducationCert(adoptionId);
-        setStepDetail({ kind: "educationCert", data: cert });
-        return;
-      }
-
-      setStepDetail(null);
-      setStepDetailError("현재는 1~2단계만 조회할 수 있어요.");
-    } catch (err) {
-      setStepDetail(null);
-      setStepDetailError(resolveApiErrorMessage(err, "단계 데이터를 불러오지 못했습니다."));
-    } finally {
-      setStepDetailLoading(false);
-    }
-  }, []);
+    },
+    [detail]
+  );
 
   // ✅ detail 로딩 후: "SUBMITTED(제출됨)" 단계 자동 확장 + 해당 단계 데이터 자동 조회
   React.useEffect(() => {
@@ -278,7 +297,7 @@ export function useCenterApplications() {
     setStepDetail(null);
     setStepDetailError(null);
 
-    if (order === 1 || order === 2) {
+    if (order === 1 || order === 2 || order === 3) {
       fetchStepDetail(selected.adoptionId, order);
     }
   }, [detail, selected, selectedStepOrder, fetchStepDetail]);
@@ -316,7 +335,7 @@ export function useCenterApplications() {
       const next = await fetchDetail(selected.adoptionId);
       setDetail(next);
 
-      if (selectedStepOrder === 1 || selectedStepOrder === 2) {
+      if (selectedStepOrder === 1 || selectedStepOrder === 2 || selectedStepOrder === 3) {
         await fetchStepDetail(selected.adoptionId, selectedStepOrder);
       }
     } catch (err) {
@@ -346,7 +365,7 @@ export function useCenterApplications() {
       const next = await fetchDetail(selected.adoptionId);
       setDetail(next);
 
-      if (selectedStepOrder === 1 || selectedStepOrder === 2) {
+      if (selectedStepOrder === 1 || selectedStepOrder === 2 || selectedStepOrder === 3) {
         await fetchStepDetail(selected.adoptionId, selectedStepOrder);
       }
     } catch (err) {

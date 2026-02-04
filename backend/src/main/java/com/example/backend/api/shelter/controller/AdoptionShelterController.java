@@ -2,10 +2,11 @@ package com.example.backend.api.shelter.controller;
 
 import com.example.backend.api.adoption.dto.AdoptionDetailResponse;
 import com.example.backend.api.adoption.dto.StepVerificationRequest;
-import com.example.backend.api.adoption.dto.shelter.ShelterAdoptionUserResponse;
+import com.example.backend.api.adoption.dto.shelter.ShelterAdoptionDogsWithCountResponse;
 import com.example.backend.domain.adoption.enums.AdoptionProcessStatus;
 import com.example.backend.security.principal.CustomUserPrincipal;
 import com.example.backend.service.shelter.AdoptionShelterService;
+import com.example.backend.service.shelter.ShelterPermissionEvaluator;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.media.Content;
@@ -20,7 +21,6 @@ import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
-import java.util.List;
 import java.util.Map;
 
 @Tag(name = "보호소 입양 관리 API", description = "보호소 관리자의 입양 프로세스 관리 관련 API")
@@ -30,21 +30,22 @@ import java.util.Map;
 public class AdoptionShelterController {
 
     private final AdoptionShelterService adoptionShelterService;
+    private final ShelterPermissionEvaluator shelterPermissionEvaluator;
 
-    @Operation(summary = "보호소 강아지 입양 신청자 목록 조회", description = "보호소에 소속된 강아지들의 입양 신청자 목록을 조회합니다.")
+    @Operation(summary = "보호소 강아지 입양 목록 조회", description = "보호소에 소속된 강아지들의 입양 목록을 상태별로 조회하고 총 개수를 반환합니다.")
     @ApiResponses(value = {
-            @ApiResponse(responseCode = "200", description = "입양 신청자 목록 조회 성공",
-                    content = @Content(schema = @Schema(implementation = ShelterAdoptionUserResponse.class))),
+            @ApiResponse(responseCode = "200", description = "입양 목록 조회 성공",
+                    content = @Content(schema = @Schema(implementation = ShelterAdoptionDogsWithCountResponse.class))),
             @ApiResponse(responseCode = "401", description = "인증되지 않은 사용자 또는 보호소 권한 없음"),
             @ApiResponse(responseCode = "400", description = "잘못된 요청 파라미터")
     })
-    @GetMapping("/adoptions/adopters")
+    @GetMapping("/adoptions/dogs")
     @PreAuthorize("hasRole('SHELTER')")
-    public ResponseEntity<List<ShelterAdoptionUserResponse>> getAdoptersForShelterDogs(
-            @AuthenticationPrincipal CustomUserPrincipal userPrincipal,
+    public ResponseEntity<ShelterAdoptionDogsWithCountResponse> getDogsWithAdoptionsForShelter(
             @Parameter(description = "조회할 입양 진행 상태 (IN_PROGRESS 또는 COMPLETED)")
             @RequestParam AdoptionProcessStatus status) {
-        List<ShelterAdoptionUserResponse> response = adoptionShelterService.getAdoptersForShelterDogs(userPrincipal.getUserId(), status);
+        Long shelterId = shelterPermissionEvaluator.getLoggedInShelter().getId();
+        ShelterAdoptionDogsWithCountResponse response = adoptionShelterService.getDogsWithAdoptionsByShelter(shelterId, status);
         return ResponseEntity.ok(response);
     }
 

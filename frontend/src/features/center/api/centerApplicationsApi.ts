@@ -389,3 +389,83 @@ export async function getPostAdoptionStepDetail(postAdoptionId: number, stepInst
     throw err;
   }
 }
+
+export type AdoptionStepDef = {
+  [key: string]: unknown;
+};
+
+export type AdoptionStepInstanceResponse = {
+  id: number;
+  stepDef: AdoptionStepDef;
+  status: AdoptionStepStatus;
+  approverUserId?: number | null;
+  approverUserName?: string | null;
+  submittedAt?: string | null;
+  approvedAt?: string | null;
+  completedAt?: string | null;
+  rejectionReason?: string | null;
+};
+
+const normalizeAdoptionStepInstance = (raw: unknown): AdoptionStepInstanceResponse => {
+  const r = isRecord(raw) ? raw : {};
+  return {
+    id: toNumber(r.id),
+    stepDef: isRecord((r as any).stepDef) ? ((r as any).stepDef as AdoptionStepDef) : {},
+    status: normalizeStepStatus((r as any).status),
+    approverUserId: (r as any).approverUserId != null ? toNumber((r as any).approverUserId) : null,
+    approverUserName: typeof (r as any).approverUserName === "string" ? (r as any).approverUserName : null,
+    submittedAt: typeof (r as any).submittedAt === "string" ? (r as any).submittedAt : null,
+    approvedAt: typeof (r as any).approvedAt === "string" ? (r as any).approvedAt : null,
+    completedAt: typeof (r as any).completedAt === "string" ? (r as any).completedAt : null,
+    rejectionReason: typeof (r as any).rejectionReason === "string" ? (r as any).rejectionReason : null,
+  };
+};
+
+const normalizeEducationCert = (raw: unknown): AdoptionEducationCertResponse => {
+  const r = isRecord(raw) ? raw : {};
+  return {
+    id: toNumber(r.id),
+    stepInstanceId: toNumber((r as any).stepInstanceId ?? (r as any).step_instance_id),
+    educationInstitution: toText((r as any).educationInstitution),
+    certificateNumber: toText((r as any).certificateNumber),
+    completionDate: toText((r as any).completionDate),
+    certificateFileUrl: toText((r as any).certificateFileUrl),
+  };
+};
+
+export async function getAdoptionEducationCert(adoptionId: number) {
+  const path = `/adoptions/${adoptionId}/education-cert`;
+  debugRequest("getAdoptionEducationCert", path, { adoptionId });
+
+  try {
+    const data = await api<unknown>(path);
+    return normalizeEducationCert(data);
+  } catch (err) {
+    debugError("getAdoptionEducationCert", path, err);
+    throw err;
+  }
+}
+
+
+export async function getAdoptionStepDetail(adoptionId: number, stepOrder: number) {
+  const path = `/adoptions/${adoptionId}/steps/${stepOrder}`;
+  debugRequest("getAdoptionStepDetail", path, { adoptionId, stepOrder });
+
+  try {
+    const data = await api<unknown>(path);
+    return normalizeAdoptionStepInstance(data);
+  } catch (err) {
+    debugError("getAdoptionStepDetail", path, err);
+    throw err;
+  }
+}
+
+// 2단계
+export type AdoptionEducationCertResponse = {
+  id: number;
+  stepInstanceId: number;
+  educationInstitution: string;
+  certificateNumber: string;
+  completionDate: string; // ISO date-time
+  certificateFileUrl: string;
+};

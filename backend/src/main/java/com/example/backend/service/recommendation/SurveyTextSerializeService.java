@@ -6,7 +6,7 @@ import org.springframework.stereotype.Component;
 import org.springframework.util.StringUtils;
 
 @Component
-public class ServeyTextSerializeService {
+public class SurveyTextSerializeService {
 
     public String toKoreanNormalizedText(DogRecommendationSurveyResponse survey) {
         if(survey == null) throw new IllegalArgumentException("survey must not be null");

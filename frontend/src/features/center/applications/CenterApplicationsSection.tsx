@@ -1,22 +1,29 @@
 ﻿import * as React from "react";
-import {
-  Card,
-  CardHeader,
-  CardTitle,
-  CardDescription,
-  CardContent,
-} from "@/shared/ui/card";
+import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/shared/ui/card";
 import { Badge } from "@/shared/ui/badge";
 import { ApiError } from "@/shared/api/client";
 import {
   getShelterDogsWithAdoption,
   getShelterAdoptionDetail,
+  getAdoptionStepsStatus,
   verifyShelterAdoption,
   type AdoptionProcessStatus,
   type ShelterDogWithAdoptionItem,
   type ShelterAdoptionDetail,
   type AdoptionFinalStatus,
 } from "../api/centerApplicationsApi";
+
+const STEP_NAME_BY_ORDER: Record<number, string> = {
+  1: "입양 사전 설문 제출",
+  2: "교육 수료증 제출",
+  3: "입양 문서 제출",
+  4: "입양 상담 진행",
+  5: "입양 계약서 업로드",
+};
+
+function stepNameByOrder(order: number) {
+  return STEP_NAME_BY_ORDER[order] ?? `단계 ${order}`;
+}
 
 const STATUS_FILTERS: Array<{ value: AdoptionProcessStatus; label: string }> = [
   { value: "IN_PROGRESS", label: "진행중" },
@@ -43,6 +50,28 @@ function finalStatusLabel(status?: AdoptionFinalStatus | null) {
   if (s === "REJECTED") return "최종 반려";
   if (s === "WAITING" || s === "PENDING") return "대기";
   return s;
+}
+
+const STEP_STATUS_LABEL: Record<string, string> = {
+  NOT_STARTED: "미시작",
+  SUBMITTED: "제출됨",
+  APPROVED: "승인",
+  REJECTED: "반려",
+  IN_PROGRESS: "진행중",
+  COMPLETED: "완료",
+};
+
+function stepBadgeVariant(status: string) {
+  const s = String(status).toUpperCase();
+  if (s === "APPROVED" || s === "COMPLETED") return "default";
+  if (s === "REJECTED") return "destructive";
+  if (s === "SUBMITTED" || s === "IN_PROGRESS") return "secondary";
+  return "outline";
+}
+
+function stepStatusLabel(status: unknown) {
+  const key = String(status ?? "").toUpperCase();
+  return (STEP_STATUS_LABEL[key] ?? key) || "-";
 }
 
 function resolveApiErrorMessage(err: unknown, fallback = "요청에 실패했습니다.") {
@@ -111,6 +140,31 @@ export function CenterApplicationsSection() {
     refreshList(filter);
   }, [filter, refreshList]);
 
+  // adoptionId로 상세/단계 조회 (shelter 우선, steps 비면/실패 시 폴백)
+  const fetchDetail = React.useCallback(
+    async (adoptionId: number): Promise<ShelterAdoptionDetail> => {
+      try {
+        const shelterDetail = await getShelterAdoptionDetail(adoptionId);
+
+        if (Array.isArray(shelterDetail.steps) && shelterDetail.steps.length > 0) {
+          return shelterDetail;
+        }
+
+        try {
+          const fallback = await getAdoptionStepsStatus(adoptionId);
+          return { ...shelterDetail, steps: Array.isArray(fallback.steps) ? fallback.steps : [] };
+        } catch {
+          return shelterDetail;
+        }
+      } catch {
+        // shelter 실패 시 폴백 1회
+        const fallback = await getAdoptionStepsStatus(adoptionId);
+        return fallback;
+      }
+    },
+    []
+  );
+
   React.useEffect(() => {
     if (!selectedAdoptionId) {
       setDetail(null);
@@ -122,7 +176,7 @@ export function CenterApplicationsSection() {
     setDetailLoading(true);
     setDetailError(null);
 
-    getShelterAdoptionDetail(selectedAdoptionId)
+    fetchDetail(selectedAdoptionId)
       .then((data) => {
         if (!active) return;
         setDetail(data);
@@ -140,7 +194,7 @@ export function CenterApplicationsSection() {
     return () => {
       active = false;
     };
-  }, [selectedAdoptionId]);
+  }, [selectedAdoptionId, fetchDetail]);
 
   React.useEffect(() => {
     setActionError(null);
@@ -152,9 +206,9 @@ export function CenterApplicationsSection() {
     [apps, selectedAdoptionId]
   );
 
-  // ✅ “검증 가능” 조건: 진행중 + 최종 상태 확정(승인/반려) 전
   const currentDetail = detail;
-  const currentProcessStatus = currentDetail?.processStatus ?? selected?.adoptionProcessStatus ?? filter;
+  const currentProcessStatus =
+    currentDetail?.processStatus ?? selected?.adoptionProcessStatus ?? filter;
   const currentFinalStatus = (currentDetail?.status ?? null) as AdoptionFinalStatus | null;
 
   const canVerify =
@@ -184,7 +238,7 @@ export function CenterApplicationsSection() {
       setActionMessage("승인 처리가 완료되었습니다.");
       await refreshList(filter);
 
-      const next = await getShelterAdoptionDetail(selected.adoptionId);
+      const next = await fetchDetail(selected.adoptionId);
       setDetail(next);
     } catch (err) {
       setActionError(resolveApiErrorMessage(err));
@@ -235,7 +289,7 @@ export function CenterApplicationsSection() {
 
       await refreshList(filter);
 
-      const next = await getShelterAdoptionDetail(selected.adoptionId);
+      const next = await fetchDetail(selected.adoptionId);
       setDetail(next);
     } catch (err) {
       setActionError(resolveApiErrorMessage(err));
@@ -290,7 +344,6 @@ export function CenterApplicationsSection() {
         ) : null}
 
         <div className="grid gap-4 md:grid-cols-[320px_1fr]">
-          {/* 왼쪽: 목록 */}
           <div className="rounded-2xl border border-slate-200 bg-white">
             <div className="border-b border-slate-200 p-3 text-sm font-medium text-slate-900">
               입양 목록 ({listCountLabel})
@@ -350,8 +403,8 @@ export function CenterApplicationsSection() {
                             </div>
 
                             <div className="mt-0.5 text-[11px] text-slate-500">
-                              현재 단계: {item.currentStepName || "-"} ({String(item.currentStepStatus)}) · order{" "}
-                              {item.currentStepOrder ?? "-"}
+                              현재 단계: {item.currentStepName || "-"} ({String(item.currentStepStatus)}) ·
+                              order {item.currentStepOrder ?? "-"}
                             </div>
 
                             <div className="mt-0.5 text-[11px] text-slate-500">
@@ -367,7 +420,6 @@ export function CenterApplicationsSection() {
             </div>
           </div>
 
-          {/* 오른쪽: 상세 */}
           <div className="rounded-2xl border border-slate-200 bg-white p-4">
             {!selected ? (
               <div className="flex h-[520px] items-center justify-center text-sm text-slate-500">
@@ -438,7 +490,6 @@ export function CenterApplicationsSection() {
                   </div>
                 </div>
 
-                {/* 단계 정보 (스웨거 steps) */}
                 <div className="rounded-2xl border border-slate-200 p-4">
                   <div className="flex items-center justify-between">
                     <div className="text-sm font-semibold text-slate-900">입양 단계</div>
@@ -446,24 +497,35 @@ export function CenterApplicationsSection() {
 
                   {detail?.steps?.length ? (
                     <div className="mt-3 space-y-2">
-                      {detail.steps.map((s) => (
-                        <div
-                          key={s.id}
-                          className="flex items-center justify-between rounded-xl border border-slate-200 bg-white px-3 py-2"
-                        >
-                          <div className="text-sm text-slate-900">Step #{s.id}</div>
-                          <div className="text-xs text-slate-600">{String(s.status)}</div>
-                        </div>
-                      ))}
+                      {detail.steps.map((s, idx) => {
+                        const order = idx + 1;
+                        const isCurrent =
+                          selected?.currentStepOrder != null && Number(selected.currentStepOrder) === order;
+                        const leftLabel = `${order}단계 · ${stepNameByOrder(order)}`;
+                        return (
+                          <div
+                            key={s.id}
+                            className={[
+                              "flex items-center justify-between rounded-xl border bg-white px-3 py-2",
+                              isCurrent ? "border-slate-900" : "border-slate-200",
+                            ].join(" ")}
+                          >
+                            <div className="text-sm text-slate-900">{leftLabel}</div>
+                            <Badge variant={stepBadgeVariant(String(s.status)) as any}>
+                              {stepStatusLabel(s.status)}
+                            </Badge>
+                          </div>
+                        );
+                      })}
                     </div>
                   ) : (
                     <div className="mt-3 rounded-xl bg-slate-50 p-4 text-xs text-slate-500">
                       단계 정보가 없습니다.
                     </div>
                   )}
+
                 </div>
 
-                {/* 처리 */}
                 <div className="rounded-2xl border border-slate-200 p-4">
                   <div className="flex items-center justify-between">
                     <div className="text-sm font-semibold text-slate-900">처리</div>

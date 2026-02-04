@@ -65,17 +65,22 @@ public class AdoptionController {
     }
 
 
-    @Operation(summary = "상태별 입양 목록 조회", description = "사용자 ID와 입양 프로세스 상태에 따라 입양 프로세스 목록을 조회합니다.")
+    @Operation(summary = "상태별 입양 목록 조회", description = "현재 인증된 사용자의 입양 프로세스 상태에 따른 입양 목록을 조회합니다.")
     @ApiResponses(value = {
             @ApiResponse(responseCode = "200", description = "입양 프로세스 목록 조회 성공",
                     content = @Content(schema = @Schema(implementation = AdoptionStatusResponse.class))),
             @ApiResponse(responseCode = "400", description = "잘못된 요청 데이터"),
+            @ApiResponse(responseCode = "401", description = "인증되지 않은 사용자")
     })
     @GetMapping
-    public ResponseEntity<List<AdoptionStatusResponse>> getAdoptionsByStatus(
-            @Parameter(description = "사용자 ID") @RequestParam Long userId,
-            @Parameter(description = "입양 프로세스 상태 (예: IN_PROGRESS, COMPLETED)") @RequestParam AdoptionProcessStatus status) {
-        List<AdoptionStatusResponse> response = adoptionService.getAdoptionsByUserIdAndStatus(userId, status);
+    public ResponseEntity<?> getAdoptionsByStatus(
+            @Parameter(description = "입양 프로세스 상태 (예: IN_PROGRESS, COMPLETED)") @RequestParam AdoptionProcessStatus status,
+            @Parameter(hidden = true) Authentication authentication) {
+        Long currentUserId = SecurityUtil.getCurrentUserId();
+        if (currentUserId == null) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(Map.of("message", "인증되지 않은 사용자입니다."));
+        }
+        List<AdoptionStatusResponse> response = adoptionService.getAdoptionsByUserIdAndStatus(currentUserId, status);
         return ResponseEntity.ok(response);
     }
 

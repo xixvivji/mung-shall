@@ -1,21 +1,49 @@
 ﻿import * as React from "react";
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/shared/ui/card";
 import { Badge } from "@/shared/ui/badge";
-import { fetchCenterDogs, fetchMe, type CenterDog } from "../api/centerDogsApi";
+import { api } from "@/shared/api/client";
+import { fetchMe, type CenterDog } from "../api/centerDogsApi";
+import Pagination from "../components/Pagination";
 
 type LoadState = "idle" | "loading" | "error";
+
+type CenterDogApiItem = {
+  dogId?: number;
+  id?: number;
+  desertionNo?: string;
+  kindNm?: string;
+  name?: string;
+  imageUrl?: string;
+  noticeNo?: string;
+  processState?: string;
+};
+
+type CenterDogsPageResponse = {
+  content?: CenterDogApiItem[];
+  totalElements?: number;
+  totalPages?: number;
+  number?: number; // 0-based
+  size?: number;
+};
+
+function mapDog(item: CenterDogApiItem): CenterDog {
+  const idValue = item.dogId ?? item.id;
+  return {
+    id: idValue ? String(idValue) : item.desertionNo ?? "",
+    kind: item.kindNm ?? item.name ?? "Unknown",
+    status: item.processState ?? "보호중",
+    desertionNo: item.desertionNo ?? item.noticeNo ?? "",
+    imageUrl: item.imageUrl,
+  };
+}
 
 function formatError(err: unknown) {
   const rawMessage = err instanceof Error ? err.message : "요청에 실패했습니다.";
   let message = rawMessage;
   try {
     const parsed = JSON.parse(rawMessage);
-    if (parsed && typeof parsed.message === "string") {
-      message = parsed.message;
-    }
-  } catch {
-    // ignore
-  }
+    if (parsed && typeof parsed.message === "string") message = parsed.message;
+  } catch {}
   const lowered = message.toLowerCase();
   if (
     lowered.includes("401") ||
@@ -37,36 +65,52 @@ export function CenterDogsSection() {
   const [error, setError] = React.useState<string | null>(null);
   const [accessDenied, setAccessDenied] = React.useState(false);
 
-  React.useEffect(() => {
-    let active = true;
+  const [page, setPage] = React.useState(0);
+  const [size] = React.useState(12); // 필요하면 나중에 select로 확장
+  const [totalPages, setTotalPages] = React.useState(1);
+
+  const loadPage = React.useCallback(async (p: number) => {
     setState("loading");
     setError(null);
 
-    fetchMe()
-      .then((meResponse) => {
-        if (!active) return;
-        if (meResponse.userType !== "shelter") {
-          setAccessDenied(true);
-          setState("idle");
-          return;
-        }
-        return fetchCenterDogs(meResponse.userId);
-      })
-      .then((list) => {
-        if (!active || !list) return;
-        setDogs(list);
+    try {
+      const me = await fetchMe();
+      if (me.userType !== "shelter") {
+        setAccessDenied(true);
         setState("idle");
-      })
-      .catch((err) => {
-        if (!active) return;
-        setError(formatError(err));
-        setState("error");
-      });
+        return;
+      }
+
+      const res = await api<CenterDogsPageResponse>(`/shelters/me/dogs?page=${p}&size=${size}`);
+
+      const list = (res.content ?? []).map(mapDog);
+      setDogs(list);
+
+      // 서버가 주는 number/totalPages 신뢰(없으면 fallback)
+      setPage(res.number ?? p);
+      setTotalPages(res.totalPages ?? 1);
+
+      setState("idle");
+    } catch (err) {
+      setError(formatError(err));
+      setState("error");
+    }
+  }, [size]);
+
+  React.useEffect(() => {
+    let active = true;
+
+    (async () => {
+      if (!active) return;
+      await loadPage(page);
+    })();
 
     return () => {
       active = false;
     };
-  }, []);
+  }, [page, loadPage]);
+
+  const canShowPagination = !accessDenied && !error && totalPages > 1 && state !== "loading";
 
   return (
     <Card className="rounded-3xl border-slate-200/80 shadow-[0_10px_30px_rgba(15,23,42,0.06)]">
@@ -131,13 +175,23 @@ export function CenterDogsSection() {
 
               <div className="p-3">
                 <div className="text-sm font-medium text-slate-900">{dog.kind}</div>
-                <div className="mt-0.5 text-xs text-slate-500">
-                  desertionNo | {dog.desertionNo}
-                </div>
+                <div className="mt-0.5 text-xs text-slate-500">desertionNo | {dog.desertionNo}</div>
               </div>
             </div>
           ))}
         </div>
+
+        {/* Pagination.tsx 연결 (1-based로 변환해서 전달) */}
+        {canShowPagination && (
+          <div className="mt-10 flex justify-center">
+            <Pagination
+              currentPage={page + 1}
+              totalPages={totalPages}
+              onPrev={() => setPage((p) => Math.max(0, p - 1))}
+              onNext={() => setPage((p) => Math.min(totalPages - 1, p + 1))}
+            />
+          </div>
+        )}
       </CardContent>
     </Card>
   );

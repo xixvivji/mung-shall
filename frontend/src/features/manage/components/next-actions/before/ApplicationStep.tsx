@@ -1,4 +1,5 @@
 ﻿import { useEffect, useMemo, useState, type ReactNode } from "react";
+import { useRef } from "react";
 import { Button } from "@/shared/ui/button";
 import {
   deleteAdoptionApplication,
@@ -623,6 +624,9 @@ export function ApplicationStep({ isEditable, onSubmitSuccess, adoptionId }: Pro
   const [submitting, setSubmitting] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
+  const loadAbortRef = useRef<AbortController | null>(null);
+  const loadInFlightRef = useRef(false);
+  const lastRequestedIdRef = useRef<number | null>(null);
 
   const [form, setForm] = useState<Form>(createEmptyForm());
 
@@ -640,17 +644,32 @@ export function ApplicationStep({ isEditable, onSubmitSuccess, adoptionId }: Pro
     if (!hasAdoptionId) {
       setHasExisting(false);
       setLoadError(null);
+      loadAbortRef.current?.abort();
+      loadAbortRef.current = null;
+      loadInFlightRef.current = false;
+      lastRequestedIdRef.current = null;
       return;
     }
 
     let active = true;
+    const safeAdoptionId = adoptionId as number;
+    if (loadInFlightRef.current && lastRequestedIdRef.current === safeAdoptionId) {
+      return () => {
+        active = false;
+      };
+    }
+
+    loadAbortRef.current?.abort();
+    const controller = new AbortController();
+    loadAbortRef.current = controller;
+    loadInFlightRef.current = true;
+    lastRequestedIdRef.current = safeAdoptionId;
+
     setLoading(true);
     setLoadError(null);
-
-    const safeAdoptionId = adoptionId as number;
-    getAdoptionApplication(safeAdoptionId)
+    getAdoptionApplication(safeAdoptionId, { signal: controller.signal })
       .then((data) => {
-        if (!active) return;
+        if (!active || controller.signal.aborted) return;
         const nextForm = mapApplicationToForm(data);
         setForm(nextForm);
         setHasExisting(Boolean(data && Object.keys(data).length > 0));
@@ -660,7 +679,7 @@ export function ApplicationStep({ isEditable, onSubmitSuccess, adoptionId }: Pro
         }
       })
       .catch((err) => {
-        if (!active) return;
+        if (!active || controller.signal.aborted) return;
         if (err instanceof ApiError && (err.status === 400 || err.status === 404)) {
           setHasExisting(false);
           return;
@@ -668,12 +687,21 @@ export function ApplicationStep({ isEditable, onSubmitSuccess, adoptionId }: Pro
         setLoadError(resolveApiErrorMessage(err));
       })
       .finally(() => {
-        if (!active) return;
+        if (!active || controller.signal.aborted) return;
         setLoading(false);
+        if (loadAbortRef.current === controller) {
+          loadAbortRef.current = null;
+          loadInFlightRef.current = false;
+        }
       });
 
     return () => {
       active = false;
+      controller.abort();
+      if (loadAbortRef.current === controller) {
+        loadAbortRef.current = null;
+        loadInFlightRef.current = false;
+      }
     };
   }, [adoptionId, hasAdoptionId]);
 

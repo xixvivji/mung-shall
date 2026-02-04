@@ -1,9 +1,15 @@
 ﻿export type LikedDog = {
-  id: string;
-  name: string;
-  breed?: string;
-  age?: string;
+  dogId?: number;
+  desertionNo?: string;
+  noticeNo?: string;
   imageUrl?: string;
+  kindNm?: string;
+  age?: string;
+  weight?: string;
+  careNm?: string;
+  id?: string;
+  name?: string;
+  breed?: string;
   centerName?: string;
 };
 

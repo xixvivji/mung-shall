@@ -1,4 +1,4 @@
-﻿import { useState } from "react";
+import { useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import AlertModal from "@/shared/components/AlertModal";
 import { useAlertModal } from "@/shared/hooks/useAlertModal";
@@ -87,8 +87,12 @@ export default function ActionButtons({ dogId }: Props) {
           const existing = await fetchAdoptionsByStatus(resolvedUserId, "IN_PROGRESS");
           const matched =
             existing.find((item) => item.dogId === numericDogId) ?? existing[0];
-          if (matched?.adoptionId) {
-            navigate(`${ROUTES.manage}?adoptionId=${matched.adoptionId}`);
+          const resolvedAdoptionId =
+            typeof matched?.adoptionId === "number" && Number.isFinite(matched.adoptionId)
+              ? matched.adoptionId
+              : null;
+          if (resolvedAdoptionId) {
+            navigate(`${ROUTES.manage}?adoptionId=${resolvedAdoptionId}&dogId=${numericDogId}`);
           } else {
             navigate(ROUTES.manage);
           }

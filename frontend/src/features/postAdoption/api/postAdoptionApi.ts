@@ -149,8 +149,14 @@ function normalizeAdoptionStep(raw: RawAdoptionStepInstance): AdoptionStepInstan
   };
 }
 
-export async function fetchAdoptionDetail(adoptionId: number): Promise<AdoptionDetail> {
-  const data = await api<RawAdoptionDetail>(`/adoptions/${adoptionId}/steps/status`);
+export async function fetchAdoptionDetail(
+  adoptionId: number,
+  options: RequestInit = {}
+): Promise<AdoptionDetail> {
+  const data = await api<RawAdoptionDetail>(
+    `/adoptions/${adoptionId}/steps/status`,
+    options
+  );
   return {
     id: typeof data.id === "number" ? data.id : adoptionId,
     processStatus: data.processStatus ?? null,

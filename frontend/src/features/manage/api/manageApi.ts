@@ -1,10 +1,5 @@
-﻿import { ApiError, api } from "@/shared/api/client";
+import { ApiError, api } from "@/shared/api/client";
 import type { AdoptionProcessStatus, AdoptionStatusSummary, LikedDog } from "../types";
-
-type CreateAdoptionRequest = {
-  userId: number;
-  abandonedDogId: number;
-};
 
 type LikedDogResponse = {
   dogId: number;
@@ -67,20 +62,6 @@ export async function fetchLikedDogs(): Promise<FetchLikedDogsResult> {
     }
     return { status: "error", items: [] };
   }
-}
-
-export async function createAdoptionProcess(
-  payload: CreateAdoptionRequest
-): Promise<number> {
-  const data = await api<unknown>("/adoptions", {
-    method: "POST",
-    body: JSON.stringify(payload),
-  });
-  const adoptionId = resolveAdoptionId(data);
-  if (!adoptionId) {
-    throw new Error("Failed to resolve adoptionId from create response.");
-  }
-  return adoptionId;
 }
 
 export async function fetchAdoptionsByStatus(

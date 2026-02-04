@@ -57,6 +57,21 @@ export default function useMyPage(adoptionId: number | null) {
   const [postAdoption, setPostAdoption] = useState<PostAdoptionProcess | null>(null);
   const [postAdoptionLoading, setPostAdoptionLoading] = useState(false);
   const [postAdoptionError, setPostAdoptionError] = useState<string | null>(null);
+  const adoptionDetailAbortRef = useRef<AbortController | null>(null);
+  const adoptionDetailRequestIdRef = useRef(0);
+  const adoptionIdRef = useRef<number | null>(adoptionId);
+  const isMountedRef = useRef(true);
+
+  useEffect(() => {
+    return () => {
+      isMountedRef.current = false;
+      adoptionDetailAbortRef.current?.abort();
+    };
+  }, []);
+
+  useEffect(() => {
+    adoptionIdRef.current = adoptionId;
+  }, [adoptionId]);
 
   useEffect(() => {
     let mounted = true;
@@ -78,29 +93,54 @@ export default function useMyPage(adoptionId: number | null) {
     };
   }, []);
 
-  const refreshAdoptionDetail = useCallback(async () => {
-    if (!adoptionId) return;
-    setAdoptionLoading(true);
-    setAdoptionError(null);
+  const refreshAdoptionDetail = useCallback(async (targetId?: number) => {
+    const resolvedId = targetId ?? adoptionIdRef.current;
+    if (!resolvedId) return;
+
+    adoptionDetailAbortRef.current?.abort();
+    const controller = new AbortController();
+    adoptionDetailAbortRef.current = controller;
+    const requestId = ++adoptionDetailRequestIdRef.current;
+
+    if (isMountedRef.current) {
+      setAdoptionLoading(true);
+      setAdoptionError(null);
+    }
+
     try {
-      const detail = await fetchAdoptionDetail(adoptionId);
-      setAdoptionDetail(detail);
-      if (import.meta.env.DEV) {
-        const snapshot = detail.steps?.map((step) => ({
-          id: step.id,
-          stepName: step.stepName,
-          stepOrder: step.stepOrder,
-          status: step.status,
-        }));
-        console.debug("[adoption] detail steps", { adoptionId, steps: snapshot });
+      const detail = await fetchAdoptionDetail(resolvedId, {
+        signal: controller.signal,
+      });
+      if (controller.signal.aborted) return;
+      if (requestId !== adoptionDetailRequestIdRef.current) return;
+      if (isMountedRef.current) {
+        setAdoptionDetail(detail);
+        if (import.meta.env.DEV) {
+          const snapshot = detail.steps?.map((step) => ({
+            id: step.id,
+            stepName: step.stepName,
+            stepOrder: step.stepOrder,
+            status: step.status,
+          }));
+          console.debug("[adoption] detail steps", { adoptionId: resolvedId, steps: snapshot });
+        }
       }
     } catch (err) {
+      if (controller.signal.aborted) return;
+      if (requestId !== adoptionDetailRequestIdRef.current) return;
       const message = err instanceof Error ? err.message : "Failed to load adoption detail.";
-      setAdoptionError(message);
+      if (isMountedRef.current) {
+        setAdoptionError(message);
+      }
     } finally {
-      setAdoptionLoading(false);
+      if (adoptionDetailAbortRef.current === controller) {
+        adoptionDetailAbortRef.current = null;
+      }
+      if (requestId === adoptionDetailRequestIdRef.current && isMountedRef.current) {
+        setAdoptionLoading(false);
+      }
     }
-  }, [adoptionId]);
+  }, []);
 
   const refreshPostAdoption = useCallback(async () => {
     if (!postAdoptionId) return;
@@ -119,8 +159,13 @@ export default function useMyPage(adoptionId: number | null) {
 
   useEffect(() => {
     if (!adoptionId) return;
-    void refreshAdoptionDetail();
-  }, [adoptionId, refreshAdoptionDetail]);
+    // Only refetch when adoptionId changes to avoid render-triggered loops.
+    void refreshAdoptionDetail(adoptionId);
+    return () => {
+      adoptionDetailAbortRef.current?.abort();
+      adoptionDetailAbortRef.current = null;
+    };
+  }, [adoptionId]);
 
   useEffect(() => {
     if (!postAdoptionId) return;

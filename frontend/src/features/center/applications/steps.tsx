@@ -1,3 +1,5 @@
+// ✅ StepList.tsx (전체 코드: 3단계 meeting에서 SUBMITTED면 승인/반려 버튼 노출)
+
 import * as React from "react";
 import { Badge } from "@/shared/ui/badge";
 import type {
@@ -12,6 +14,7 @@ import { formatDateTime } from "./utils/format";
 export type StepDetailData =
   | { kind: "survey"; data: AdoptionSurveyResponse }
   | { kind: "educationCert"; data: AdoptionEducationCertResponse }
+  | { kind: "meeting"; data: { stepInstanceId: number } }
   | null;
 
 type Props = {
@@ -89,10 +92,6 @@ export function StepList({
                       <div className="text-xs text-slate-500">불러오는 중...</div>
                     ) : stepDetailError ? (
                       <div className="text-xs text-red-600">{stepDetailError}</div>
-                    ) : order !== 1 && order !== 2 ? (
-                      <div className="text-xs text-slate-500">
-                        현재는 1단계(설문), 2단계(교육 수료증)만 제출 데이터 조회를 지원합니다.
-                      </div>
                     ) : !stepDetail ? (
                       <div className="text-xs text-slate-500">제출 데이터가 없습니다.</div>
                     ) : stepDetail.kind === "educationCert" ? (
@@ -178,10 +177,58 @@ export function StepList({
                               <span className="text-slate-900">{survey.email || "-"}</span>
                             </div>
 
-                            {/* 필요하면 더 추가 */}
+                            {/* ✅ 제출됨일 때만 승인/반려 노출 */}
+                            {isActionable ? (
+                              <div className="pt-2 flex flex-wrap gap-2">
+                                <button
+                                  type="button"
+                                  disabled={actionLoading}
+                                  onClick={onStepApprove}
+                                  className="rounded-xl bg-slate-900 px-3 py-2 text-sm font-medium text-white hover:bg-slate-800 disabled:bg-slate-200 disabled:text-slate-500"
+                                >
+                                  승인
+                                </button>
+
+                                <button
+                                  type="button"
+                                  disabled={actionLoading}
+                                  onClick={onStepReject}
+                                  className="rounded-xl bg-red-600 px-3 py-2 text-sm font-medium text-white hover:bg-red-500 disabled:bg-red-200 disabled:text-red-400"
+                                >
+                                  반려
+                                </button>
+                              </div>
+                            ) : null}
                           </div>
                         );
                       })()
+                    ) : stepDetail.kind === "meeting" ? (
+                      <div className="space-y-2 text-sm">
+                        <div className="text-xs text-slate-500">상담 단계입니다. 제출 데이터 조회는 없습니다.</div>
+
+                        {/* ✅ 3단계도 제출됨일 때 승인/반려 노출 */}
+                        {isActionable ? (
+                          <div className="pt-2 flex flex-wrap gap-2">
+                            <button
+                              type="button"
+                              disabled={actionLoading}
+                              onClick={onStepApprove}
+                              className="rounded-xl bg-slate-900 px-3 py-2 text-sm font-medium text-white hover:bg-slate-800 disabled:bg-slate-200 disabled:text-slate-500"
+                            >
+                              승인
+                            </button>
+
+                            <button
+                              type="button"
+                              disabled={actionLoading}
+                              onClick={onStepReject}
+                              className="rounded-xl bg-red-600 px-3 py-2 text-sm font-medium text-white hover:bg-red-500 disabled:bg-red-200 disabled:text-red-400"
+                            >
+                              반려
+                            </button>
+                          </div>
+                        ) : null}
+                      </div>
                     ) : (
                       <div className="text-xs text-slate-500">제출 데이터가 없습니다.</div>
                     )}

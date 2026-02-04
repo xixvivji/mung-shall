@@ -3,8 +3,8 @@ import type { AdoptionProcessStatus, AdoptionFinalStatus } from "../../api/cente
 export const STEP_NAME_BY_ORDER: Record<number, string> = {
   1: "입양 사전 설문 제출",
   2: "교육 수료증 제출",
-  3: "입양 문서 제출",
-  4: "입양 상담 진행",
+  3: "입양 상담 진행",
+  4: "입양 문서 제출",
   5: "입양 계약서 업로드",
 };
 

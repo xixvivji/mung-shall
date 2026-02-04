@@ -460,6 +460,69 @@ export async function getAdoptionStepDetail(adoptionId: number, stepOrder: numbe
   }
 }
 
+// 1단계
+export type AdoptionSurveyResponse = {
+  id: number;
+  stepInstanceId: number;
+
+  name: string;
+  dateOfBirth: string; // date
+  gender: string;
+
+  phoneNumber: string;
+  email: string;
+
+  address: string;
+  detailAddress: string;
+
+  emergencyContacts: Array<any>;
+
+  petPreference: string;
+
+  cohabitantAgreement: boolean;
+  hasCohabitant: boolean;
+  cohabitantComposition: any;
+  cohabitantDetails: Array<any>;
+
+  hasCurrentPets: boolean;
+  currentPetDetails: Array<any>;
+
+  hasPastPetExperience: boolean;
+  pastPetExperiences: Array<any>;
+
+  residenceType: string;
+  isOwner: boolean;
+
+  completedOwnerEducation: boolean;
+  agreesToLifetimeCommitment: boolean;
+  agreesToFollowUp: boolean;
+
+  job: string;
+  workingHours: string;
+  aloneTimeManagement: string;
+
+  maritalStatus: string;
+
+  petLivingSpaceLocation: string;
+  petLivingSpacePhotoUrl: string;
+
+  monthlyExpenseRange: string;
+
+  agreesToNeutering: boolean;
+
+  motivationForAdoption: string;
+  lifeChangeCopingPlan: string;
+  travelCopingPlan: string;
+
+  agreesToRegularUpdates: boolean;
+
+  additionalQuestions: string;
+};
+
+export async function getAdoptionSurvey(adoptionId: number): Promise<AdoptionSurveyResponse> {
+  return api<AdoptionSurveyResponse>(`/adoptions/${adoptionId}/survey`);
+}
+
 // 2단계
 export type AdoptionEducationCertResponse = {
   id: number;

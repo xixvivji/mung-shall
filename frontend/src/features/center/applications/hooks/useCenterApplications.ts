@@ -4,15 +4,23 @@ import {
   getShelterAdoptionDetail,
   getAdoptionStepsStatus,
   verifyShelterAdoption,
-  getAdoptionEducationCert,
+  getAdoptionSurvey, // 1단계
+  getAdoptionEducationCert, // 2단계
   verifyShelterAdoptionStep,
   type AdoptionProcessStatus,
   type ShelterDogWithAdoptionItem,
   type ShelterAdoptionDetail,
   type AdoptionFinalStatus,
   type AdoptionEducationCertResponse,
+  type AdoptionSurveyResponse,
 } from "../../api/centerApplicationsApi";
 import { resolveApiErrorMessage } from "../utils/errors";
+
+// ✅ steps.tsx / components.tsx 와 동일한 타입으로 통일
+export type StepDetailData =
+  | { kind: "survey"; data: AdoptionSurveyResponse }
+  | { kind: "educationCert"; data: AdoptionEducationCertResponse }
+  | null;
 
 export function useCenterApplications() {
   const [apps, setApps] = React.useState<ShelterDogWithAdoptionItem[]>([]);
@@ -38,7 +46,7 @@ export function useCenterApplications() {
 
   // ✅ 단계(제출 데이터)
   const [selectedStepOrder, setSelectedStepOrder] = React.useState<number | null>(null);
-  const [stepDetail, setStepDetail] = React.useState<AdoptionEducationCertResponse | null>(null);
+  const [stepDetail, setStepDetail] = React.useState<StepDetailData>(null);
   const [stepDetailLoading, setStepDetailLoading] = React.useState(false);
   const [stepDetailError, setStepDetailError] = React.useState<string | null>(null);
 
@@ -232,14 +240,20 @@ export function useCenterApplications() {
     try {
       setSelectedStepOrder(stepOrder);
 
+      if (stepOrder === 1) {
+        const survey = await getAdoptionSurvey(adoptionId);
+        setStepDetail({ kind: "survey", data: survey });
+        return;
+      }
+
       if (stepOrder === 2) {
         const cert = await getAdoptionEducationCert(adoptionId);
-        setStepDetail(cert);
+        setStepDetail({ kind: "educationCert", data: cert });
         return;
       }
 
       setStepDetail(null);
-      setStepDetailError("현재는 2단계(교육 수료증)만 조회할 수 있어요.");
+      setStepDetailError("현재는 1~2단계만 조회할 수 있어요.");
     } catch (err) {
       setStepDetail(null);
       setStepDetailError(resolveApiErrorMessage(err, "단계 데이터를 불러오지 못했습니다."));
@@ -248,12 +262,11 @@ export function useCenterApplications() {
     }
   }, []);
 
-  // ✅ detail 로딩 후: "SUBMITTED(제출됨)" 단계 자동 확장
+  // ✅ detail 로딩 후: "SUBMITTED(제출됨)" 단계 자동 확장 + 해당 단계 데이터 자동 조회
   React.useEffect(() => {
     if (!selected) return;
     if (!detail?.steps?.length) return;
 
-    // 이미 유저가 펼친 게 있으면 건드리지 않음
     if (selectedStepOrder != null) return;
 
     const submittedIdx = detail.steps.findIndex((s) => String(s.status).toUpperCase() === "SUBMITTED");
@@ -265,9 +278,8 @@ export function useCenterApplications() {
     setStepDetail(null);
     setStepDetailError(null);
 
-    // 2단계면 제출 데이터까지 자동 조회
-    if (order === 2) {
-      fetchStepDetail(selected.adoptionId, 2);
+    if (order === 1 || order === 2) {
+      fetchStepDetail(selected.adoptionId, order);
     }
   }, [detail, selected, selectedStepOrder, fetchStepDetail]);
 
@@ -289,7 +301,7 @@ export function useCenterApplications() {
     if (!stepDetail) return;
     if (actionLoading) return;
 
-    const ok = window.confirm("2단계(교육 수료증)를 승인할까요?");
+    const ok = window.confirm("해당 단계를 승인할까요?");
     if (!ok) return;
 
     setActionLoading(true);
@@ -297,14 +309,16 @@ export function useCenterApplications() {
     setActionMessage(null);
 
     try {
-      await verifyShelterAdoptionStep(stepDetail.stepInstanceId, { isApproved: true, rejectionReason: "" });
+      await verifyShelterAdoptionStep(stepDetail.data.stepInstanceId, { isApproved: true, rejectionReason: "" });
 
-      setActionMessage("2단계 승인 처리가 완료되었습니다.");
+      setActionMessage("단계 승인 처리가 완료되었습니다.");
 
       const next = await fetchDetail(selected.adoptionId);
       setDetail(next);
 
-      await fetchStepDetail(selected.adoptionId, 2);
+      if (selectedStepOrder === 1 || selectedStepOrder === 2) {
+        await fetchStepDetail(selected.adoptionId, selectedStepOrder);
+      }
     } catch (err) {
       setActionError(resolveApiErrorMessage(err));
     } finally {
@@ -317,7 +331,7 @@ export function useCenterApplications() {
     if (!stepDetail) return;
     if (actionLoading) return;
 
-    const reason = window.prompt("2단계 반려 사유를 입력하세요")?.trim();
+    const reason = window.prompt("반려 사유를 입력하세요")?.trim();
     if (!reason) return;
 
     setActionLoading(true);
@@ -325,14 +339,16 @@ export function useCenterApplications() {
     setActionMessage(null);
 
     try {
-      await verifyShelterAdoptionStep(stepDetail.stepInstanceId, { isApproved: false, rejectionReason: reason });
+      await verifyShelterAdoptionStep(stepDetail.data.stepInstanceId, { isApproved: false, rejectionReason: reason });
 
-      setActionMessage("2단계 반려 처리가 완료되었습니다.");
+      setActionMessage("단계 반려 처리가 완료되었습니다.");
 
       const next = await fetchDetail(selected.adoptionId);
       setDetail(next);
 
-      await fetchStepDetail(selected.adoptionId, 2);
+      if (selectedStepOrder === 1 || selectedStepOrder === 2) {
+        await fetchStepDetail(selected.adoptionId, selectedStepOrder);
+      }
     } catch (err) {
       setActionError(resolveApiErrorMessage(err));
     } finally {

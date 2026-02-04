@@ -1,160 +1,325 @@
-﻿import { api, getAccessToken } from "@/shared/api/client";
-import type { DocumentType } from "@/features/adoptionApplication/types";
+﻿// src/features/center/api/centerApplicationsApi.ts
+import { api, ApiError, getAccessToken } from "@/shared/api/client";
 
-export type ApplicationStatusFilter = "ALL" | "WAITING" | "APPROVED" | "REJECTED";
-export type ApplicationStatus = "WAITING" | "APPROVED" | "REJECTED";
+/**
+ * Swagger 기준:
+ * - GET  /api/shelter/adoptions/dogs?status=IN_PROGRESS|COMPLETED|CANCELLED (필수)
+ * - GET  /api/shelter/adoptions/{adoptionId}
+ * - POST /api/shelter/adoptions/{adoptionId}/verify
+ * - POST /api/shelter/adoption-steps/{stepInstanceId}/verify
+ */
 
-export type ShelterAdopterListItem = {
+/** 목록 조회 필터(=입양 진행 상태) */
+export type AdoptionProcessStatus = "IN_PROGRESS" | "COMPLETED" | "CANCELLED";
+
+/** 입양 최종 상태(스웨거 예시에는 APPROVED가 보임) */
+export type AdoptionFinalStatus = "APPROVED" | "REJECTED" | "WAITING" | "PENDING";
+
+/** 단계 상태(스웨거 예시에는 NOT_STARTED가 보임) */
+export type AdoptionStepStatus =
+  | "NOT_STARTED"
+  | "SUBMITTED"
+  | "APPROVED"
+  | "REJECTED"
+  | "IN_PROGRESS"
+  | "COMPLETED";
+
+/** GET /api/shelter/adoptions/dogs 응답 아이템 (dogsWithAdoption[]) */
+export type ShelterDogWithAdoptionItem = {
+  abandonedDogId: number;
+  abandonedDogKindNm: string;
+  abandonedDogDesertionNo: string;
+  dogImageUrl: string;
+
   adoptionId: number;
-  applicationId?: number;
-  applicantName: string;
-  applicantPhone: string;
-  status: ApplicationStatus;
-  submittedAt: string | null;
-  dogId?: number;
-  dogKindNm?: string;
-  dogDesertionNo?: string;
+
+  applicantUserId: number;
+  applicantUsername: string;
+  applicantUserEmail: string;
+  applicantUserPhone: string;
+
+  adoptionProcessStatus: AdoptionProcessStatus;
+
+  currentStepName: string;
+  currentStepStatus: AdoptionStepStatus;
+  currentStepOrder: number;
+};
+
+/** GET /api/shelter/adoptions/dogs 응답 */
+export type ShelterDogsWithAdoptionResponse = {
+  dogsWithAdoption: ShelterDogWithAdoptionItem[];
+  totalCount: number;
+};
+
+/** GET /api/shelter/adoptions/{adoptionId} 응답 */
+export type ShelterAdoptionStepSummary = {
+  id: number; // step instance id
+  status: AdoptionStepStatus;
 };
 
 export type ShelterAdoptionDetail = {
-  adoptionId: number;
-  status: ApplicationStatus;
-  applicantName?: string;
-  applicantPhone?: string;
-  submittedAt?: string | null;
+  id: number; // adoption process id
+  userId: number;
+  userName: string;
+  dogId: number;
+  processStatus: AdoptionProcessStatus;
+  status: AdoptionFinalStatus;
   rejectionReason?: string | null;
-  dogId?: number;
-  dogKindNm?: string;
-  dogDesertionNo?: string;
-  applicationId?: number;
+  steps: ShelterAdoptionStepSummary[];
 };
 
-export type ShelterApplicationDocument = {
-  documentId: number;
-  type: DocumentType;
-  fileName: string;
-  uploadedAt: string;
-};
-
-export type VerifyAdoptionPayload = {
+/** POST verify payload */
+export type VerifyPayload = {
   isApproved: boolean;
   rejectionReason?: string | null;
 };
 
+/* ---------------------------------------
+ * Debug utils
+ * ------------------------------------- */
+const DEV = import.meta.env.DEV;
+
+function maskToken(token: string | null) {
+  if (!token) return null;
+  return `${token.slice(0, 12)}...`;
+}
+
+function debugRequest(tag: string, path: string, meta?: Record<string, unknown>) {
+  if (!DEV) return;
+
+  const token = getAccessToken();
+  console.groupCollapsed(`[http] ${tag}`);
+  console.log("path:", path);
+  console.log("hasToken:", Boolean(token));
+  console.log("tokenMasked:", maskToken(token));
+  if (meta) console.log("meta:", meta);
+  console.groupEnd();
+}
+
+function debugError(tag: string, path: string, err: unknown) {
+  if (!DEV) return;
+
+  if (err instanceof ApiError) {
+    console.groupCollapsed(`[http] ❌ ${tag} -> ApiError(${err.status})`);
+    console.log("path:", path);
+    console.log("message:", err.message);
+    console.log(
+      "hint:",
+      "Network 탭에서 해당 요청 클릭 → Response/Preview에서 서버 에러 바디 확인"
+    );
+    console.groupEnd();
+    return;
+  }
+
+  console.groupCollapsed(`[http] ❌ ${tag} -> Unknown error`);
+  console.log("path:", path);
+  console.log(err);
+  console.groupEnd();
+}
+
+/* ---------------------------------------
+ * Utils: 안전한 파싱
+ * ------------------------------------- */
 type UnknownRecord = Record<string, unknown>;
 
-const isRecord = (value: unknown): value is UnknownRecord =>
-  typeof value === "object" && value !== null && !Array.isArray(value);
+const isRecord = (v: unknown): v is UnknownRecord =>
+  typeof v === "object" && v !== null && !Array.isArray(v);
 
-const toNumber = (value: unknown): number | null => {
-  if (typeof value === "number" && Number.isFinite(value)) return value;
-  if (typeof value === "string" && value.trim() !== "") {
-    const num = Number(value);
-    return Number.isFinite(num) ? num : null;
+const toNumber = (v: unknown, fallback = 0) => {
+  if (typeof v === "number" && Number.isFinite(v)) return v;
+  if (typeof v === "string" && v.trim() !== "") {
+    const n = Number(v);
+    if (Number.isFinite(n)) return n;
   }
-  return null;
+  return fallback;
 };
 
-const toText = (value: unknown, fallback = "") =>
-  typeof value === "string" ? value : fallback;
+const toText = (v: unknown, fallback = "") => (typeof v === "string" ? v : fallback);
 
-const toOptionalText = (value: unknown): string | undefined =>
-  typeof value === "string" && value.trim() !== "" ? value : undefined;
+const normalizeProcessStatus = (v: unknown): AdoptionProcessStatus => {
+  const raw = typeof v === "string" ? v.toUpperCase() : "";
+  if (raw === "IN_PROGRESS" || raw === "COMPLETED" || raw === "CANCELLED") return raw;
+  return "IN_PROGRESS";
+};
 
-const normalizeStatus = (value: unknown): ApplicationStatus => {
-  const raw = typeof value === "string" ? value.toUpperCase() : "";
-  if (raw === "APPROVED" || raw === "REJECTED" || raw === "WAITING") return raw;
-  if (raw === "PENDING") return "WAITING";
+const normalizeFinalStatus = (v: unknown): AdoptionFinalStatus => {
+  const raw = typeof v === "string" ? v.toUpperCase() : "";
+  if (raw === "APPROVED" || raw === "REJECTED" || raw === "WAITING" || raw === "PENDING") return raw;
   return "WAITING";
 };
 
-const normalizeListItem = (raw: unknown): ShelterAdopterListItem => {
-  const item = isRecord(raw) ? raw : {};
-  const adoptionId =
-    toNumber(item.adoptionId ?? item.adoption_id ?? item.id ?? item.adoptionID) ?? 0;
-  const applicationId = toNumber(item.applicationId ?? item.application_id);
-  return {
-    adoptionId,
-    applicationId: applicationId ?? undefined,
-    applicantName: toText(
-      item.applicantName ?? item.adopterName ?? item.name ?? item.applicant_name,
-      "이름 없음"
-    ),
-    applicantPhone: toText(
-      item.applicantPhone ?? item.phone ?? item.contact ?? item.applicant_phone,
-      "-"
-    ),
-    status: normalizeStatus(item.status),
-    submittedAt: toOptionalText(
-      item.submittedAt ?? item.createdAt ?? item.submitted_at ?? item.created_at
-    ) ?? null,
-    dogId: toNumber(item.dogId ?? item.dog_id) ?? undefined,
-    dogKindNm: toText(item.dogKindNm ?? item.dogKindName ?? item.dog_kind_nm, ""),
-    dogDesertionNo: toText(item.dogDesertionNo ?? item.desertionNo ?? item.dog_desertion_no, ""),
-  };
-};
-
-const normalizeDetail = (raw: unknown, adoptionId: number): ShelterAdoptionDetail => {
-  const item = isRecord(raw) ? raw : {};
-  return {
-    adoptionId,
-    status: normalizeStatus(item.status),
-    applicantName: toOptionalText(item.applicantName ?? item.adopterName ?? item.name),
-    applicantPhone: toOptionalText(item.applicantPhone ?? item.phone ?? item.contact),
-    submittedAt: toOptionalText(item.submittedAt ?? item.createdAt),
-    rejectionReason: toOptionalText(item.rejectionReason ?? item.rejection_reason),
-    dogId: toNumber(item.dogId ?? item.dog_id) ?? undefined,
-    dogKindNm: toOptionalText(item.dogKindNm ?? item.dogKindName ?? item.dog_kind_nm),
-    dogDesertionNo: toOptionalText(item.dogDesertionNo ?? item.desertionNo ?? item.dog_desertion_no),
-    applicationId: toNumber(item.applicationId ?? item.application_id) ?? undefined,
-  };
-};
-
-export async function getShelterAdopters(status: ApplicationStatusFilter) {
-  const params = new URLSearchParams();
-  if (status && status !== "ALL") params.set("status", status);
-  const query = params.toString();
-  const data = await api<unknown>(`/shelter/adoptions/adopters${query ? `?${query}` : ""}`);
-  const list = Array.isArray(data) ? data : isRecord(data) && Array.isArray(data.items) ? data.items : [];
-  return list.map(normalizeListItem);
-}
-
-export async function getShelterAdoptionDetail(adoptionId: number): Promise<ShelterAdoptionDetail> {
-  const data = await api<unknown>(`/shelter/adoptions/${adoptionId}`);
-  return normalizeDetail(data, adoptionId);
-}
-
-export async function verifyShelterAdoption(
-  adoptionId: number,
-  payload: VerifyAdoptionPayload
-): Promise<void> {
-  await api<void>(`/shelter/adoptions/${adoptionId}/verify`, {
-    method: "POST",
-    body: JSON.stringify(payload),
-  });
-}
-
-// Legacy document endpoints (Swagger에 없음)
-export async function fetchShelterApplicationDocuments(applicationId: number) {
-  return api<ShelterApplicationDocument[]>(
-    `/shelter/adoptions/applications/${applicationId}/documents`
-  );
-}
-
-export async function fetchShelterDocumentBlob(documentId: number): Promise<Blob> {
-  const token = getAccessToken();
-  const headers = new Headers();
-  if (token) headers.set("Authorization", `Bearer ${token}`);
-
-  const response = await fetch(`/api/shelter/adoptions/documents/${documentId}`, {
-    headers,
-    credentials: "omit",
-  });
-
-  if (!response.ok) {
-    const errorText = await response.text();
-    throw new Error(errorText || response.statusText);
+const normalizeStepStatus = (v: unknown): AdoptionStepStatus => {
+  const raw = typeof v === "string" ? v.toUpperCase() : "";
+  if (
+    raw === "NOT_STARTED" ||
+    raw === "SUBMITTED" ||
+    raw === "APPROVED" ||
+    raw === "REJECTED" ||
+    raw === "IN_PROGRESS" ||
+    raw === "COMPLETED"
+  ) {
+    return raw;
   }
+  return "NOT_STARTED";
+};
 
-  return response.blob();
+const normalizeDogWithAdoptionItem = (raw: unknown): ShelterDogWithAdoptionItem => {
+  const r = isRecord(raw) ? raw : {};
+
+  return {
+    abandonedDogId: toNumber(r.abandonedDogId ?? r.abandoned_dog_id ?? r.dogId ?? r.dog_id),
+    abandonedDogKindNm: toText(r.abandonedDogKindNm ?? r.abandoned_dog_kind_nm),
+    abandonedDogDesertionNo: toText(r.abandonedDogDesertionNo ?? r.abandoned_dog_desertion_no),
+    dogImageUrl: toText(r.dogImageUrl ?? r.dog_image_url),
+
+    adoptionId: toNumber(r.adoptionId ?? r.adoption_id ?? r.id),
+
+    applicantUserId: toNumber(r.applicantUserId ?? r.applicant_user_id ?? r.userId ?? r.user_id),
+    applicantUsername: toText(r.applicantUsername ?? r.applicant_username ?? r.userName ?? r.user_name),
+    applicantUserEmail: toText(r.applicantUserEmail ?? r.applicant_user_email ?? r.userEmail ?? r.user_email),
+    applicantUserPhone: toText(r.applicantUserPhone ?? r.applicant_user_phone ?? r.userPhone ?? r.user_phone),
+
+    adoptionProcessStatus: normalizeProcessStatus(
+      r.adoptionProcessStatus ?? r.adoption_process_status ?? r.processStatus ?? r.process_status
+    ),
+
+    currentStepName: toText(r.currentStepName ?? r.current_step_name),
+    currentStepStatus: normalizeStepStatus(r.currentStepStatus ?? r.current_step_status),
+    currentStepOrder: toNumber(r.currentStepOrder ?? r.current_step_order),
+  };
+};
+
+const normalizeDogsWithAdoptionResponse = (raw: unknown): ShelterDogsWithAdoptionResponse => {
+  const r = isRecord(raw) ? raw : {};
+  const listRaw =
+    (Array.isArray((r as any).dogsWithAdoption) ? ((r as any).dogsWithAdoption as unknown[]) : []) ?? [];
+
+  return {
+    dogsWithAdoption: listRaw.map(normalizeDogWithAdoptionItem),
+    totalCount: toNumber((r as any).totalCount),
+  };
+};
+
+const normalizeAdoptionDetail = (raw: unknown): ShelterAdoptionDetail => {
+  const r = isRecord(raw) ? raw : {};
+  const stepsRaw = Array.isArray((r as any).steps) ? ((r as any).steps as unknown[]) : [];
+
+  return {
+    id: toNumber(r.id ?? r.adoptionId ?? r.adoption_id),
+    userId: toNumber(r.userId ?? r.user_id),
+    userName: toText(r.userName ?? r.user_name),
+    dogId: toNumber(r.dogId ?? r.dog_id),
+    processStatus: normalizeProcessStatus(r.processStatus ?? r.process_status),
+    status: normalizeFinalStatus(r.status),
+    rejectionReason:
+      typeof r.rejectionReason === "string"
+        ? r.rejectionReason
+        : typeof (r as any).rejection_reason === "string"
+          ? ((r as any).rejection_reason as string)
+          : null,
+    steps: stepsRaw.map((s) => {
+      const sr = isRecord(s) ? s : {};
+      return {
+        id: toNumber(sr.id ?? (sr as any).stepInstanceId ?? (sr as any).step_instance_id),
+        status: normalizeStepStatus(sr.status),
+      };
+    }),
+  };
+};
+
+/* ---------------------------------------
+ * API functions
+ * ------------------------------------- */
+
+/**
+ * 보호소 강아지 입양 목록 조회 (상태별 + 총 개수)
+ * GET /api/shelter/adoptions/dogs?status=IN_PROGRESS|COMPLETED|CANCELLED
+ */
+export async function getShelterDogsWithAdoption(status: AdoptionProcessStatus) {
+  const params = new URLSearchParams();
+  params.set("status", status);
+
+  const path = `/shelter/adoptions/dogs?${params.toString()}`;
+
+  debugRequest("getShelterDogsWithAdoption", path, { status });
+
+  try {
+    const data = await api<unknown>(path);
+    return normalizeDogsWithAdoptionResponse(data);
+  } catch (err) {
+    debugError("getShelterDogsWithAdoption", path, err);
+    throw err;
+  }
+}
+
+/**
+ * 보호소 강아지 특정 입양 상세 정보 조회
+ * GET /api/shelter/adoptions/{adoptionId}
+ */
+export async function getShelterAdoptionDetail(adoptionId: number) {
+  const path = `/shelter/adoptions/${adoptionId}`;
+
+  debugRequest("getShelterAdoptionDetail", path, { adoptionId });
+
+  try {
+    const data = await api<unknown>(path);
+    return normalizeAdoptionDetail(data);
+  } catch (err) {
+    debugError("getShelterAdoptionDetail", path, err);
+    throw err;
+  }
+}
+
+/**
+ * 입양 최종 승인/반려
+ * POST /api/shelter/adoptions/{adoptionId}/verify
+ */
+export async function verifyShelterAdoption(adoptionId: number, payload: VerifyPayload) {
+  const path = `/shelter/adoptions/${adoptionId}/verify`;
+
+  debugRequest("verifyShelterAdoption", path, {
+    adoptionId,
+    isApproved: payload.isApproved,
+    hasReason: Boolean(payload.rejectionReason?.trim()),
+  });
+
+  try {
+    await api<void>(path, {
+      method: "POST",
+      body: JSON.stringify({
+        isApproved: payload.isApproved,
+        rejectionReason: payload.rejectionReason ?? "",
+      }),
+    });
+  } catch (err) {
+    debugError("verifyShelterAdoption", path, err);
+    throw err;
+  }
+}
+
+/**
+ * 입양 단계 승인/반려
+ * POST /api/shelter/adoption-steps/{stepInstanceId}/verify
+ */
+export async function verifyShelterAdoptionStep(stepInstanceId: number, payload: VerifyPayload) {
+  const path = `/shelter/adoption-steps/${stepInstanceId}/verify`;
+
+  debugRequest("verifyShelterAdoptionStep", path, {
+    stepInstanceId,
+    isApproved: payload.isApproved,
+    hasReason: Boolean(payload.rejectionReason?.trim()),
+  });
+
+  try {
+    await api<void>(path, {
+      method: "POST",
+      body: JSON.stringify({
+        isApproved: payload.isApproved,
+        rejectionReason: payload.rejectionReason ?? "",
+      }),
+    });
+  } catch (err) {
+    debugError("verifyShelterAdoptionStep", path, err);
+    throw err;
+  }
 }

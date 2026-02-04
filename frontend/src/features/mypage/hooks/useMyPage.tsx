@@ -107,7 +107,16 @@ export default function useMyPage(adoptionId: number | null) {
       setAdoptionError(null);
     }
 
+    console.log("[useMyPage] Function: refreshAdoptionDetail", {
+      params: { targetId, resolvedId },
+      stack: new Error().stack,
+    });
+
     try {
+      console.log("[useMyPage] Function: fetchAdoptionDetail (API Call)", {
+        params: { resolvedId },
+        stack: new Error().stack,
+      });
       const detail = await fetchAdoptionDetail(resolvedId, {
         signal: controller.signal,
       });
@@ -158,6 +167,11 @@ export default function useMyPage(adoptionId: number | null) {
   }, [postAdoptionId]);
 
   useEffect(() => {
+    console.log("[useMyPage] useEffect [refreshAdoptionDetail] running", {
+      dependencies: { adoptionId },
+      stack: new Error().stack,
+    });
+
     if (!adoptionId) return;
     // Only refetch when adoptionId changes to avoid render-triggered loops.
     void refreshAdoptionDetail(adoptionId);
@@ -277,5 +291,3 @@ export default function useMyPage(adoptionId: number | null) {
     submitStep,
   };
 }
-
-

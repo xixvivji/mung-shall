@@ -1,5 +1,4 @@
-﻿import { useEffect, useMemo, useState, type ReactNode } from "react";
-import { useRef } from "react";
+﻿﻿import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { Button } from "@/shared/ui/button";
 import {
   deleteAdoptionApplication,
@@ -624,9 +623,6 @@ export function ApplicationStep({ isEditable, onSubmitSuccess, adoptionId }: Pro
   const [submitting, setSubmitting] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
-  const loadAbortRef = useRef<AbortController | null>(null);
-  const loadInFlightRef = useRef(false);
-  const lastRequestedIdRef = useRef<number | null>(null);
 
   const [form, setForm] = useState<Form>(createEmptyForm());
 
@@ -644,32 +640,22 @@ export function ApplicationStep({ isEditable, onSubmitSuccess, adoptionId }: Pro
     if (!hasAdoptionId) {
       setHasExisting(false);
       setLoadError(null);
-      loadAbortRef.current?.abort();
-      loadAbortRef.current = null;
-      loadInFlightRef.current = false;
-      lastRequestedIdRef.current = null;
       return;
     }
 
     let active = true;
-    const safeAdoptionId = adoptionId as number;
-    if (loadInFlightRef.current && lastRequestedIdRef.current === safeAdoptionId) {
-      return () => {
-        active = false;
-      };
-    }
-
-    loadAbortRef.current?.abort();
-    const controller = new AbortController();
-    loadAbortRef.current = controller;
-    loadInFlightRef.current = true;
-    lastRequestedIdRef.current = safeAdoptionId;
-
     setLoading(true);
     setLoadError(null);
-    getAdoptionApplication(safeAdoptionId, { signal: controller.signal })
+
+    const safeAdoptionId = adoptionId as number;
+    console.log("[ApplicationStep] Function: getAdoptionApplication (API Call)", {
+      params: { safeAdoptionId },
+      stack: new Error().stack,
+    });
+
+    getAdoptionApplication(safeAdoptionId)
       .then((data) => {
-        if (!active || controller.signal.aborted) return;
+        if (!active) return;
         const nextForm = mapApplicationToForm(data);
         setForm(nextForm);
         setHasExisting(Boolean(data && Object.keys(data).length > 0));
@@ -679,7 +665,7 @@ export function ApplicationStep({ isEditable, onSubmitSuccess, adoptionId }: Pro
         }
       })
       .catch((err) => {
-        if (!active || controller.signal.aborted) return;
+        if (!active) return;
         if (err instanceof ApiError && (err.status === 400 || err.status === 404)) {
           setHasExisting(false);
           return;
@@ -687,21 +673,12 @@ export function ApplicationStep({ isEditable, onSubmitSuccess, adoptionId }: Pro
         setLoadError(resolveApiErrorMessage(err));
       })
       .finally(() => {
-        if (!active || controller.signal.aborted) return;
+        if (!active) return;
         setLoading(false);
-        if (loadAbortRef.current === controller) {
-          loadAbortRef.current = null;
-          loadInFlightRef.current = false;
-        }
       });
 
     return () => {
       active = false;
-      controller.abort();
-      if (loadAbortRef.current === controller) {
-        loadAbortRef.current = null;
-        loadInFlightRef.current = false;
-      }
     };
   }, [adoptionId, hasAdoptionId]);
 
@@ -1043,6 +1020,11 @@ export function ApplicationStep({ isEditable, onSubmitSuccess, adoptionId }: Pro
       return;
     }
 
+    console.log("[ApplicationStep] Function: handleFinalSave", {
+      params: { adoptionId },
+      stack: new Error().stack,
+    });
+
     const safeAdoptionId = adoptionId as number;
     const s = sanitize(form);
     const all = validateAll(s);
@@ -1128,6 +1110,11 @@ export function ApplicationStep({ isEditable, onSubmitSuccess, adoptionId }: Pro
 
     setSubmitting(true);
     setSubmitError(null);
+    console.log("[ApplicationStep] Function: upsertAdoptionApplication (API Call)", {
+      params: { safeAdoptionId, payload },
+      stack: new Error().stack,
+    });
+
     try {
       const response = await upsertAdoptionApplication(safeAdoptionId, payload);
       const savedId = resolveApplicationId(response);
@@ -1161,8 +1148,17 @@ export function ApplicationStep({ isEditable, onSubmitSuccess, adoptionId }: Pro
     setDeleting(true);
     setSubmitError(null);
 
+    console.log("[ApplicationStep] Function: handleDelete", {
+      params: { adoptionId },
+      stack: new Error().stack,
+    });
+
     try {
       const safeAdoptionId = adoptionId as number;
+      console.log("[ApplicationStep] Function: deleteAdoptionApplication (API Call)", {
+        params: { safeAdoptionId },
+        stack: new Error().stack,
+      });
       await deleteAdoptionApplication(safeAdoptionId);
       localStorage.removeItem(APPLICATION_ID_KEY);
       setForm(createEmptyForm());

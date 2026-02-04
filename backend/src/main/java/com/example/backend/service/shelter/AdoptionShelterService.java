@@ -203,7 +203,12 @@ public class AdoptionShelterService {
 
         AdoptionStepInstance nextStep = allSteps.get(currentIndex + 1);
         if (nextStep.getStatus() == AdoptionStepStatus.NOT_STARTED) {
-            nextStep.setStatus(AdoptionStepStatus.PENDING);
+            // 임시 로직: 현재 승인된 단계가 2단계인 경우 다음 단계를 SUBMITTED로 설정
+            if (currentStep.getStepDef().getStepOrder() == 2) {
+                nextStep.setStatus(AdoptionStepStatus.SUBMITTED);
+            } else {
+                nextStep.setStatus(AdoptionStepStatus.PENDING);
+            }
             adoptionStepInstanceRepository.save(nextStep);
         }
     }

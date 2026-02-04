@@ -1,16 +1,4 @@
-﻿// src/features/center/api/centerApplicationsApi.ts
-import { api, ApiError, getAccessToken } from "@/shared/api/client";
-
-/**
- * Swagger 기준 (센터/보호소 화면에서 사용하는 입양 관련 API):
- * - GET  /api/shelter/adoptions/dogs?status=IN_PROGRESS|COMPLETED|CANCELLED (필수)
- * - GET  /api/shelter/adoptions/{adoptionId}
- * - POST /api/shelter/adoptions/{adoptionId}/verify
- * - POST /api/shelter/adoption-steps/{stepInstanceId}/verify
- *
- * [Fallback] (보호소 상세에서 steps가 비거나 권한/정책상 접근이 막힐 때 단계 상태만 재시도 용도)
- * - GET  /api/adoptions/{adoptionId}/steps/status
- */
+﻿import { api, ApiError, getAccessToken } from "@/shared/api/client";
 
 /** 목록 조회 필터(=입양 진행 상태) */
 export type AdoptionProcessStatus = "IN_PROGRESS" | "COMPLETED" | "CANCELLED";
@@ -74,6 +62,25 @@ export type ShelterAdoptionDetail = {
 /** POST verify payload */
 export type VerifyPayload = {
   isApproved: boolean;
+  rejectionReason?: string | null;
+};
+
+export type PostAdoptionStepStatus =
+  | "NOT_STARTED"
+  | "SUBMITTED"
+  | "APPROVED"
+  | "REJECTED"
+  | "IN_PROGRESS"
+  | "COMPLETED";
+
+export type PostAdoptionStepDetail = {
+  id: number; // stepInstanceId
+  stepName: string;
+  description: string;
+  stepOrder: number;
+  status: PostAdoptionStepStatus;
+  submittedAt?: string | null;
+  completedAt?: string | null;
   rejectionReason?: string | null;
 };
 
@@ -329,10 +336,10 @@ export async function verifyShelterAdoption(adoptionId: number, payload: VerifyP
   }
 }
 
-/**
- * 입양 단계 승인/반려
- * POST /api/shelter/adoption-steps/{stepInstanceId}/verify
- */
+
+// 입양 단계 승인/반려
+// POST /api/shelter/adoption-steps/{stepInstanceId}/verify
+
 export async function verifyShelterAdoptionStep(stepInstanceId: number, payload: VerifyPayload) {
   const path = `/shelter/adoption-steps/${stepInstanceId}/verify`;
 
@@ -352,6 +359,33 @@ export async function verifyShelterAdoptionStep(stepInstanceId: number, payload:
     });
   } catch (err) {
     debugError("verifyShelterAdoptionStep", path, err);
+    throw err;
+  }
+}
+
+// GET /api/post-adoptions/{postAdoptionId}/steps/{stepInstanceId}
+const normalizePostAdoptionStepDetail = (raw: unknown): PostAdoptionStepDetail => {
+  const r = isRecord(raw) ? raw : {};
+  return {
+    id: toNumber(r.id),
+    stepName: toText(r.stepName),
+    description: toText(r.description),
+    stepOrder: toNumber(r.stepOrder),
+    status: normalizeStepStatus(r.status) as any,
+    submittedAt: typeof r.submittedAt === "string" ? r.submittedAt : null,
+    completedAt: typeof r.completedAt === "string" ? r.completedAt : null,
+    rejectionReason: typeof r.rejectionReason === "string" ? r.rejectionReason : null,
+  };
+};
+
+export async function getPostAdoptionStepDetail(postAdoptionId: number, stepInstanceId: number) {
+  const path = `/post-adoptions/${postAdoptionId}/steps/${stepInstanceId}`;
+  debugRequest("getPostAdoptionStepDetail", path, { postAdoptionId, stepInstanceId });
+  try {
+    const data = await api<unknown>(path);
+    return normalizePostAdoptionStepDetail(data);
+  } catch (err) {
+    debugError("getPostAdoptionStepDetail", path, err);
     throw err;
   }
 }

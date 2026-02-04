@@ -177,31 +177,25 @@ const normalizeDogWithAdoptionItem = (raw: unknown): ShelterDogWithAdoptionItem 
   const r = isRecord(raw) ? raw : {};
 
   return {
-    abandonedDogId: toNumber(r.abandonedDogId ?? r.abandoned_dog_id ?? r.dogId ?? r.dog_id),
-    abandonedDogKindNm: toText(r.abandonedDogKindNm ?? r.abandoned_dog_kind_nm),
-    abandonedDogDesertionNo: toText(r.abandonedDogDesertionNo ?? r.abandoned_dog_desertion_no),
-    dogImageUrl: toText(r.dogImageUrl ?? r.dog_image_url),
+    abandonedDogId: toNumber((r as any).abandonedDogId ?? (r as any).abandoned_dog_id ?? (r as any).dogId ?? (r as any).dog_id),
+    abandonedDogKindNm: toText((r as any).abandonedDogKindNm ?? (r as any).abandoned_dog_kind_nm),
+    abandonedDogDesertionNo: toText((r as any).abandonedDogDesertionNo ?? (r as any).abandoned_dog_desertion_no),
+    dogImageUrl: toText((r as any).dogImageUrl ?? (r as any).dog_image_url),
 
-    adoptionId: toNumber(r.adoptionId ?? r.adoption_id ?? r.id),
+    adoptionId: toNumber((r as any).adoptionId ?? (r as any).adoption_id ?? (r as any).id),
 
-    applicantUserId: toNumber(r.applicantUserId ?? r.applicant_user_id ?? r.userId ?? r.user_id),
-    applicantUsername: toText(
-      r.applicantUsername ?? r.applicant_username ?? r.userName ?? r.user_name
-    ),
-    applicantUserEmail: toText(
-      r.applicantUserEmail ?? r.applicant_user_email ?? r.userEmail ?? r.user_email
-    ),
-    applicantUserPhone: toText(
-      r.applicantUserPhone ?? r.applicant_user_phone ?? r.userPhone ?? r.user_phone
-    ),
+    applicantUserId: toNumber((r as any).applicantUserId ?? (r as any).applicant_user_id ?? (r as any).userId ?? (r as any).user_id),
+    applicantUsername: toText((r as any).applicantUsername ?? (r as any).applicant_username ?? (r as any).userName ?? (r as any).user_name),
+    applicantUserEmail: toText((r as any).applicantUserEmail ?? (r as any).applicant_user_email ?? (r as any).userEmail ?? (r as any).user_email),
+    applicantUserPhone: toText((r as any).applicantUserPhone ?? (r as any).applicant_user_phone ?? (r as any).userPhone ?? (r as any).user_phone),
 
     adoptionProcessStatus: normalizeProcessStatus(
-      r.adoptionProcessStatus ?? r.adoption_process_status ?? r.processStatus ?? r.process_status
+      (r as any).adoptionProcessStatus ?? (r as any).adoption_process_status ?? (r as any).processStatus ?? (r as any).process_status
     ),
 
-    currentStepName: toText(r.currentStepName ?? r.current_step_name),
-    currentStepStatus: normalizeStepStatus(r.currentStepStatus ?? r.current_step_status),
-    currentStepOrder: toNumber(r.currentStepOrder ?? r.current_step_order),
+    currentStepName: toText((r as any).currentStepName ?? (r as any).current_step_name),
+    currentStepStatus: normalizeStepStatus((r as any).currentStepStatus ?? (r as any).current_step_status),
+    currentStepOrder: toNumber((r as any).currentStepOrder ?? (r as any).current_step_order),
   };
 };
 
@@ -222,11 +216,11 @@ const normalizeAdoptionDetail = (raw: unknown): ShelterAdoptionDetail => {
   const stepsRaw = Array.isArray((r as any).steps) ? ((r as any).steps as unknown[]) : [];
 
   return {
-    id: toNumber(r.id ?? (r as any).adoptionId ?? (r as any).adoption_id),
-    userId: toNumber(r.userId ?? (r as any).user_id),
-    userName: toText(r.userName ?? (r as any).user_name),
-    dogId: toNumber(r.dogId ?? (r as any).dog_id),
-    processStatus: normalizeProcessStatus(r.processStatus ?? (r as any).process_status),
+    id: toNumber((r as any).id ?? (r as any).adoptionId ?? (r as any).adoption_id),
+    userId: toNumber((r as any).userId ?? (r as any).user_id),
+    userName: toText((r as any).userName ?? (r as any).user_name),
+    dogId: toNumber((r as any).dogId ?? (r as any).dog_id),
+    processStatus: normalizeProcessStatus((r as any).processStatus ?? (r as any).process_status),
     status: normalizeFinalStatus((r as any).status),
     rejectionReason:
       typeof (r as any).rejectionReason === "string"
@@ -237,7 +231,7 @@ const normalizeAdoptionDetail = (raw: unknown): ShelterAdoptionDetail => {
     steps: stepsRaw.map((s) => {
       const sr = isRecord(s) ? s : {};
       return {
-        id: toNumber(sr.id ?? (sr as any).stepInstanceId ?? (sr as any).step_instance_id),
+        id: toNumber((sr as any).id ?? (sr as any).stepInstanceId ?? (sr as any).step_instance_id),
         status: normalizeStepStatus((sr as any).status),
       };
     }),
@@ -290,10 +284,6 @@ export async function getShelterAdoptionDetail(adoptionId: number) {
 /**
  * [Fallback] 입양 단계별 상태 조회
  * GET /api/adoptions/{adoptionId}/steps/status
- *
- * - 스웨거 상 응답 스키마가 shelter/adoptions/{adoptionId} 와 동일하므로
- *   normalizeAdoptionDetail()를 재사용합니다.
- * - 보호소 상세에서 steps가 비어있거나, 접근 정책/권한 문제로 실패할 때 단계 조회용으로 사용합니다.
  */
 export async function getAdoptionStepsStatus(adoptionId: number) {
   const path = `/adoptions/${adoptionId}/steps/status`;
@@ -336,10 +326,10 @@ export async function verifyShelterAdoption(adoptionId: number, payload: VerifyP
   }
 }
 
-
-// 입양 단계 승인/반려
-// POST /api/shelter/adoption-steps/{stepInstanceId}/verify
-
+/**
+ * 입양 단계 승인/반려
+ * POST /api/shelter/adoption-steps/{stepInstanceId}/verify
+ */
 export async function verifyShelterAdoptionStep(stepInstanceId: number, payload: VerifyPayload) {
   const path = `/shelter/adoption-steps/${stepInstanceId}/verify`;
 
@@ -363,18 +353,20 @@ export async function verifyShelterAdoptionStep(stepInstanceId: number, payload:
   }
 }
 
-// GET /api/post-adoptions/{postAdoptionId}/steps/{stepInstanceId}
+/** ---------------------------------------
+ * Post-adoption step detail (기존 유지)
+ * ------------------------------------- */
 const normalizePostAdoptionStepDetail = (raw: unknown): PostAdoptionStepDetail => {
   const r = isRecord(raw) ? raw : {};
   return {
-    id: toNumber(r.id),
-    stepName: toText(r.stepName),
-    description: toText(r.description),
-    stepOrder: toNumber(r.stepOrder),
-    status: normalizeStepStatus(r.status) as any,
-    submittedAt: typeof r.submittedAt === "string" ? r.submittedAt : null,
-    completedAt: typeof r.completedAt === "string" ? r.completedAt : null,
-    rejectionReason: typeof r.rejectionReason === "string" ? r.rejectionReason : null,
+    id: toNumber((r as any).id),
+    stepName: toText((r as any).stepName),
+    description: toText((r as any).description),
+    stepOrder: toNumber((r as any).stepOrder),
+    status: normalizeStepStatus((r as any).status) as any,
+    submittedAt: typeof (r as any).submittedAt === "string" ? (r as any).submittedAt : null,
+    completedAt: typeof (r as any).completedAt === "string" ? (r as any).completedAt : null,
+    rejectionReason: typeof (r as any).rejectionReason === "string" ? (r as any).rejectionReason : null,
   };
 };
 
@@ -390,6 +382,9 @@ export async function getPostAdoptionStepDetail(postAdoptionId: number, stepInst
   }
 }
 
+/** ---------------------------------------
+ * Generic step detail (기존 유지)
+ * ------------------------------------- */
 export type AdoptionStepDef = {
   [key: string]: unknown;
 };
@@ -409,7 +404,7 @@ export type AdoptionStepInstanceResponse = {
 const normalizeAdoptionStepInstance = (raw: unknown): AdoptionStepInstanceResponse => {
   const r = isRecord(raw) ? raw : {};
   return {
-    id: toNumber(r.id),
+    id: toNumber((r as any).id),
     stepDef: isRecord((r as any).stepDef) ? ((r as any).stepDef as AdoptionStepDef) : {},
     status: normalizeStepStatus((r as any).status),
     approverUserId: (r as any).approverUserId != null ? toNumber((r as any).approverUserId) : null,
@@ -421,10 +416,35 @@ const normalizeAdoptionStepInstance = (raw: unknown): AdoptionStepInstanceRespon
   };
 };
 
+export async function getAdoptionStepDetail(adoptionId: number, stepOrder: number) {
+  const path = `/adoptions/${adoptionId}/steps/${stepOrder}`;
+  debugRequest("getAdoptionStepDetail", path, { adoptionId, stepOrder });
+
+  try {
+    const data = await api<unknown>(path);
+    return normalizeAdoptionStepInstance(data);
+  } catch (err) {
+    debugError("getAdoptionStepDetail", path, err);
+    throw err;
+  }
+}
+
+/** ---------------------------------------
+ * Step 2: education cert
+ * ------------------------------------- */
+export type AdoptionEducationCertResponse = {
+  id: number;
+  stepInstanceId: number;
+  educationInstitution: string;
+  certificateNumber: string;
+  completionDate: string; // ISO date-time
+  certificateFileUrl: string;
+};
+
 const normalizeEducationCert = (raw: unknown): AdoptionEducationCertResponse => {
   const r = isRecord(raw) ? raw : {};
   return {
-    id: toNumber(r.id),
+    id: toNumber((r as any).id),
     stepInstanceId: toNumber((r as any).stepInstanceId ?? (r as any).step_instance_id),
     educationInstitution: toText((r as any).educationInstitution),
     certificateNumber: toText((r as any).certificateNumber),
@@ -446,21 +466,75 @@ export async function getAdoptionEducationCert(adoptionId: number) {
   }
 }
 
+/** ---------------------------------------
+ * Step 4: documents
+ * ------------------------------------- */
+export type AdoptionDocumentItem = {
+  id: number;
+  documentType: string;
+  originalFileName: string;
+  filePath: string;
+  fileSize: number;
+};
 
-export async function getAdoptionStepDetail(adoptionId: number, stepOrder: number) {
-  const path = `/adoptions/${adoptionId}/steps/${stepOrder}`;
-  debugRequest("getAdoptionStepDetail", path, { adoptionId, stepOrder });
+const normalizeAdoptionDocuments = (raw: unknown): AdoptionDocumentItem[] => {
+  if (!Array.isArray(raw)) return [];
+  return raw.map((item) => {
+    const r = isRecord(item) ? item : {};
+    return {
+      id: toNumber((r as any).id),
+      documentType: toText((r as any).documentType),
+      originalFileName: toText((r as any).originalFileName),
+      filePath: toText((r as any).filePath),
+      fileSize: toNumber((r as any).fileSize),
+    };
+  });
+};
+
+
+ // GET /api/adoptions/{adoptionId}/documents
+export async function getAdoptionDocuments(adoptionId: number): Promise<AdoptionDocumentItem[]> {
+  const path = `/adoptions/${adoptionId}/documents`;
+  debugRequest("getAdoptionDocuments", path, { adoptionId });
 
   try {
     const data = await api<unknown>(path);
-    return normalizeAdoptionStepInstance(data);
+    return normalizeAdoptionDocuments(data);
   } catch (err) {
-    debugError("getAdoptionStepDetail", path, err);
+    debugError("getAdoptionDocuments", path, err);
     throw err;
   }
 }
 
-// 1단계
+/** ---------------------------------------
+ * Step 4: documents
+ * ------------------------------------- */
+
+export type AdoptionContractResponse = {
+  id: number;
+  stepInstanceId: number;
+  contractFileUrl: string;
+  originalFileName: string;
+  fileSize: number;
+  uploadedAt: string;
+};
+
+export async function getAdoptionContract(adoptionId: number) {
+  const path = `/adoptions/${adoptionId}/contract`;
+  debugRequest("getAdoptionContract", path, { adoptionId });
+
+  try {
+    return await api<AdoptionContractResponse>(path);
+  } catch (err) {
+    debugError("getAdoptionContract", path, err);
+    throw err;
+  }
+}
+
+
+/** ---------------------------------------
+ * Step 1: survey
+ * ------------------------------------- */
 export type AdoptionSurveyResponse = {
   id: number;
   stepInstanceId: number;
@@ -522,13 +596,3 @@ export type AdoptionSurveyResponse = {
 export async function getAdoptionSurvey(adoptionId: number): Promise<AdoptionSurveyResponse> {
   return api<AdoptionSurveyResponse>(`/adoptions/${adoptionId}/survey`);
 }
-
-// 2단계
-export type AdoptionEducationCertResponse = {
-  id: number;
-  stepInstanceId: number;
-  educationInstitution: string;
-  certificateNumber: string;
-  completionDate: string; // ISO date-time
-  certificateFileUrl: string;
-};

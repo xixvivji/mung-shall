@@ -11,7 +11,6 @@ import java.nio.file.Paths;
 import java.nio.file.StandardCopyOption;
 import java.util.UUID;
 
-@Service
 public class LocalFileStorageService implements FileStorageService {
 
     @Value("${file.upload-dir:uploads}") // Default to 'uploads' directory in the project root

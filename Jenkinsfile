@@ -73,9 +73,9 @@ pipeline {
                         sh """
                         # --- OpenVidu ---
                         echo "OPENVIDU_SECRET=${OV_SECRET}" > .env
-                        echo "OPENVIDU_URL=https://52.78.60.13:8444" >> .env
-                        echo "OPENVIDU_PUBLICURL=https://52.78.60.13:8444" >> .env
-                        echo "OPENVIDU_PUBLIC_URL=https://52.78.60.13:8444" >> .env
+                        echo "OPENVIDU_URL=https://52.78.60.13" >> .env
+                        echo "OPENVIDU_PUBLICURL=https://52.78.60.13" >> .env
+                        echo "OPENVIDU_PUBLIC_URL=https://52.78.60.13" >> .env
                         echo "DOMAIN_OR_PUBLIC_IP=i14c109.p.ssafy.io" >> .env
                         echo "OPENVIDU_CERTIFICATE_TYPE=owncert" >> .env
                         echo "COTURN_SHARED_SECRET_KEY=${OV_SECRET}" >> .env

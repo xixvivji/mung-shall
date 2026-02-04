@@ -12,6 +12,8 @@ type DogSummaryResponse = {
   age?: string;
   weight?: string;
   careNm?: string;
+  adopting?: boolean;
+  processState?: string;
 };
 
 type DogsResponse = {
@@ -131,6 +133,8 @@ export async function fetchAdoptionList({
         breed: dog.kindNm ?? "Unknown",
         age: dog.age ?? "",
         imageUrl: dog.imageUrl,
+        adopting: dog.adopting,
+        processState: dog.processState,
       })),
       totalPages: data.totalPages,
       totalElements: data.totalElements,

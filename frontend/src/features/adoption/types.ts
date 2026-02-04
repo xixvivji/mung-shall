@@ -4,4 +4,6 @@ export type AdoptionDog = {
   breed: string;
   age: string;
   imageUrl?: string;
+  adopting?: boolean;
+  processState?: string;
 };

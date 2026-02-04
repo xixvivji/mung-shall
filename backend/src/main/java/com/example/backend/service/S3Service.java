@@ -32,4 +32,21 @@ public class S3Service {
 
         return amazonS3.getUrl(bucket, fileName).toString();
     }
+
+    public void deleteFile(String fileUrl) {
+        String fileName = extractFileNameFromUrl(fileUrl);
+        amazonS3.deleteObject(bucket, fileName);
+    }
+
+    private String extractFileNameFromUrl(String fileUrl) {
+        // Assuming the fileUrl is in the format: https://bucket-name.s3.region.amazonaws.com/fileName
+        // Or: https://s3.region.amazonaws.com/bucket-name/fileName
+        // We need to extract just the fileName part.
+        // This might need to be more robust depending on the exact URL format.
+        int lastSlashIndex = fileUrl.lastIndexOf('/');
+        if (lastSlashIndex == -1) {
+            throw new IllegalArgumentException("Invalid file URL format: " + fileUrl);
+        }
+        return fileUrl.substring(lastSlashIndex + 1);
+    }
 }

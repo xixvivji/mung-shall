@@ -3,7 +3,8 @@ package com.example.backend.service.shelter;
 import com.example.backend.api.adoption.dto.AdoptionDetailResponse;
 import com.example.backend.api.adoption.dto.AdoptionStepDefResponse;
 import com.example.backend.api.adoption.dto.AdoptionStepInstanceResponse;
-import com.example.backend.api.adoption.dto.shelter.ShelterAdoptionUserResponse;
+import com.example.backend.api.adoption.dto.shelter.ShelterAdoptionDogResponse;
+import com.example.backend.api.adoption.dto.shelter.ShelterAdoptionDogsWithCountResponse;
 import com.example.backend.domain.adoption.Adoption;
 import com.example.backend.domain.adoption.AdoptionStepInstance;
 import com.example.backend.domain.adoption.enums.AdoptionProcessStatus;
@@ -21,6 +22,7 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 
 import java.time.LocalDateTime;
+import java.util.Comparator;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -36,36 +38,71 @@ public class AdoptionShelterService {
     private final ShelterPermissionEvaluator shelterPermissionEvaluator;
 
     /**
-     * 보호소 사용자를 위한 입양 신청자 목록을 조회합니다.
-     * 특정 보호소 소속의 강아지들에 대한 입양 신청자 정보를 반환합니다.
+     * 보호소에 소속된 강아지들의 입양 목록을 상태별로 조회하고 총 개수를 반환합니다.
      *
-     * @param shelterId 보호소 사용자 ID
-     * @param status        조회할 입양 진행 상태 (IN_PROGRESS 또는 COMPLETED)
-     * @return ShelterAdoptionUserResponse 리스트
+     * @param shelterId 보호소 ID
+     * @param status    조회할 입양 진행 상태 (IN_PROGRESS 또는 COMPLETED)
+     * @return ShelterAdoptionDogsWithCountResponse (강아지 입양 목록 및 총 개수)
      */
     @Transactional(readOnly = true)
-    public List<ShelterAdoptionUserResponse> getAdoptersForShelterDogs(Long shelterId, AdoptionProcessStatus status) {
+    public ShelterAdoptionDogsWithCountResponse getDogsWithAdoptionsByShelter(Long shelterId, AdoptionProcessStatus status) {
         Shelter shelter = shelterRepository.findById(shelterId)
                 .orElseThrow(() -> new IllegalArgumentException("ID에 해당하는 보호소가 없습니다: " + shelterId));
 
         String careRegNo = shelter.getShelterRegNo();
         List<AbandonedDog> shelterDogs = abandonedDogRepository.findByCareRegNo(careRegNo);
 
-        return shelterDogs.stream()
-                .flatMap(dog -> adoptionRepository.findByAbandonedDogAndProcessStatus(dog, status).stream())
-                .map(adoption -> ShelterAdoptionUserResponse.builder()
-                        .adoptionId(adoption.getId())
-                        .userId(adoption.getUser().getUserId())
-                        .userName(adoption.getUser().getName())
-                        .userEmail(adoption.getUser().getEmail())
-                        .userPhone(adoption.getUser().getPhone())
-                        .abandonedDogId(adoption.getAbandonedDog().getId())
-                        .abandonedDogKindNm(adoption.getAbandonedDog().getKindNm())
-                        .abandonedDogDesertionNo(adoption.getAbandonedDog().getDesertionNo())
-                        .build())
-                .collect(Collectors.toList());
-    }
+        List<ShelterAdoptionDogResponse> dogsWithAdoptions = shelterDogs.stream()
+                .flatMap(dog -> {
+                    if (status == AdoptionProcessStatus.COMPLETED) {
+                        return adoptionRepository.findByAbandonedDogAndProcessStatusAndStatus(dog, AdoptionProcessStatus.COMPLETED, AdoptionStatus.APPROVED).stream();
+                    } else if (status == AdoptionProcessStatus.IN_PROGRESS) {
+                        return adoptionRepository.findByAbandonedDogAndProcessStatus(dog, AdoptionProcessStatus.IN_PROGRESS).stream();
+                    }
+                    return java.util.stream.Stream.empty(); // Should not happen with valid status
+                })
+                .map(adoption -> {
+                    List<AdoptionStepInstance> sortedSteps = adoption.getSteps().stream()
+                            .sorted(Comparator.comparing(s -> s.getStepDef().getStepOrder()))
+                            .collect(Collectors.toList());
 
+                    AdoptionStepInstance currentStepInstance = null;
+
+                    currentStepInstance = sortedSteps.stream()
+                            .filter(step -> step.getStatus() == AdoptionStepStatus.REJECTED)
+                            .findFirst()
+                            .orElse(null);
+
+                    if (currentStepInstance == null) {
+                        currentStepInstance = sortedSteps.stream()
+                                .filter(step -> step.getStatus() == AdoptionStepStatus.PENDING || step.getStatus() == AdoptionStepStatus.SUBMITTED)
+                                .findFirst()
+                                .orElse(null);
+                    }
+
+                    if (currentStepInstance == null) {
+                        currentStepInstance = sortedSteps.stream()
+                                .filter(step -> step.getStatus() == AdoptionStepStatus.NOT_STARTED)
+                                .findFirst()
+                                .orElse(null);
+                    }
+
+                    if (currentStepInstance == null) {
+                        currentStepInstance = sortedSteps.stream()
+                                .filter(step -> step.getStatus() == AdoptionStepStatus.COMPLETED)
+                                .max(Comparator.comparing(step -> step.getStepDef().getStepOrder()))
+                                .orElse(null);
+                    }
+
+                    return ShelterAdoptionDogResponse.from(adoption, currentStepInstance);
+                })
+                .collect(Collectors.toList());
+
+        return ShelterAdoptionDogsWithCountResponse.builder()
+                .dogsWithAdoption(dogsWithAdoptions)
+                .totalCount(dogsWithAdoptions.size())
+                .build();
+    }
     /**
      * 보호소 사용자를 위한 특정 입양 상세 정보를 조회합니다.
      * 요청한 입양 ID가 해당 보호소 소속의 강아지에 대한 것인지 검증합니다.

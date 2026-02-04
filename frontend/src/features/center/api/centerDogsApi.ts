@@ -54,7 +54,7 @@ function mapDog(item: CenterDogApiItem): CenterDog {
 }
 
 export async function fetchCenterDogs(shelterId: number): Promise<CenterDog[]> {
-  const response = await api<CenterDogsResponse>(`/shelters/${shelterId}/dogs`);
+  const response = await api<CenterDogsResponse>(`/shelters/me/dogs`);
   const list = Array.isArray(response) ? response : response.content ?? [];
   return list.map(mapDog);
 }

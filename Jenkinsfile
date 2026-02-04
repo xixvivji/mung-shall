@@ -73,9 +73,9 @@ pipeline {
                         sh """
                         # --- OpenVidu ---
                         echo "OPENVIDU_SECRET=${OV_SECRET}" > .env
-                        echo "OPENVIDU_URL=https://openvidu-server:8444" >> .env
-                        echo "OPENVIDU_PUBLICURL=https://i14c109.p.ssafy.io" >> .env
-                        echo "OPENVIDU_PUBLIC_URL=https://i14c109.p.ssafy.io" >> .env
+                        echo "OPENVIDU_URL=https://52.78.60.13:8444" >> .env
+                        echo "OPENVIDU_PUBLICURL=https://52.78.60.13:8444" >> .env
+                        echo "OPENVIDU_PUBLIC_URL=https://52.78.60.13:8444" >> .env
                         echo "DOMAIN_OR_PUBLIC_IP=i14c109.p.ssafy.io" >> .env
                         echo "OPENVIDU_CERTIFICATE_TYPE=owncert" >> .env
                         echo "COTURN_SHARED_SECRET_KEY=${OV_SECRET}" >> .env
@@ -149,7 +149,7 @@ EOF
                         // [수정 2] docker rm, docker-compose down 삭제 (충돌 방지)
 
                         // [단계 1] 인프라: 꺼져있을 때만 켭니다 (재생성 X -> 속도 UP)
-                        sh 'docker-compose up -d --force-recreate mysql redis openvidu-server kms coturn prometheus grafana node-exporter'
+                        sh 'docker-compose up -d --force-recreate mysql redis prometheus grafana node-exporter'
 
                         // [단계 2] 앱: 코드가 바뀐 백엔드/프론트엔드만 강제로 새로 만듭니다
                         sh 'docker-compose up -d --force-recreate --build backend frontend'

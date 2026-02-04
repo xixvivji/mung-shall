@@ -57,96 +57,8 @@ services:
     depends_on:
       - mysql
       - redis
-      - openvidu-server
 
-  # 3. OpenVidu Server (Production)
-  openvidu-server:
-    image: openvidu/openvidu-server:2.32.1
-    container_name: openvidu-server
-    restart: on-failure
-    ports:
-      - "8444:8444"
-    entrypoint: ['/usr/local/bin/entrypoint.sh']
-    volumes:
-      - ./openvidu/coturn:/run/secrets/coturn
-      - /var/run/docker.sock:/var/run/docker.sock
-      - ./.env:/opt/openvidu/.env:ro
-      - /opt/openvidu/owncert:/opt/openvidu/owncert:ro
-    env_file:
-      - .env
-    environment:
-      - SERVER_SSL_ENABLED=true
-      - SERVER_PORT=8444
-      - KMS_URIS=["ws://kms:8888/kurento"]
-      - COTURN_IP=${COTURN_IP:-auto-ipv4}
-      - COTURN_PORT=${COTURN_PORT:-8700}
-    logging:
-      options:
-        max-size: "${DOCKER_LOGS_MAX_SIZE:-100M}"
-    networks:
-      - app-network
-
-  # 4. KMS
-  kms:
-    image: ${KMS_IMAGE:-kurento/kurento-media-server:7.3.0}
-    container_name: kms
-    restart: always
-    ports:
-      - "8500-8699:8000-8199/udp"
-    ulimits:
-      core: -1
-      nofile:
-        soft: 65536
-        hard: 65536
-    volumes:
-      - /opt/openvidu/kms-crashes:/opt/openvidu/kms-crashes
-      - /opt/openvidu/kurento-logs:/opt/openvidu/kurento-logs
-    environment:
-      - KMS_MIN_PORT=8000
-      - KMS_MAX_PORT=8199
-      - GST_DEBUG=${KMS_DOCKER_ENV_GST_DEBUG:-}
-      - KURENTO_LOG_FILE_SIZE=${KMS_DOCKER_ENV_KURENTO_LOG_FILE_SIZE:-100}
-      - KURENTO_LOGS_PATH=/opt/openvidu/kurento-logs
-    logging:
-      options:
-        max-size: "${DOCKER_LOGS_MAX_SIZE:-100M}"
-    networks:
-      - app-network
-
-  # 5. Coturn
-  coturn:
-    image: openvidu/openvidu-coturn:2.32.1
-    container_name: openvidu-coturn
-    restart: on-failure
-    ports:
-      - "8700:3478/tcp"
-      - "8700:3478/udp"
-      - "8701-8900:8701-8900/udp"
-    env_file:
-      - .env
-    volumes:
-      - ./openvidu/coturn:/run/secrets/coturn
-    command:
-      - --log-file=stdout
-      - --listening-port=${COTURN_LISTEN_PORT:-3478}
-      - --listening-ip=0.0.0.0
-      - --relay-ip=${COTURN_PRIVATE_IP}
-      - --external-ip=${COTURN_PUBLIC_IP}/${COTURN_PRIVATE_IP}
-      - --fingerprint
-      - --min-port=${COTURN_MIN_PORT:-8701}
-      - --max-port=${COTURN_MAX_PORT:-8900}
-      - --realm=openvidu
-      - --verbose
-      - --use-auth-secret
-      - --static-auth-secret=${COTURN_SHARED_SECRET_KEY}
-    logging:
-      options:
-        max-size: "${DOCKER_LOGS_MAX_SIZE:-100M}"
-    networks:
-      app-network:
-        ipv4_address: 172.30.0.10
-
-  # 6. MySQL
+  # 3. MySQL
   mysql:
     container_name: mysql-container
     image: mysql:8.0.23
@@ -161,7 +73,7 @@ services:
       - app-network
     command: --character-set-server=utf8mb4 --collation-server=utf8mb4_unicode_ci
 
-  # 7. Redis
+  # 4. Redis
   redis:
     container_name: redis-container
     image: redis:alpine
@@ -173,7 +85,7 @@ services:
       - app-network
     command: redis-server --appendonly yes
 
-  # 8. Prometheus
+  # 5. Prometheus
   prometheus:
     image: prom/prometheus:latest
     container_name: prometheus
@@ -189,7 +101,7 @@ services:
       - app-network
     restart: always
 
-  # 9. Grafana
+  # 6. Grafana
   grafana:
     image: grafana/grafana:latest
     container_name: grafana
@@ -203,7 +115,7 @@ services:
     depends_on:
       - prometheus
 
-  # 10. Node Exporter
+  # 7. Node Exporter
   node-exporter:
     image: prom/node-exporter:latest
     container_name: node-exporter

@@ -73,7 +73,7 @@ pipeline {
                         sh """
                         # --- OpenVidu ---
                         echo "OPENVIDU_SECRET=${OV_SECRET}" > .env
-                        echo "OPENVIDU_URL=https://openvidu-server:8443" >> .env
+                        echo "OPENVIDU_URL=https://openvidu-server:8444" >> .env
                         echo "OPENVIDU_PUBLICURL=https://i14c109.p.ssafy.io" >> .env
                         echo "OPENVIDU_PUBLIC_URL=https://i14c109.p.ssafy.io" >> .env
                         echo "DOMAIN_OR_PUBLIC_IP=i14c109.p.ssafy.io" >> .env
@@ -83,6 +83,7 @@ pipeline {
                         echo "COTURN_PUBLIC_IP=13.125.3.38" >> .env
                         echo "COTURN_PRIVATE_IP=172.30.0.10" >> .env
                         echo "COTURN_PORT=8700" >> .env
+                        echo "COTURN_LISTEN_PORT=3478" >> .env
                         echo "COTURN_MIN_PORT=8701" >> .env
                         echo "COTURN_MAX_PORT=8900" >> .env
                         echo "OPENVIDU_RECORDING_PATH=/opt/openvidu/recordings" >> .env

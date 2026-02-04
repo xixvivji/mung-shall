@@ -65,7 +65,7 @@ services:
     container_name: openvidu-server
     restart: on-failure
     ports:
-      - "8443:8443"
+      - "8444:8444"
     entrypoint: ['/usr/local/bin/entrypoint.sh']
     volumes:
       - ./openvidu/coturn:/run/secrets/coturn
@@ -76,7 +76,7 @@ services:
       - .env
     environment:
       - SERVER_SSL_ENABLED=true
-      - SERVER_PORT=8443
+      - SERVER_PORT=8444
       - KMS_URIS=["ws://kms:8888/kurento"]
       - COTURN_IP=${COTURN_IP:-auto-ipv4}
       - COTURN_PORT=${COTURN_PORT:-8700}
@@ -119,8 +119,8 @@ services:
     container_name: openvidu-coturn
     restart: on-failure
     ports:
-      - "8700:8700/tcp"
-      - "8700:8700/udp"
+      - "8700:3478/tcp"
+      - "8700:3478/udp"
       - "8701-8900:8701-8900/udp"
     env_file:
       - .env
@@ -128,7 +128,7 @@ services:
       - ./openvidu/coturn:/run/secrets/coturn
     command:
       - --log-file=stdout
-      - --listening-port=${COTURN_PORT:-8700}
+      - --listening-port=${COTURN_LISTEN_PORT:-3478}
       - --listening-ip=0.0.0.0
       - --relay-ip=${COTURN_PRIVATE_IP}
       - --external-ip=${COTURN_PUBLIC_IP}/${COTURN_PRIVATE_IP}

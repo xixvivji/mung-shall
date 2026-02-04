@@ -12,6 +12,7 @@ import type {
   PostAdoptionStep,
   PostAdoptionStepStatus,
 } from "@/features/mypage/types";
+import type { DocumentType } from "@/features/adoptionApplication/types";
 
 type RawPostAdoptionStep = {
   id?: number;
@@ -302,19 +303,59 @@ export async function fetchAdoptionDocuments(
   return data;
 }
 
+export async function uploadAdoptionDocuments(
+  adoptionId: number,
+  files: File[],
+  documentTypes: DocumentType[]
+): Promise<void> {
+  if (files.length !== documentTypes.length) {
+    throw new Error("files and documentTypes length mismatch.");
+  }
+  const formData = new FormData();
+  const mapping: Record<string, DocumentType> = {};
+  files.forEach((file, index) => {
+    formData.append("files", file);
+    mapping[`files[${index}]`] = documentTypes[index];
+  });
+
+  formData.append(
+    "documentTypes",
+    new Blob([JSON.stringify({ documentTypes: mapping })], {
+      type: "application/json",
+    })
+  );
+
+  const url = `/adoptions/${adoptionId}/documents`;
+
+  if (import.meta.env.DEV) {
+    const formDataEntries = Array.from(formData.entries()).map(([key, value]) => ({
+      key,
+      value: value instanceof File ? value.name : String(value),
+    }));
+    console.debug("[documents] upload", {
+      adoptionId,
+      filesCount: files.length,
+      files: files.map((file) => file.name),
+      documentTypes: mapping,
+      formDataEntries,
+      formDataEntryCount: formDataEntries.length,
+      url,
+      stack: new Error().stack,
+    });
+  }
+
+  await api<void>(url, {
+    method: "POST",
+    body: formData,
+  });
+}
+
 export async function uploadAdoptionDocument(
   adoptionId: number,
   type: DocumentType,
   file: File
 ): Promise<void> {
-  const formData = new FormData();
-  formData.append("files", file);
-  formData.append("documentTypes[0]", type);
-
-  await api<void>(`/adoptions/${adoptionId}/documents`, {
-    method: "POST",
-    body: formData,
-  });
+  await uploadAdoptionDocuments(adoptionId, [file], [type]);
 }
 
 export async function deleteAdoptionDocument(

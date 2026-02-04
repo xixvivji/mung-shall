@@ -79,10 +79,18 @@ public class DogService {
      * @return DogDetailResponse
      * @throws IllegalArgumentException 해당 ID의 유기견을 찾을 수 없을 경우
      */
-    public DogDetailResponse getDogDetail(Long id) {
+    public DogDetailResponse getDogDetail(Long id, Long userId) {
         AbandonedDog dog = abandonedDogRepository.findById(id)
                 .orElseThrow(() -> new IllegalArgumentException("ID: " + id + " 에 해당하는 유기견을 찾을 수 없습니다."));
-        return DogDetailResponse.fromEntity(dog);
+
+        boolean isLiked = false;
+        if (userId != null) {
+            isLiked = userRepository.findById(userId)
+                    .map(user -> userDogInterestRepository.existsByUserAndAbandonedDog(user, dog))
+                    .orElse(false);
+        }
+
+        return DogDetailResponse.fromEntity(dog, isLiked);
     }
 
     public List<String> getAllDogKinds() {

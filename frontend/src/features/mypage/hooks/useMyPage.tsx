@@ -1,5 +1,6 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import type { AdoptionDetail, AdoptionStep, MyDog, PostAdoptionProcess, PostAdoptionStep } from "../types";
+﻿import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import type { AdoptionDetail, AdoptionStep } from "@/features/manage/types";
+import type { MyDog, PostAdoptionProcess, PostAdoptionStep } from "../types";
 import { fetchMyDogs } from "../api/mypageApi";
 import {
   cancelPostAdoptionProcess,
@@ -84,6 +85,15 @@ export default function useMyPage(adoptionId: number | null) {
     try {
       const detail = await fetchAdoptionDetail(adoptionId);
       setAdoptionDetail(detail);
+      if (import.meta.env.DEV) {
+        const snapshot = detail.steps?.map((step) => ({
+          id: step.id,
+          stepName: step.stepName,
+          stepOrder: step.stepOrder,
+          status: step.status,
+        }));
+        console.debug("[adoption] detail steps", { adoptionId, steps: snapshot });
+      }
     } catch (err) {
       const message = err instanceof Error ? err.message : "Failed to load adoption detail.";
       setAdoptionError(message);
@@ -222,3 +232,5 @@ export default function useMyPage(adoptionId: number | null) {
     submitStep,
   };
 }
+
+

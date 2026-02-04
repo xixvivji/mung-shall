@@ -3,6 +3,7 @@ package com.example.backend.api.dog;
 import com.example.backend.api.dog.dto.DogDetailResponse;
 import com.example.backend.api.dog.dto.DogStatusCountResponse;
 import com.example.backend.api.dog.dto.DogSummaryResponse;
+import com.example.backend.security.principal.CustomUserPrincipal;
 import com.example.backend.service.dog.DogService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
@@ -15,6 +16,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.data.web.PageableDefault;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -42,9 +44,11 @@ public class DogController {
             @Parameter(description = "검색할 상태 (공고중, 보호중, 종료)")
             @RequestParam(required = false) String processState,
             @Parameter(description = "페이지 요청 정보 (0-based page, size, sort)")
-            @PageableDefault(size = 12, sort = "happenDt", direction = Sort.Direction.DESC) Pageable pageable
+            @PageableDefault(size = 12, sort = "happenDt", direction = Sort.Direction.DESC) Pageable pageable,
+            @Parameter(hidden = true) Authentication authentication
     ) {
-        Page<DogSummaryResponse> dogs = dogService.getDogs(region, kindNm, sexCd, processState, pageable);
+        Long currentUserId = ((CustomUserPrincipal) authentication.getPrincipal()).getUserId();
+        Page<DogSummaryResponse> dogs = dogService.getDogs(region, kindNm, sexCd, processState, pageable, currentUserId);
         return ResponseEntity.ok(dogs);
     }
 
@@ -55,9 +59,12 @@ public class DogController {
     })
     @GetMapping("/{id}")
     public ResponseEntity<DogDetailResponse> getDogDetail(
-            @Parameter(description = "유기견의 고유 ID", required = true) @PathVariable Long id
+            @Parameter(description = "유기견의 고유 ID", required = true) @PathVariable Long id,
+            @Parameter(hidden = true) Authentication authentication
     ) {
-        DogDetailResponse dogDetail = dogService.getDogDetail(id);
+        Long currentUserId = ((CustomUserPrincipal) authentication.getPrincipal()).getUserId();
+
+        DogDetailResponse dogDetail = dogService.getDogDetail(id, currentUserId);
         return ResponseEntity.ok(dogDetail);
     }
 

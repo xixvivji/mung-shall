@@ -3,6 +3,11 @@ import { fetchFaqs } from "../api/faqApi";
 import type { Faq } from "../types";
 import { FaqItem } from "./FaqItem";
 
+// ✅ 이미지 import (alias 사용 시)
+import guideImage from "@/assets/images/길잡이.png";
+// ❗ alias(@/) 없으면 아래처럼 바꿔서 쓰세요
+// import guideImage from "../assets/images/길잡이.png";
+
 export function FaqList() {
   const [items, setItems] = useState<Faq[]>([]);
   const [openId, setOpenId] = useState<string | null>(null);
@@ -17,7 +22,6 @@ export function FaqList() {
         setLoading(true);
         setError(null);
 
-        // 필요 없으면 sort 제거 가능
         const res = await fetchFaqs({ page: 0, size: 50 });
 
         if (!mounted) return;
@@ -40,8 +44,21 @@ export function FaqList() {
   return (
     <section className="mx-auto max-w-[1200px] px-6 py-20">
       <div className="grid grid-cols-[240px_1fr] gap-20">
-        <h1 className="text-[48px] font-bold tracking-tight text-[#333]">FAQ</h1>
+        {/* ✅ 왼쪽: FAQ 제목 + 이미지 */}
+        <div className="flex flex-col gap-8">
+          <h1 className="text-[48px] font-bold tracking-tight text-[#333]">
+            FAQ
+          </h1>
 
+          <img
+            src={guideImage}
+            alt="FAQ 길잡이"
+            className="w-full mt-30 max-w-[220px] select-none"
+            draggable={false}
+          />
+        </div>
+
+        {/* ✅ 오른쪽: FAQ 리스트 */}
         <div className="flex flex-col gap-6">
           {loading && <div className="text-sm text-gray-500">불러오는 중...</div>}
 

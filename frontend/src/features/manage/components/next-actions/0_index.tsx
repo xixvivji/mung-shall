@@ -1,7 +1,6 @@
 import { useMemo, useState } from "react";
-import type { AdoptionStep } from "@/features/mypage/types";
+import type { AdoptionStep } from "@/features/manage/types";
 
-import { SelectStep } from "./before/SelectStep";
 import { ApplicationStep } from "./before/ApplicationStep";
 import { EducationCertStep } from "./before/EducationCertStep";
 
@@ -30,18 +29,17 @@ type StepStatus = "completed" | "current" | "pending";
 
 /** =========================
  *  NEW REAL FLOW ORDER
- *  A(입양 전): PROFILE -> APPLICATION -> EDUCATION_CERT -> SELECT
+ *  A(입양 전): PROFILE -> APPLICATION -> EDUCATION_CERT
  *  B(입양 중): CONSULT -> DOCUMENT -> CONTRACT -> APPROVAL
  *  C(입양 후): PICKUP -> CARE
  *
- *  SURVEY 제거. 다만 들어올 수 있으니 normalize로 방어.
+ *  SELECT/SURVEY 제거. 다만 들어올 수 있으니 normalize로 방어.
  *  ========================= */
 
 const FULL_ORDER: AdoptionStep[] = [
   "PROFILE",
   "APPLICATION",
   "EDUCATION_CERT",
-  "SELECT",
   "CONSULT",
   "DOCUMENT",
   "CONTRACT",
@@ -52,6 +50,7 @@ const FULL_ORDER: AdoptionStep[] = [
 
 /** ✅ SURVEY가 들어오면 APPLICATION로 치환 (이동/상태 계산 안정화) */
 function normalizeStep(step: AdoptionStep): AdoptionStep {
+  if (step === "SELECT") return "APPLICATION";
   if (step === "SURVEY") return "APPLICATION";
   return step;
 }
@@ -81,18 +80,15 @@ function stepLabel(step: AdoptionStep) {
       return "입양 설문 작성";
     case "EDUCATION_CERT":
       return "입양 교육";
-    case "SELECT":
-      return "유기견 선택";
-
     // B(입양 중)
     case "CONSULT":
-      return "3단계 · 입양 상담";
+      return "[진행중] 3단계 · 입양 상담";
     case "DOCUMENT":
-      return "4단계 · 입양 문서";
+      return "[진행중] 4단계 · 입양 문서";
     case "CONTRACT":
-      return "5단계 · 입양 계약서";
+      return "[진행중] 5단계 · 입양 계약서";
     case "APPROVAL":
-      return "6단계 · 입양 심사";
+      return "[진행중] 6단계 · 입양 심사";
 
     // C(입양 후)
     case "PICKUP":
@@ -265,6 +261,7 @@ export function NextActions({
 
       {selectedStepN === "APPLICATION" && (
         <ApplicationStep
+          adoptionId={adoptionId}
           isEditable={isEditable}
           onSubmitSuccess={safeGoNextFromSelected}
         />
@@ -278,36 +275,15 @@ export function NextActions({
         />
       )}
 
-      {selectedStepN === "SELECT" && (
-        <SelectStep
-          // @ts-ignore
-          isEditable={isEditable}
-          // @ts-ignore
-          onSubmitSuccess={safeGoNextFromSelected}
-        />
-      )}
-
       {/* =======================
           B단계 (입양 중)
          ======================= */}
-      {selectedStep === "APPLICATION" && (
-        <ApplicationStep
-          adoptionId={adoptionId}
-          isEditable={isEditable}
-          onSubmitSuccess={safeGoNextFromSelected}
-        />
-      )}
-
-      {selectedStep === "EDUCATION_CERT" && (
-        <EducationCertStep
-          adoptionId={adoptionId}
-          isEditable={isEditable}
-          onSubmitSuccess={safeGoNextFromSelected}
-        />
-      )}
-
       {selectedStep === "CONSULT" && (
-        <ConsultStep isEditable={isEditable} onConsultComplete={onConsultComplete} />
+        <ConsultStep
+          isEditable={isEditable}
+          adoptionId={adoptionId}
+          onConsultComplete={onConsultComplete}
+        />
       )}
 
       {selectedStepN === "DOCUMENT" && (

@@ -41,12 +41,21 @@ type FetchAdoptionResult = {
   size: number;
 };
 
+export type StartAdoptionRequest = {
+  userId: number;
+  abandonedDogId: number;
+};
+
+export type StartAdoptionResponse = {
+  adoptionId: string;
+};
+
 export type RegionItem = {
   orgCd: string;
   name: string;
 };
 
-// --- 중복 요청 방지용 변수 ---
+// --- 중복 요청 방지 변수 ---
 let inflightKey = "";
 let inflightController: AbortController | null = null;
 const ALLOWED_SORT_FIELDS: string[] = [];
@@ -60,20 +69,20 @@ export async function fetchDogKinds(): Promise<string[]> {
   return data.filter((value): value is string => typeof value === "string");
 }
 
-/** 시/도 목록 조회 */
+/** 시도 목록 조회 */
 export async function fetchSidoList(): Promise<RegionItem[]> {
   const data = await api<unknown[]>("/region/sido");
   return normalizeRegionItems(data);
 }
 
-/** 시/군/구 목록 조회 */
+/** 시군구 목록 조회 */
 export async function fetchSigunguList(sidoOrgCd: string): Promise<RegionItem[]> {
   if (!sidoOrgCd) return [];
   const data = await api<unknown[]>(`/region/sido/${encodeURIComponent(sidoOrgCd)}/sigungu`);
   return normalizeRegionItems(data);
 }
 
-/** 유기견 목록 조회 (필터링, 페이징) */
+/** 입양견 목록 조회 (필터/페이지) */
 export async function fetchAdoptionList({
                                           page = 0,
                                           size = 12,
@@ -136,17 +145,47 @@ export async function fetchAdoptionList({
   }
 }
 
-/** * 입양 신청 프로세스 시작 (추가된 함수)
- * - client.post 대신 api() 함수 사용
+/**
+ * 입양 신청 프로세스 시작
+ * - Swagger/Network 탭에서 요청 바디(필수/선택)와 응답 키(adoptionId 등)를 확인하세요.
  */
-export async function startAdoptionProcess(dogId: number): Promise<{ adoptionId: number }> {
-  return api<{ adoptionId: number }>("/v1/adoptions", {
+export async function startAdoption(payload: StartAdoptionRequest): Promise<StartAdoptionResponse> {
+  const data = await api<unknown>("/adoptions", {
     method: "POST",
-    body: JSON.stringify({ dogId }),
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
   });
+
+  const adoptionId = resolveAdoptionId(data);
+  if (!adoptionId) {
+    throw new Error("Failed to resolve adoptionId from create response.");
+  }
+  return { adoptionId };
+}
+
+export async function startAdoptionProcess(
+  payload: StartAdoptionRequest
+): Promise<StartAdoptionResponse> {
+  return startAdoption(payload);
 }
 
 // --- Helper Functions ---
+
+function resolveAdoptionId(data: unknown): string | null {
+  if (typeof data === "string") {
+    const trimmed = data.trim();
+    return trimmed.length > 0 ? trimmed : null;
+  }
+  if (typeof data === "number" && Number.isFinite(data)) {
+    return String(data);
+  }
+  if (!data || typeof data !== "object") return null;
+  const record = data as Record<string, unknown>;
+  const raw = record.adoptionId ?? record.adoption_id ?? record.id;
+  if (typeof raw === "string") return raw.trim().length > 0 ? raw : null;
+  if (typeof raw === "number" && Number.isFinite(raw)) return String(raw);
+  return null;
+}
 
 function normalizeRegionItems(data: unknown): RegionItem[] {
   if (!Array.isArray(data)) return [];

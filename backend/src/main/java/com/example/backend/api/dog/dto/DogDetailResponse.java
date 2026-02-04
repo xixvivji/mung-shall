@@ -37,8 +37,10 @@ public class DogDetailResponse {
     private String careOwnerNm;
     private String orgNm;
     private String updTm;
+    private boolean isLiked;
+    private boolean isAdopting;
 
-    public static DogDetailResponse fromEntity(AbandonedDog dog) {
+    public static DogDetailResponse fromEntity(AbandonedDog dog, boolean isLiked, boolean isAdopting) {
         return new DogDetailResponse(
                 dog.getId(),
                 dog.getDesertionNo(),
@@ -64,7 +66,9 @@ public class DogDetailResponse {
                 dog.getCareAddr(),
                 dog.getCareOwnerNm(),
                 dog.getOrgNm(),
-                dog.getUpdTm()
+                dog.getUpdTm(),
+                isLiked,
+                isAdopting
         );
     }
 }

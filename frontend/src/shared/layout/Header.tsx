@@ -1,7 +1,8 @@
-import { NavLink, Link, useNavigate } from "react-router-dom";
+﻿import { NavLink, Link, useNavigate } from "react-router-dom";
 import logo from "@/assets/images/Logo.png";
 import { ROUTES } from "@/shared/constants/routes";
 import useAuth from "@/features/auth/hooks/useAuth";
+import Logout from "@/shared/ui/uiverse/Logout";
 
 const linkBase =
   "text-[12px] tracking-[2.4px] uppercase leading-[12px] font-['Roboto:Regular',sans-serif] font-normal";
@@ -19,9 +20,7 @@ export default function Header() {
       ? ROUTES.center
       : ROUTES.mypage;
   const isAdopter = user && userType !== "shelter" && userType !== "center";
-  // 사용자의 활성 입양 ID를 가져옵니다 (user 객체에 포함되어 있다고 가정).
-  const activeAdoptionId = (user as { activeAdoptionId?: number })?.activeAdoptionId;
-  
+
   const handleLogout = async () => {
     await logout();
     navigate(ROUTES.home);
@@ -30,7 +29,7 @@ export default function Header() {
   return (
     <header className="sticky top-0 z-50 w-full bg-white" data-name="Header">
       <div className="border-b border-[#e5e5e5]">
-        <div className="mx-auto flex h-[75px] w-full max-w-[1440px] items-center justify-between px-6">
+        <div className="mx-auto flex h-[80px] w-full max-w-[1440px] items-center justify-between px-6">
           {/* Logo */}
           <Link to={ROUTES.home} className="flex items-center">
             <img
@@ -48,7 +47,7 @@ export default function Header() {
               style={{ fontVariationSettings: "'wdth' 100" }}
             >
               {({ isActive }) => (
-                <span data-active={isActive ? "true" : "false"}>main</span>
+                <span data-active={isActive ? "true" : "false"}>메인</span>
               )}
             </NavLink>
 
@@ -58,9 +57,21 @@ export default function Header() {
               style={{ fontVariationSettings: "'wdth' 100" }}
             >
               {({ isActive }) => (
-                <span data-active={isActive ? "true" : "false"}>adoption</span>
+                <span data-active={isActive ? "true" : "false"}>입양하기</span>
               )}
             </NavLink>
+
+            {isAdopter && (
+              <NavLink
+                to={ROUTES.manage}
+                className={() => `${linkBase} ${linkState}`}
+                style={{ fontVariationSettings: "'wdth' 100" }}
+              >
+                {({ isActive }) => (
+                  <span data-active={isActive ? "true" : "false"}>입양관리</span>
+                )}
+              </NavLink>
+            )}
 
             <NavLink
               to={ROUTES.faq}
@@ -68,23 +79,9 @@ export default function Header() {
               style={{ fontVariationSettings: "'wdth' 100" }}
             >
               {({ isActive }) => (
-                <span data-active={isActive ? "true" : "false"}>faq</span>
+                <span data-active={isActive ? "true" : "false"}>FAQ</span>
               )}
             </NavLink>
-
-            {/* 입양자일 경우에만 'manage' 메뉴 노출 */}
-            {/* 활성 입양 절차가 있는 입양자에게만 'manage' 링크를 보여줍니다. */}
-            {isAdopter && activeAdoptionId && (
-              <NavLink
-                to={`/manage/${activeAdoptionId}`}
-                className={() => `${linkBase} ${linkState}`}
-                style={{ fontVariationSettings: "'wdth' 100" }}
-              >
-                {({ isActive }) => (
-                  <span data-active={isActive ? "true" : "false"}>manage</span>
-                )}
-              </NavLink>
-            )}
 
             <NavLink
               to={ROUTES.boards}
@@ -92,25 +89,19 @@ export default function Header() {
               style={{ fontVariationSettings: "'wdth' 100" }}
             >
               {({ isActive }) => (
-                <span data-active={isActive ? "true" : "false"}>board</span>
+                <span data-active={isActive ? "true" : "false"}>게시판</span>
               )}
             </NavLink>
 
             {displayName ? (
-              <div className="flex flex-col items-end gap-1">
+              <div className="flex items-center gap-3">
                 <Link
                   to={myPageRoute}
                   className="text-[14px] font-medium text-[#333] hover:text-black font-['Noto_Sans_KR','Noto Sans KR',sans-serif]"
                 >
                   {displayName}님
                 </Link>
-                <button
-                  type="button"
-                  onClick={handleLogout}
-                  className="text-[12px] font-medium text-[#737373] hover:text-black"
-                >
-                  로그아웃
-                </button>
+                <Logout onLogout={handleLogout} />
               </div>
             ) : (
               <NavLink
@@ -119,7 +110,7 @@ export default function Header() {
                 style={{ fontVariationSettings: "'wdth' 100" }}
               >
                 {({ isActive }) => (
-                  <span data-active={isActive ? "true" : "false"}>login</span>
+                  <span data-active={isActive ? "true" : "false"}>로그인</span>
                 )}
               </NavLink>
             )}

@@ -1,6 +1,6 @@
-import { fetchMyInfo } from "@/features/member/api/memberApi";
-import { ApiError, api } from "@/shared/api/client";
-import type { LikedDog, MyDog, MyPageSummary } from "../types";
+﻿import { fetchMyInfo } from "@/features/member/api/memberApi";
+import { api } from "@/shared/api/client";
+import type { MyDog, MyPageSummary } from "../types";
 
 type LikedDogResponse = {
   dogId: number;
@@ -11,11 +11,6 @@ type LikedDogResponse = {
   age?: string;
   weight?: string;
   careNm?: string;
-};
-
-export type FetchLikedDogsResult = {
-  status: "ok" | "unauthenticated" | "error";
-  items: LikedDog[];
 };
 
 export async function fetchMyPageSummary(): Promise<MyPageSummary> {
@@ -30,29 +25,4 @@ export async function fetchMyDogs(): Promise<MyDog[]> {
     id: String(dog.dogId),
     name: dog.noticeNo ?? dog.desertionNo ?? dog.kindNm ?? `Dog #${dog.dogId}`,
   }));
-}
-
-export async function fetchLikedDogs(): Promise<FetchLikedDogsResult> {
-  try {
-    const data = await api<LikedDogResponse[]>("/members/me/liked-dogs");
-    if (!Array.isArray(data)) {
-      return { status: "ok", items: [] };
-    }
-    return {
-      status: "ok",
-      items: data.map((dog) => ({
-        id: String(dog.dogId),
-        name: dog.noticeNo ?? dog.desertionNo ?? dog.kindNm ?? `Dog #${dog.dogId}`,
-        breed: dog.kindNm,
-        age: dog.age,
-        imageUrl: dog.imageUrl,
-        centerName: dog.careNm,
-      })),
-    };
-  } catch (err) {
-    if (err instanceof ApiError && err.status === 401) {
-      return { status: "unauthenticated", items: [] };
-    }
-    return { status: "error", items: [] };
-  }
 }

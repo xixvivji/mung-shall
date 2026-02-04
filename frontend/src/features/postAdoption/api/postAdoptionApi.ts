@@ -1,5 +1,4 @@
-import { api } from "@/shared/api/client";
-import type { DocumentType } from "@/features/adoptionApplication/types";
+﻿import { api } from "@/shared/api/client";
 import type {
   AdoptionDetail,
   AdoptionContractResponse,
@@ -7,6 +6,8 @@ import type {
   AdoptionStepInstance,
   AdoptionStepStatus,
   EducationCertResponse,
+} from "@/features/manage/types";
+import type {
   PostAdoptionProcess,
   PostAdoptionStep,
   PostAdoptionStepStatus,
@@ -149,7 +150,7 @@ function normalizeAdoptionStep(raw: RawAdoptionStepInstance): AdoptionStepInstan
 }
 
 export async function fetchAdoptionDetail(adoptionId: number): Promise<AdoptionDetail> {
-  const data = await api<RawAdoptionDetail>(`/adoptions/${adoptionId}`);
+  const data = await api<RawAdoptionDetail>(`/adoptions/${adoptionId}/steps/status`);
   return {
     id: typeof data.id === "number" ? data.id : adoptionId,
     processStatus: data.processStatus ?? null,
@@ -312,3 +313,6 @@ export async function deleteAdoptionDocument(
     method: "DELETE",
   });
 }
+
+
+

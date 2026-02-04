@@ -3,22 +3,21 @@ package com.example.backend.service.dog;
 import com.example.backend.api.dog.dto.DogDetailResponse;
 import com.example.backend.api.dog.dto.DogStatusCountResponse;
 import com.example.backend.api.dog.dto.DogSummaryResponse;
+import com.example.backend.domain.adoption.enums.AdoptionProcessStatus;
 import com.example.backend.domain.dog.AbandonedDog;
 import com.example.backend.domain.dog.DogKind;
+import com.example.backend.repository.adoption.AdoptionRepository;
 import com.example.backend.repository.dog.AbandonedDogRepository;
 import com.example.backend.repository.dog.AbandonedDogSpecification;
 import com.example.backend.repository.dog.DogKindRepository;
 import com.example.backend.repository.UserRepository;
 import com.example.backend.repository.dog.interest.UserDogInterestRepository;
-import com.example.backend.security.principal.CustomUserPrincipal;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import org.springframework.security.core.Authentication;
-import org.springframework.security.core.context.SecurityContextHolder;
 
 import java.util.List;
 import java.util.stream.Collectors;
@@ -32,6 +31,7 @@ public class DogService {
     private final DogKindRepository dogKindRepository;
     private final UserRepository userRepository;
     private final UserDogInterestRepository userDogInterestRepository;
+    private final AdoptionRepository adoptionRepository;
 
     /**
      * 유기견 목록을 페이지네이션과 동적 필터링으로 조회합니다.
@@ -41,32 +41,17 @@ public class DogService {
      * @param pageable 페이지 요청 정보 (page, size, sort)
      * @return Page<DogSummaryResponse>
      */
-    public Page<DogSummaryResponse> getDogs(String region, String kindNm, String sexCd, String processState, Pageable pageable) {
+    public Page<DogSummaryResponse> getDogs(String region, String kindNm, String sexCd, String processState, Pageable pageable, Long userId) {
         // Specification으로 동적 쿼리 생성
         Specification<AbandonedDog> spec = AbandonedDogSpecification.createSpecification(region, kindNm, sexCd, processState);
         Page<AbandonedDog> dogPage = abandonedDogRepository.findAll(spec, pageable);
-        Long currentUserId = null;
-        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-
-
-        if (authentication != null && authentication.isAuthenticated() && !"anonymousUser".equals(authentication.getPrincipal())) {
-
-            Object principal = authentication.getPrincipal();
-
-            if (principal instanceof CustomUserPrincipal) {
-                CustomUserPrincipal userPrincipal = (CustomUserPrincipal) principal;
-
-                currentUserId = userPrincipal.getUserId();
-            }
-        }
-
-        final Long finalCurrentUserId = currentUserId;
 
         return dogPage.map(dog -> {
             DogSummaryResponse dto = DogSummaryResponse.fromEntity(dog);
-            if (finalCurrentUserId != null) {
-                userRepository.findById(finalCurrentUserId).ifPresent(user -> {
+            if (userId != null) {
+                userRepository.findById(userId).ifPresent(user -> {
                     dto.setLiked(userDogInterestRepository.existsByUserAndAbandonedDog(user, dog));
+                    dto.setAdopting(adoptionRepository.existsByUserAndAbandonedDogAndProcessStatus(user, dog, AdoptionProcessStatus.IN_PROGRESS));
                 });
             }
             return dto;
@@ -79,10 +64,22 @@ public class DogService {
      * @return DogDetailResponse
      * @throws IllegalArgumentException 해당 ID의 유기견을 찾을 수 없을 경우
      */
-    public DogDetailResponse getDogDetail(Long id) {
+    public DogDetailResponse getDogDetail(Long id, Long userId) {
         AbandonedDog dog = abandonedDogRepository.findById(id)
                 .orElseThrow(() -> new IllegalArgumentException("ID: " + id + " 에 해당하는 유기견을 찾을 수 없습니다."));
-        return DogDetailResponse.fromEntity(dog);
+
+        boolean isLiked = false;
+        boolean isAdopting = false;
+        if (userId != null) {
+            isLiked = userRepository.findById(userId)
+                    .map(user -> userDogInterestRepository.existsByUserAndAbandonedDog(user, dog))
+                    .orElse(false);
+            isAdopting = userRepository.findById(userId)
+                    .map(user -> adoptionRepository.existsByUserAndAbandonedDogAndProcessStatus(user, dog, AdoptionProcessStatus.IN_PROGRESS))
+                    .orElse(false);
+        }
+
+        return DogDetailResponse.fromEntity(dog, isLiked, isAdopting);
     }
 
     public List<String> getAllDogKinds() {

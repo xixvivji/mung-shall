@@ -19,6 +19,7 @@ public class DogSummaryResponse {
     private String weight;
     private String careNm;
     private boolean isLiked;
+    private boolean isAdopting;
 
     /**
      * AbandonedDog 엔티티를 DogSummaryResponse DTO로 변환하는 정적 팩토리 메소드
@@ -33,7 +34,8 @@ public class DogSummaryResponse {
                 dog.getAge(),
                 dog.getWeight(),
                 dog.getCareNm(),
-                false // 기본값은 false, service에서 설정
+                false, // isLiked 기본값은 false, service에서 설정
+                false // isAdopting 기본값은 false, service에서 설정
         );
     }
 }

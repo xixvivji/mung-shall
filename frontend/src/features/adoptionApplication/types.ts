@@ -1,4 +1,11 @@
-export type DocumentType = "ID_CARD" | "FAMILY_CERT" | "LEASE_CONTRACT";
+export const ALL_DOCUMENT_TYPES = [
+  "RESIDENT_REGISTRATION_COPY",
+  "LEASE_AGREEMENT",
+  "INCOME_PROOF",
+  "FAMILY_RELATIONSHIP_CERTIFICATE",
+] as const;
+
+export type DocumentType = (typeof ALL_DOCUMENT_TYPES)[number];
 
 export type EmergencyContact = {
   contactName: string;

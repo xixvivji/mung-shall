@@ -4,9 +4,9 @@ import { ApiError } from "@/shared/api/client";
 import {
   deleteAdoptionDocument,
   fetchAdoptionDocuments,
-  uploadAdoptionDocument,
+  uploadAdoptionDocuments,
 } from "@/features/postAdoption/api/postAdoptionApi";
-import type { DocumentType } from "@/features/adoptionApplication/types";
+import { ALL_DOCUMENT_TYPES, type DocumentType } from "@/features/adoptionApplication/types";
 import type { AdoptionDocumentResponse } from "@/features/manage/types";
 
 type Props = {
@@ -26,9 +26,24 @@ type UploadStatus = "idle" | "uploading" | "success" | "error";
 type UploadState = Record<DocKey, { status: UploadStatus; error?: string }>;
 
 const DOCS: Array<{ key: DocKey; label: string; hint: string; type: DocumentType }> = [
-  { key: "idCard", label: "신분증 사본", hint: "주민등록증 또는 운전면허증 사본", type: "ID_CARD" },
-  { key: "familyCert", label: "가족관계증명서", hint: "최근 발급본 권장", type: "FAMILY_CERT" },
-  { key: "lease", label: "임대차계약서", hint: "전/월세 계약서 사본(해당 시)", type: "LEASE_CONTRACT" },
+  {
+    key: "idCard",
+    label: "신분증 사본",
+    hint: "주민등록증 또는 운전면허증 사본",
+    type: "RESIDENT_REGISTRATION_COPY",
+  },
+  {
+    key: "familyCert",
+    label: "가족관계증명서",
+    hint: "최근 발급본 권장",
+    type: "FAMILY_RELATIONSHIP_CERTIFICATE",
+  },
+  {
+    key: "lease",
+    label: "임대차계약서",
+    hint: "전/월세 계약서 사본(해당 시)",
+    type: "LEASE_AGREEMENT",
+  },
 ];
 
 function fileMeta(file: File | null) {
@@ -49,6 +64,7 @@ function formatFileSize(size: number) {
 
 function resolveApiErrorMessage(error: unknown, fallback: string) {
   if (error instanceof ApiError) {
+    if (error.status === 400) return error.message || fallback;
     if (error.status === 401) return "Login required.";
     if (error.status === 403) return "You do not have permission.";
     if (error.status === 404) return "Not found.";
@@ -99,6 +115,10 @@ export function DocumentStep({ isEditable, onSubmitSuccess, adoptionId }: Props)
     return DOCS.every(({ key }) => !!docs[key]);
   }, [docs]);
 
+  const selectedCount = useMemo(() => {
+    return DOCS.reduce((count, { key }) => count + (docs[key] ? 1 : 0), 0);
+  }, [docs]);
+
   const canSubmitNow = canSubmit && allAttached && !submitting && !isSubmitted;
 
   const documentLabel = (type: string) =>
@@ -146,6 +166,20 @@ export function DocumentStep({ isEditable, onSubmitSuccess, adoptionId }: Props)
       // loadDocuments handles its own errors
     });
   }, [adoptionId, loadDocuments]);
+
+  useEffect(() => {
+    const snapshot = {
+      idCard: docs.idCard?.name ?? null,
+      familyCert: docs.familyCert?.name ?? null,
+      lease: docs.lease?.name ?? null,
+    };
+    if (import.meta.env.DEV) {
+      console.debug("[documents] selected", {
+        count: selectedCount,
+        files: snapshot,
+      });
+    }
+  }, [docs, selectedCount]);
 
   const openModal = (key: DocKey) => {
     if (!canAttach) return;
@@ -220,6 +254,24 @@ export function DocumentStep({ isEditable, onSubmitSuccess, adoptionId }: Props)
       return;
     }
 
+    const items = DOCS.map((doc) => ({
+      key: doc.key,
+      type: doc.type,
+      file: docs[doc.key],
+    }));
+    const missing = items.filter((item) => !item.file);
+    if (missing.length > 0) {
+      setUploadState((prev) => {
+        const next = { ...prev };
+        missing.forEach((item) => {
+          next[item.key] = { status: "error", error: "파일이 없습니다." };
+        });
+        return next;
+      });
+      setSubmitError("파일이 없습니다.");
+      return;
+    }
+
     setSubmitting(true);
     setSubmitError(null);
 
@@ -231,45 +283,65 @@ export function DocumentStep({ isEditable, onSubmitSuccess, adoptionId }: Props)
       return next;
     });
 
-    const results = await Promise.allSettled(
-      DOCS.map(async (doc) => {
-        const file = docs[doc.key];
-        if (!file) {
-          setUploadState((prev) => ({
-            ...prev,
-            [doc.key]: { status: "error", error: "파일이 없습니다." },
-          }));
-          throw new Error("Missing file");
-        }
+    const payload = items.map((item) => ({
+      key: item.key,
+      type: item.type,
+      file: item.file as File,
+    }));
+    const files = payload.map((item) => item.file);
+    const types = payload.map((item) => item.type);
 
-        try {
-          await uploadAdoptionDocument(adoptionId, doc.type, file);
-          setUploadState((prev) => ({
-            ...prev,
-            [doc.key]: { status: "success" },
-          }));
-          return true;
-        } catch (err) {
-          const message = err instanceof Error ? err.message : "업로드 실패";
-          setUploadState((prev) => ({
-            ...prev,
-            [doc.key]: { status: "error", error: message },
-          }));
-          throw err;
-        }
-      })
-    );
-
-    const hasFailure = results.some((r) => r.status === "rejected");
-    if (hasFailure) {
-      setSubmitError("일부 문서 업로드에 실패했습니다. 상태를 확인해주세요.");
-    } else {
+    try {
+      await uploadAdoptionDocuments(adoptionId, files, types);
+      setUploadState((prev) => {
+        const next = { ...prev };
+        payload.forEach(({ key }) => {
+          next[key] = { status: "success" };
+        });
+        return next;
+      });
       setSubmittedDocs(docs);
       onSubmitSuccess();
-      await loadDocuments(adoptionId, { silent: true });
+      try {
+        await loadDocuments(adoptionId, { silent: true });
+      } catch (err) {
+        if (err instanceof ApiError && err.status === 403) {
+          setDocsError("문서 목록을 조회할 권한이 없습니다.");
+        } else {
+          setDocsError(resolveApiErrorMessage(err, "Failed to load documents."));
+        }
+      }
+    } catch (err) {
+      const rawMessage = err instanceof Error ? err.message : "";
+      const message =
+        err instanceof ApiError
+          ? err.message || "업로드 실패"
+          : resolveApiErrorMessage(err, "업로드 실패");
+      const match = rawMessage.match(/file:\s*(.+)$/i);
+      const failedFileName = match?.[1]?.trim();
+      const failedKey = failedFileName
+        ? payload.find((item) => item.file.name === failedFileName)?.key ?? null
+        : null;
+      setUploadState((prev) => {
+        const next = { ...prev };
+        if (failedKey) {
+          DOCS.forEach(({ key }) => {
+            next[key] =
+              key === failedKey
+                ? { status: "error", error: message }
+                : { status: "error", error: "업로드 실패" };
+          });
+        } else {
+          DOCS.forEach(({ key }) => {
+            next[key] = { status: "error", error: message };
+          });
+        }
+        return next;
+      });
+      setSubmitError(message);
+    } finally {
+      setSubmitting(false);
     }
-
-    setSubmitting(false);
   };
 
   const handleDrop: React.DragEventHandler<HTMLDivElement> = (e) => {
@@ -377,6 +449,12 @@ export function DocumentStep({ isEditable, onSubmitSuccess, adoptionId }: Props)
             <p className="text-sm font-semibold text-gray-900">입양 문서 제출</p>
             <p className="mt-1 text-sm text-gray-500">
               아래 3가지 서류를 각각 첨부한 뒤 제출하세요.
+            </p>
+            <p className="mt-2 text-xs text-gray-500">
+              선택된 파일: {selectedCount}/3
+            </p>
+            <p className="mt-1 text-xs text-gray-400">
+              DocumentType 목록: {ALL_DOCUMENT_TYPES.join(", ")}
             </p>
           </div>
 

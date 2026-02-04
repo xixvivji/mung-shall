@@ -1,11 +1,30 @@
 import { useMemo } from "react";
 import "@/shared/styles/uiverse/PostAdoptionStepper.css";
 
-export type StepperStatus = "completed" | "active" | "pending";
+const STEP_LABELS = [
+  "입양 설문 작성",
+  "입양 교육",
+  "입양 상담",
+  "개인서류 제출",
+  "입양 신청서 작성",
+  "입양 신청서 제출",
+] as const;
+
+export type StepStatus =
+  | "NOT_STARTED"
+  | "PENDING"
+  | "SUBMITTED"
+  | "APPROVED"
+  | "REJECTED"
+  | "completed"
+  | "active"
+  | "pending";
+
+type ResolvedStepState = "done" | "active" | "todo" | "rejected";
 
 export type StepperItem = {
-  title: string;
-  status: StepperStatus;
+  id?: number;
+  status?: StepStatus | null;
   time?: string;
 };
 
@@ -18,9 +37,19 @@ type Props = {
   className?: string;
 };
 
-function statusLabel(status: StepperStatus) {
-  if (status === "completed") return "Completed";
-  if (status === "active") return "In Progress";
+function resolveStepState(status?: StepStatus | null): ResolvedStepState {
+  // Map backend status to the UI visual state.
+  if (status === "APPROVED" || status === "completed") return "done";
+  if (status === "PENDING" || status === "SUBMITTED" || status === "active")
+    return "active";
+  if (status === "REJECTED") return "rejected";
+  return "todo";
+}
+
+function statusLabel(state: ResolvedStepState) {
+  if (state === "done") return "Completed";
+  if (state === "active") return "In Progress";
+  if (state === "rejected") return "Rejected";
   return "Pending";
 }
 
@@ -34,21 +63,39 @@ export default function PostAdoptionStepper({
 }: Props) {
   const canPrev = useMemo(() => Boolean(onPrev), [onPrev]);
   const canNext = useMemo(() => Boolean(onNext), [onNext]);
+  const uiSteps = useMemo(
+    () =>
+      STEP_LABELS.map((title, idx) => {
+        // UI labels are fixed; backend steps align by index.
+        const backendStep = steps?.[idx];
+        return {
+          title,
+          state: resolveStepState(backendStep?.status),
+          time: backendStep?.time,
+        };
+      }),
+    [steps]
+  );
 
   return (
     <div className={`stepper-box ${className ?? ""}`}>
-      {steps.map((s, idx) => {
+      {uiSteps.map((s, idx) => {
+        const isDone = s.state === "done";
+        const isActive = s.state === "active";
+        const isRejected = s.state === "rejected";
         const stepClass =
-          s.status === "completed"
+          isDone
             ? "stepper-step stepper-completed"
-            : s.status === "active"
+            : isActive
               ? "stepper-step stepper-active"
-              : "stepper-step stepper-pending";
+              : isRejected
+                ? "stepper-step stepper-pending stepper-rejected"
+                : "stepper-step stepper-pending";
 
         return (
           <div key={`${s.title}-${idx}`} className={stepClass}>
             <div className="stepper-circle">
-              {s.status === "completed" ? (
+              {isDone ? (
                 <svg
                   viewBox="0 0 16 16"
                   className="bi bi-check-lg"
@@ -69,7 +116,7 @@ export default function PostAdoptionStepper({
 
             <div className="stepper-content">
               <div className="stepper-title">{s.title}</div>
-              <div className="stepper-status">{statusLabel(s.status)}</div>
+              <div className="stepper-status">{statusLabel(s.state)}</div>
               {s.time ? <div className="stepper-time">{s.time}</div> : null}
             </div>
           </div>

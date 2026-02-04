@@ -4,6 +4,7 @@ export type AdoptionDetail = {
   breed: string;
   description: string;
   images: string[];
+  adopting?: boolean;
   noticeNo?: string;
   desertionNo?: string;
   careNm?: string;

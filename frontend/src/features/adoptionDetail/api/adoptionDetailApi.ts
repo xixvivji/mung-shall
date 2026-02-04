@@ -3,6 +3,7 @@ import type { AdoptionDetail } from "../types";
 
 type DogDetailResponse = {
   id: number;
+  adopting?: boolean;
   desertionNo?: string;
   noticeNo?: string;
   kindNm?: string;
@@ -32,6 +33,7 @@ export async function fetchAdoptionDetail(id: string): Promise<AdoptionDetail> {
     breed: data.kindNm ?? "Unknown",
     description: data.specialMark ?? "",
     images: [data.popfile1, data.popfile2].filter(Boolean) as string[],
+    adopting: data.adopting,
     noticeNo: data.noticeNo,
     desertionNo: data.desertionNo,
     careNm: data.careNm,

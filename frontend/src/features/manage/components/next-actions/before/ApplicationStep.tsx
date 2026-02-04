@@ -1,4 +1,4 @@
-﻿import { useEffect, useMemo, useState, type ReactNode } from "react";
+﻿﻿import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { Button } from "@/shared/ui/button";
 import {
   deleteAdoptionApplication,
@@ -648,6 +648,11 @@ export function ApplicationStep({ isEditable, onSubmitSuccess, adoptionId }: Pro
     setLoadError(null);
 
     const safeAdoptionId = adoptionId as number;
+    console.log("[ApplicationStep] Function: getAdoptionApplication (API Call)", {
+      params: { safeAdoptionId },
+      stack: new Error().stack,
+    });
+
     getAdoptionApplication(safeAdoptionId)
       .then((data) => {
         if (!active) return;
@@ -1015,6 +1020,11 @@ export function ApplicationStep({ isEditable, onSubmitSuccess, adoptionId }: Pro
       return;
     }
 
+    console.log("[ApplicationStep] Function: handleFinalSave", {
+      params: { adoptionId },
+      stack: new Error().stack,
+    });
+
     const safeAdoptionId = adoptionId as number;
     const s = sanitize(form);
     const all = validateAll(s);
@@ -1100,6 +1110,11 @@ export function ApplicationStep({ isEditable, onSubmitSuccess, adoptionId }: Pro
 
     setSubmitting(true);
     setSubmitError(null);
+    console.log("[ApplicationStep] Function: upsertAdoptionApplication (API Call)", {
+      params: { safeAdoptionId, payload },
+      stack: new Error().stack,
+    });
+
     try {
       const response = await upsertAdoptionApplication(safeAdoptionId, payload);
       const savedId = resolveApplicationId(response);
@@ -1133,8 +1148,17 @@ export function ApplicationStep({ isEditable, onSubmitSuccess, adoptionId }: Pro
     setDeleting(true);
     setSubmitError(null);
 
+    console.log("[ApplicationStep] Function: handleDelete", {
+      params: { adoptionId },
+      stack: new Error().stack,
+    });
+
     try {
       const safeAdoptionId = adoptionId as number;
+      console.log("[ApplicationStep] Function: deleteAdoptionApplication (API Call)", {
+        params: { safeAdoptionId },
+        stack: new Error().stack,
+      });
       await deleteAdoptionApplication(safeAdoptionId);
       localStorage.removeItem(APPLICATION_ID_KEY);
       setForm(createEmptyForm());

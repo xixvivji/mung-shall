@@ -63,9 +63,10 @@ const serializeApplicationPayload = (payload: AdoptionApplicationRequest) => {
 };
 
 export async function getAdoptionApplication(
-  adoptionId: number | string
+  adoptionId: number | string,
+  options: RequestInit = {}
 ): Promise<AdoptionApplicationResponse> {
-  const data = await api<unknown>(APPLICATION_PATH(adoptionId));
+  const data = await api<unknown>(APPLICATION_PATH(adoptionId), options);
   return normalizeApplicationResponse(data);
 }
 

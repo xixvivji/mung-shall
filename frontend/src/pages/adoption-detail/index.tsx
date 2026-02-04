@@ -95,7 +95,7 @@ export default function AdoptionDetailPage() {
           </div>
 
           <div className="flex flex-wrap items-center justify-between gap-4">
-            <ActionButtons dogId={detail.id} />
+            <ActionButtons dogId={detail.id} adopting={detail.adopting} />
             <div className="flex items-center gap-2 rounded-full border border-[#f3e1cc] bg-[#fff7eb] px-4 py-2 text-xs text-[#9b6a2f]">
               <span className="flex size-5 items-center justify-center rounded-full bg-[#f6d8b0] text-[10px] font-bold">!</span>
               안락사 대상이 될 수 있어요.

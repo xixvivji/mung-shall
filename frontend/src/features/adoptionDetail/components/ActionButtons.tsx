@@ -12,9 +12,10 @@ import useFavoriteDogs, { resolveFavoriteErrorMessage } from "@/features/adoptio
 
 type Props = {
   dogId: string;
+  adopting?: boolean;
 };
 
-export default function ActionButtons({ dogId }: Props) {
+export default function ActionButtons({ dogId, adopting = true }: Props) {
   const { openAlert, alertProps } = useAlertModal();
   const { isFavorite, pendingIds, toggleFavorite } = useFavoriteDogs();
   const { user } = useAuth();
@@ -25,6 +26,7 @@ export default function ActionButtons({ dogId }: Props) {
   const id = String(dogId);
   const liked = isFavorite(id);
   const pending = pendingIds.has(id);
+  const canAdopt = adopting == false;
 
   const label = liked ? "관심강아지 해제" : "관심강아지 등록";
   const pendingLabel = liked ? "관심강아지 해제 중..." : "관심강아지 등록 중...";
@@ -115,10 +117,10 @@ export default function ActionButtons({ dogId }: Props) {
         type="button"
         className="rounded-md bg-[#3182f6] px-5 py-2 text-sm font-semibold text-white disabled:opacity-60"
         onClick={handleStartAdoption}
-        disabled={isStarting}
+        disabled={isStarting || !canAdopt}
         aria-busy={isStarting}
       >
-        {isStarting ? "처리 중..." : "입양하기"}
+        {isStarting ? "처리 중..." : canAdopt ? "입양하기" : "입양 진행 중"}
       </button>
 
       <Button

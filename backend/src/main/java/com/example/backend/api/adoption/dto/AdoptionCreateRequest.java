@@ -9,8 +9,7 @@ import lombok.Setter;
 @Setter
 @NoArgsConstructor
 public class AdoptionCreateRequest {
-    @NotNull(message = "사용자 ID는 필수입니다.")
-    private Long userId;
+
 
     @NotNull(message = "유기견 ID는 필수입니다.")
     private Long abandonedDogId;

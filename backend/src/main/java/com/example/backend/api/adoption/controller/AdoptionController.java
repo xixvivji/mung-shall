@@ -4,6 +4,7 @@ import com.example.backend.api.adoption.dto.AdoptionCreateRequest;
 import com.example.backend.api.adoption.dto.AdoptionDetailResponse;
 import com.example.backend.api.adoption.dto.AdoptionStepInstanceResponse;
 import com.example.backend.api.adoption.dto.AdoptionStatusResponse;
+import com.example.backend.common.util.SecurityUtil;
 import com.example.backend.domain.adoption.enums.AdoptionProcessStatus;
 import com.example.backend.service.adoption.AdoptionService;
 import io.swagger.v3.oas.annotations.Operation;
@@ -17,6 +18,7 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -30,14 +32,22 @@ public class AdoptionController {
 
     private final AdoptionService adoptionService;
 
-    @Operation(summary = "초기 입양 프로세스 생성", description = "사용자가 '입양하기' 버튼을 눌렀을 때 호출되어 초기 입양 프로세스를 생성합니다.")
+    @Operation(summary = "입양 프로세스 생성", description = "사용자가 '입양하기' 버튼을 눌렀을 때 호출되어 초기 입양 프로세스를 생성합니다.")
     @ApiResponses(value = {
             @ApiResponse(responseCode = "201", description = "입양 프로세스 생성 성공",
                     content = @Content(schema = @Schema(implementation = Map.class))),
-            })
+            @ApiResponse(responseCode = "401", description = "인증되지 않은 사용자")
+    })
     @PostMapping("")
-    public ResponseEntity<?> createAdoptionProcess(@Valid @RequestBody AdoptionCreateRequest request) {
-        Long adoptionId = adoptionService.createAdoptionProcess(request.getUserId(), request.getAbandonedDogId());
+    public ResponseEntity<?> createAdoptionProcess(
+            @Valid @RequestBody AdoptionCreateRequest request,
+            @Parameter(hidden = true) Authentication authentication
+    ) {
+        Long currentUserId = SecurityUtil.getCurrentUserId();
+        if (currentUserId == null) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(Map.of("message", "인증되지 않은 사용자입니다."));
+        }
+        Long adoptionId = adoptionService.createAdoptionProcess(currentUserId, request.getAbandonedDogId());
         return ResponseEntity.status(HttpStatus.CREATED).body(Map.of("adoptionId", adoptionId));
     }
 
@@ -55,17 +65,22 @@ public class AdoptionController {
     }
 
 
-    @Operation(summary = "상태별 입양 목록 조회", description = "사용자 ID와 입양 프로세스 상태에 따라 입양 프로세스 목록을 조회합니다.")
+    @Operation(summary = "상태별 입양 목록 조회", description = "현재 인증된 사용자의 입양 프로세스 상태에 따른 입양 목록을 조회합니다.")
     @ApiResponses(value = {
             @ApiResponse(responseCode = "200", description = "입양 프로세스 목록 조회 성공",
                     content = @Content(schema = @Schema(implementation = AdoptionStatusResponse.class))),
             @ApiResponse(responseCode = "400", description = "잘못된 요청 데이터"),
+            @ApiResponse(responseCode = "401", description = "인증되지 않은 사용자")
     })
     @GetMapping
-    public ResponseEntity<List<AdoptionStatusResponse>> getAdoptionsByStatus(
-            @Parameter(description = "사용자 ID") @RequestParam Long userId,
-            @Parameter(description = "입양 프로세스 상태 (예: IN_PROGRESS, COMPLETED)") @RequestParam AdoptionProcessStatus status) {
-        List<AdoptionStatusResponse> response = adoptionService.getAdoptionsByUserIdAndStatus(userId, status);
+    public ResponseEntity<?> getAdoptionsByStatus(
+            @Parameter(description = "입양 프로세스 상태 (예: IN_PROGRESS, COMPLETED)") @RequestParam AdoptionProcessStatus status,
+            @Parameter(hidden = true) Authentication authentication) {
+        Long currentUserId = SecurityUtil.getCurrentUserId();
+        if (currentUserId == null) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(Map.of("message", "인증되지 않은 사용자입니다."));
+        }
+        List<AdoptionStatusResponse> response = adoptionService.getAdoptionsByUserIdAndStatus(currentUserId, status);
         return ResponseEntity.ok(response);
     }
 

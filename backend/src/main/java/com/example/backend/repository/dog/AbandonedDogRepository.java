@@ -25,6 +25,13 @@ public interface AbandonedDogRepository extends JpaRepository<AbandonedDog, Long
     Optional<AbandonedDog> findByDesertionNo(String desertionNo);
 
     /**
+     * 데이터베이스에 존재하는 모든 유기번호 리스트 조회
+     * @return List<String> 존재하는 유기번호 리스트
+     */
+    @Query("select a.desertionNo from AbandonedDog a")
+    List<String> findAllDesertionNos();
+
+    /**
      * 유기번호(desertionNo)로 유기견 정보의 존재 여부를 확인합니다.
      * findByDesertionNo보다 성능상 이점이 있습니다.
      * @param desertionNo 공공 API에서 제공하는 유기번호

@@ -1,8 +1,20 @@
 import * as React from "react";
 import { Badge } from "@/shared/ui/badge";
-import type { AdoptionProcessStatus, ShelterDogWithAdoptionItem, ShelterAdoptionDetail, AdoptionFinalStatus, AdoptionEducationCertResponse } from "../api/centerApplicationsApi";
+import type { 
+  AdoptionProcessStatus, 
+  ShelterDogWithAdoptionItem, 
+  ShelterAdoptionDetail, 
+  AdoptionFinalStatus, 
+  AdoptionSurveyResponse,
+  AdoptionEducationCertResponse
+} from "../api/centerApplicationsApi";
 import { PROCESS_STATUS_LABELS, processBadgeVariant, finalStatusLabel } from "./utils/labels";
 import { StepList } from "./steps";
+
+export type StepDetailData =
+  | { kind: "survey"; data: AdoptionSurveyResponse }
+  | { kind: "educationCert"; data: AdoptionEducationCertResponse }
+  | null;
 
 type Props = {
   // list
@@ -23,7 +35,7 @@ type Props = {
 
   // step expand
   selectedStepOrder: number | null;
-  stepDetail: AdoptionEducationCertResponse | null;
+  stepDetail: StepDetailData;
   stepDetailLoading: boolean;
   stepDetailError: string | null;
   onToggleStep: (order: number) => void;

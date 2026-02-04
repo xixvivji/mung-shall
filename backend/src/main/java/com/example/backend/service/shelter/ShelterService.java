@@ -92,7 +92,7 @@ public class ShelterService {
         dog.setOrgNm(request.getOrgNm());
 
         AbandonedDog updatedDog = abandonedDogRepository.save(dog);
-        return DogDetailResponse.fromEntity(updatedDog);
+        return DogDetailResponse.fromEntity(updatedDog, true); // 쉘터에선 수정 요망 or
     }
 
     /**

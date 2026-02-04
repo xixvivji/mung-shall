@@ -34,10 +34,10 @@ public class AdoptionService {
     private final AdoptionRepository adoptionRepository;
     private final AdoptionStepDefRepository adoptionStepDefRepository;
     private final AdoptionStepInstanceRepository adoptionStepInstanceRepository;
-    private final AdoptionSurveyRepository adoptionSurveyRepository; // Added
+    private final AdoptionSurveyRepository adoptionSurveyRepository;
     private final UserRepository userRepository;
     private final AbandonedDogRepository abandonedDogRepository;
-    private final UserDogInterestRepository userDogInterestRepository; // Added
+    private final UserDogInterestRepository userDogInterestRepository;
 
 
     /**

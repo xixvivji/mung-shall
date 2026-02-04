@@ -3,6 +3,7 @@ package com.example.backend.api.dog;
 import com.example.backend.api.dog.dto.DogDetailResponse;
 import com.example.backend.api.dog.dto.DogStatusCountResponse;
 import com.example.backend.api.dog.dto.DogSummaryResponse;
+import com.example.backend.security.principal.CustomUserPrincipal;
 import com.example.backend.service.dog.DogService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
@@ -15,6 +16,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.data.web.PageableDefault;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -55,9 +57,10 @@ public class DogController {
     })
     @GetMapping("/{id}")
     public ResponseEntity<DogDetailResponse> getDogDetail(
-            @Parameter(description = "유기견의 고유 ID", required = true) @PathVariable Long id
+            @Parameter(description = "유기견의 고유 ID", required = true) @PathVariable Long id,
+            @Parameter(description = "사용자 ID (로그인 시 좋아요 여부 확인용)") @RequestParam(required = false) Long userId
     ) {
-        DogDetailResponse dogDetail = dogService.getDogDetail(id);
+        DogDetailResponse dogDetail = dogService.getDogDetail(id, userId);
         return ResponseEntity.ok(dogDetail);
     }
 

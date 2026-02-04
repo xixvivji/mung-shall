@@ -1,7 +1,7 @@
 package com.example.backend.api.dog.interest;
 
 import com.example.backend.api.dog.dto.DogSummaryResponse;
-import com.example.backend.common.util.SecurityUtil;
+import com.example.backend.security.principal.CustomUserPrincipal;
 import com.example.backend.service.dog.interest.UserDogInterestService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
@@ -36,10 +36,8 @@ public class UserDogInterestController {
     public ResponseEntity<?> likeDog(
             @PathVariable Long dogId,
             @Parameter(hidden = true) Authentication authentication) {
-        Long currentUserId = SecurityUtil.getCurrentUserId();
-        if (currentUserId == null) {
-            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(Map.of("message", "인증되지 않은 사용자입니다."));
-        }
+        Long currentUserId = ((CustomUserPrincipal) authentication.getPrincipal()).getUserId();
+
         userDogInterestService.likeDog(currentUserId, dogId);
         return ResponseEntity.status(HttpStatus.CREATED).build();
     }
@@ -54,10 +52,8 @@ public class UserDogInterestController {
     public ResponseEntity<?> unlikeDog(
             @PathVariable Long dogId,
             @Parameter(hidden = true) Authentication authentication) {
-        Long currentUserId = SecurityUtil.getCurrentUserId();
-        if (currentUserId == null) {
-            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(Map.of("message", "인증되지 않은 사용자입니다."));
-        }
+        Long currentUserId = ((CustomUserPrincipal) authentication.getPrincipal()).getUserId();
+
         userDogInterestService.unlikeDog(currentUserId, dogId);
         return ResponseEntity.noContent().build();
     }
@@ -69,10 +65,8 @@ public class UserDogInterestController {
     })
     @GetMapping("/members/me/liked-dogs")
     public ResponseEntity<?> getLikedDogs(@Parameter(hidden = true) Authentication authentication) {
-        Long currentUserId = SecurityUtil.getCurrentUserId();
-        if (currentUserId == null) {
-            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(Map.of("message", "인증되지 않은 사용자입니다."));
-        }
+        Long currentUserId = ((CustomUserPrincipal) authentication.getPrincipal()).getUserId();
+
         List<DogSummaryResponse> likedDogs = userDogInterestService.getLikedDogs(currentUserId).stream()
                 .map(DogSummaryResponse::fromEntity)
                 .collect(Collectors.toList());

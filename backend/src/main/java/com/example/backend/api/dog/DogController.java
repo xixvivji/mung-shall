@@ -44,9 +44,11 @@ public class DogController {
             @Parameter(description = "검색할 상태 (공고중, 보호중, 종료)")
             @RequestParam(required = false) String processState,
             @Parameter(description = "페이지 요청 정보 (0-based page, size, sort)")
-            @PageableDefault(size = 12, sort = "happenDt", direction = Sort.Direction.DESC) Pageable pageable
+            @PageableDefault(size = 12, sort = "happenDt", direction = Sort.Direction.DESC) Pageable pageable,
+            @Parameter(hidden = true) Authentication authentication
     ) {
-        Page<DogSummaryResponse> dogs = dogService.getDogs(region, kindNm, sexCd, processState, pageable);
+        Long currentUserId = ((CustomUserPrincipal) authentication.getPrincipal()).getUserId();
+        Page<DogSummaryResponse> dogs = dogService.getDogs(region, kindNm, sexCd, processState, pageable, currentUserId);
         return ResponseEntity.ok(dogs);
     }
 
@@ -58,9 +60,11 @@ public class DogController {
     @GetMapping("/{id}")
     public ResponseEntity<DogDetailResponse> getDogDetail(
             @Parameter(description = "유기견의 고유 ID", required = true) @PathVariable Long id,
-            @Parameter(description = "사용자 ID (로그인 시 좋아요 여부 확인용)") @RequestParam(required = false) Long userId
+            @Parameter(hidden = true) Authentication authentication
     ) {
-        DogDetailResponse dogDetail = dogService.getDogDetail(id, userId);
+        Long currentUserId = ((CustomUserPrincipal) authentication.getPrincipal()).getUserId();
+
+        DogDetailResponse dogDetail = dogService.getDogDetail(id, currentUserId);
         return ResponseEntity.ok(dogDetail);
     }
 

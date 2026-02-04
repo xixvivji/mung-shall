@@ -37,9 +37,6 @@ public class ShelterService {
      * @return Page<DogSummaryResponse>
      */
     public Page<DogSummaryResponse> getDogsByShelter(Long shelterId, String processState, Pageable pageable) {
-        // 1. 요청한 shelterId에 대한 권한이 있는지 확인
-        shelterPermissionEvaluator.checkShelterOwnership(shelterId);
-
         List<AbandonedDog> dogs;
         if (StringUtils.hasText(processState)) {
             dogs = abandonedDogRepository.findByShelter_IdAndProcessState(shelterId, processState);

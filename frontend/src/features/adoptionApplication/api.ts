@@ -66,6 +66,12 @@ export async function getAdoptionApplication(
   adoptionId: number | string,
   options: RequestInit = {}
 ): Promise<AdoptionApplicationResponse> {
+  // DEBUG: adoption survey GET call tracing
+  console.debug("[adoptionApplication] getAdoptionApplication", {
+    adoptionId,
+    hasSignal: Boolean(options.signal),
+    stack: new Error().stack,
+  });
   const data = await api<unknown>(APPLICATION_PATH(adoptionId), options);
   return normalizeApplicationResponse(data);
 }
@@ -74,6 +80,11 @@ export async function upsertAdoptionApplication(
   adoptionId: number | string,
   payload: AdoptionApplicationRequest
 ): Promise<AdoptionApplicationResponse> {
+  // DEBUG: adoption survey UPSERT call tracing
+  console.debug("[adoptionApplication] upsertAdoptionApplication", {
+    adoptionId,
+    stack: new Error().stack,
+  });
   const body = JSON.stringify(serializeApplicationPayload(payload));
   const data = await api<unknown>(APPLICATION_PATH(adoptionId), {
     method: "POST",
@@ -85,6 +96,11 @@ export async function upsertAdoptionApplication(
 export async function deleteAdoptionApplication(
   adoptionId: number | string
 ): Promise<void> {
+  // DEBUG: adoption survey DELETE call tracing
+  console.debug("[adoptionApplication] deleteAdoptionApplication", {
+    adoptionId,
+    stack: new Error().stack,
+  });
   await api<void>(APPLICATION_PATH(adoptionId), { method: "DELETE" });
 }
 

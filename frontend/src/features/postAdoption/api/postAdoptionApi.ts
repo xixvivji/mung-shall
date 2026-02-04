@@ -153,6 +153,12 @@ export async function fetchAdoptionDetail(
   adoptionId: number,
   options: RequestInit = {}
 ): Promise<AdoptionDetail> {
+  // DEBUG: steps/status API call tracing
+  console.debug("[postAdoption] fetchAdoptionDetail", {
+    adoptionId,
+    hasSignal: Boolean(options.signal),
+    stack: new Error().stack,
+  });
   const data = await api<RawAdoptionDetail>(
     `/adoptions/${adoptionId}/steps/status`,
     options

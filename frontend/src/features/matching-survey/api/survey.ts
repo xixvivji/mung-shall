@@ -26,6 +26,11 @@ export type SurveyUpdateBody = Omit<SurveyCreateBody, "userId">;
 
 /** GET /api/recommendation/survey/user/{userId} */
 export function getSurvey(userId: number) {
+  // DEBUG: recommendation survey GET call tracing
+  console.debug("[matching-survey] getSurvey", {
+    userId,
+    stack: new Error().stack,
+  });
   return api<SurveyResponse>(`/recommendation/survey/user/${userId}`, {
     method: "GET",
   });
@@ -33,6 +38,11 @@ export function getSurvey(userId: number) {
 
 /** POST /api/recommendation/survey */
 export function createSurvey(body: SurveyCreateBody) {
+  // DEBUG: recommendation survey CREATE call tracing
+  console.debug("[matching-survey] createSurvey", {
+    userId: body.userId,
+    stack: new Error().stack,
+  });
   return api<SurveyResponse>(`/recommendation/survey`, {
     method: "POST",
     body: JSON.stringify(body),
@@ -41,6 +51,11 @@ export function createSurvey(body: SurveyCreateBody) {
 
 /** PUT /api/recommendation/survey/user/{userId} */
 export function updateSurvey(userId: number, body: SurveyUpdateBody) {
+  // DEBUG: recommendation survey UPDATE call tracing
+  console.debug("[matching-survey] updateSurvey", {
+    userId,
+    stack: new Error().stack,
+  });
   return api<SurveyResponse>(`/recommendation/survey/user/${userId}`, {
     method: "PUT",
     body: JSON.stringify(body),
@@ -49,6 +64,11 @@ export function updateSurvey(userId: number, body: SurveyUpdateBody) {
 
 /** DELETE /api/recommendation/survey/user/{userId} */
 export function deleteSurvey(userId: number) {
+  // DEBUG: recommendation survey DELETE call tracing
+  console.debug("[matching-survey] deleteSurvey", {
+    userId,
+    stack: new Error().stack,
+  });
   return api<null>(`/recommendation/survey/user/${userId}`, {
     method: "DELETE",
   });

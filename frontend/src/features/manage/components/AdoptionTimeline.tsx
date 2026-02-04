@@ -1,9 +1,14 @@
-﻿import { Check, CheckCircle2, Lock } from "lucide-react";
+import { Check, CheckCircle2, Lock, X } from "lucide-react";
 import { useMemo } from "react";
 import type { AdoptionStep } from "@/features/manage/types";
+import {
+  UI_STEP_DEFS,
+  computeProgress,
+  type UiStep,
+  type UiStepStatus,
+} from "@/features/manage/utils/adoptionSteps";
 
 type StageStatus = "completed" | "current" | "pending";
-type StepStatus = "completed" | "current" | "pending";
 
 type StageId = "A" | "B" | "C";
 
@@ -11,7 +16,7 @@ type Stage = {
   id: StageId;
   title: string;
   status: StageStatus;
-  substeps: { title: string; status: StepStatus; stepKey?: AdoptionStep }[];
+  substeps: { title: string; status: UiStepStatus; stepKey?: AdoptionStep }[];
 };
 
 /** =========================
@@ -20,11 +25,9 @@ type Stage = {
  *  B(입양 중): CONSULT -> DOCUMENT -> CONTRACT -> APPROVAL
  *  C(입양 후): PICKUP -> CARE
  *
- *  SELECT/SURVEY는 플로우/타임라인에서 제거.
- *  다만 서버에서 들어올 수 있으니 normalize로 방어.
+ *  SELECT/SURVEY 단계는 APPLICATION으로 통합.
+ *  서버 단계명이 다를 수 있어 normalize 로 보정.
  *  ========================= */
-
-const STAGE_INDEX: Record<StageId, number> = { A: 0, B: 1, C: 2 };
 
 const STAGE_STEPS: Record<StageId, AdoptionStep[]> = {
   A: ["APPLICATION", "EDUCATION_CERT"],
@@ -33,10 +36,11 @@ const STAGE_STEPS: Record<StageId, AdoptionStep[]> = {
 };
 
 const STEP_TITLE: Partial<Record<AdoptionStep, string>> = {
-  PROFILE: "프로필 등록",
+  PROFILE: "프로필 작성",
 
-  // SURVEY: 타임라인에서는 숨기지만, 혹시 current로 들어오면 텍스트 표시용
-  SURVEY: "성향 설문 작성",
+  // SURVEY/SELECT 는 UI 에서는 APPLICATION 으로 묶어 표시
+  SURVEY: "입양 설문 작성",
+  SELECT: "입양 대상 선택",
 
   APPLICATION: "입양 설문 작성",
   EDUCATION_CERT: "입양 교육",
@@ -53,19 +57,11 @@ function titleOf(step: AdoptionStep) {
   return STEP_TITLE[step] ?? step;
 }
 
-/** ✅ SELECT/SURVEY가 들어오면 APPLICATION로 치환 (UI/진행률/상단바 계산 안정화) */
+/** SELECT/SURVEY 는 APPLICATION 으로 통합 (UI/서버/정책 기준). */
 function normalizeStep(step: AdoptionStep): AdoptionStep {
   if (step === "SELECT") return "APPLICATION";
   if (step === "SURVEY") return "APPLICATION";
   return step;
-}
-
-function stageOf(step: AdoptionStep): StageId {
-  const s = normalizeStep(step);
-  if (STAGE_STEPS.A.includes(s)) return "A";
-  if (STAGE_STEPS.B.includes(s)) return "B";
-  if (STAGE_STEPS.C.includes(s)) return "C";
-  return "A";
 }
 
 function stageHeaderLabel(status: StageStatus) {
@@ -74,17 +70,28 @@ function stageHeaderLabel(status: StageStatus) {
   return "TODO";
 }
 
-function getStepStatusInStage(
-  step: AdoptionStep,
-  currentStep: AdoptionStep,
-  stageSteps: AdoptionStep[]
-): StepStatus {
-  const a = stageSteps.indexOf(step);
-  const b = stageSteps.indexOf(currentStep);
-  if (a < 0 || b < 0) return "pending";
-  if (a < b) return "completed";
-  if (a === b) return "current";
+function stageStatusFromSubsteps(substeps: { status: UiStepStatus }[]): StageStatus {
+  if (substeps.length === 0) return "pending";
+  if (substeps.every((step) => step.status === "DONE")) return "completed";
+  if (substeps.some((step) => step.status !== "TODO")) return "current";
   return "pending";
+}
+
+function uiStatusLabel(status: UiStepStatus) {
+  return status;
+}
+
+function uiStatusClass(status: UiStepStatus) {
+  switch (status) {
+    case "DONE":
+      return "bg-emerald-50 text-emerald-700 border border-emerald-200";
+    case "IN_PROGRESS":
+      return "bg-blue-50 text-blue-700 border border-blue-200";
+    case "REJECTED":
+      return "bg-red-50 text-red-700 border border-red-200";
+    default:
+      return "bg-gray-50 text-gray-500 border border-gray-200";
+  }
 }
 
 type Props = {
@@ -92,6 +99,9 @@ type Props = {
   selectedStep: AdoptionStep;
   onSelectStep: (step: AdoptionStep) => void;
   isEditableForStep?: (step: AdoptionStep) => boolean;
+  uiSteps?: UiStep[];
+  progressPct?: number;
+  currentLabel?: string | null;
 };
 
 export function AdoptionTimeline({
@@ -99,91 +109,87 @@ export function AdoptionTimeline({
   selectedStep,
   onSelectStep,
   isEditableForStep,
+  uiSteps,
+  progressPct,
+  currentLabel,
 }: Props) {
   const currentStepN = useMemo(() => normalizeStep(currentStep), [currentStep]);
   const selectedStepN = useMemo(() => normalizeStep(selectedStep), [selectedStep]);
 
-  const currentStageId = useMemo(() => stageOf(currentStepN), [currentStepN]);
+  const baseSteps = useMemo<UiStep[]>(() => {
+    if (uiSteps && uiSteps.length > 0) return uiSteps;
+    const orderedKeys = UI_STEP_DEFS.map((step) => step.key);
+    const currentIdx = orderedKeys.indexOf(currentStepN);
+
+    return UI_STEP_DEFS.map((def, idx) => ({
+      ...def,
+      status:
+        currentIdx < 0
+          ? "TODO"
+          : idx < currentIdx
+            ? "DONE"
+            : idx === currentIdx
+              ? "IN_PROGRESS"
+              : "TODO",
+    }));
+  }, [uiSteps, currentStepN]);
+
+  const stepMap = useMemo(() => new Map(baseSteps.map((step) => [step.key, step])), [baseSteps]);
 
   const stages: Stage[] = useMemo(() => {
-    const makeStageStatus = (id: StageId): StageStatus => {
-      const cur = STAGE_INDEX[currentStageId];
-      const me = STAGE_INDEX[id];
-      if (me < cur) return "completed";
-      if (me === cur) return "current";
-      return "pending";
-    };
+    const aSubsteps = STAGE_STEPS.A.map((step) => {
+      const info = stepMap.get(step);
+      return {
+        title: info?.label ?? titleOf(step),
+        stepKey: step,
+        status: info?.status ?? "TODO",
+      };
+    });
 
-    const statusA = makeStageStatus("A");
-    const statusB = makeStageStatus("B");
-    const statusC = makeStageStatus("C");
+    const bSubsteps = STAGE_STEPS.B.map((step) => {
+      const info = stepMap.get(step);
+      return {
+        title: info?.label ?? titleOf(step),
+        stepKey: step,
+        status: info?.status ?? "TODO",
+      };
+    });
 
-    const aSubsteps = STAGE_STEPS.A.map((step) => ({
-      title: titleOf(step),
-      stepKey: step,
-      status:
-        statusA === "completed"
-          ? "completed"
-          : statusA === "pending"
-            ? "pending"
-            : currentStageId === "A"
-              ? getStepStatusInStage(step, currentStepN, STAGE_STEPS.A)
-              : "pending",
-    }));
+    const cSubsteps = STAGE_STEPS.C.map((step) => {
+      const info = stepMap.get(step);
+      return {
+        title: info?.label ?? titleOf(step),
+        stepKey: step,
+        status: info?.status ?? "TODO",
+      };
+    });
 
-    const bSubsteps = STAGE_STEPS.B.map((step) => ({
-      title: titleOf(step),
-      stepKey: step,
-      status:
-        statusB === "completed"
-          ? "completed"
-          : statusB === "pending"
-            ? "pending"
-            : currentStageId === "B"
-              ? getStepStatusInStage(step, currentStepN, STAGE_STEPS.B)
-              : "pending",
-    }));
-
-    const cSubsteps = STAGE_STEPS.C.map((step) => ({
-      title: titleOf(step),
-      stepKey: step,
-      status:
-        statusC === "completed"
-          ? "completed"
-          : statusC === "pending"
-            ? "pending"
-            : currentStageId === "C"
-              ? getStepStatusInStage(step, currentStepN, STAGE_STEPS.C)
-              : "pending",
-    }));
+    const statusA = stageStatusFromSubsteps(aSubsteps);
+    const statusB = stageStatusFromSubsteps(bSubsteps);
+    const statusC = stageStatusFromSubsteps(cSubsteps);
 
     return [
       { id: "A", title: "입양 전", status: statusA, substeps: aSubsteps },
       { id: "B", title: "입양 중", status: statusB, substeps: bSubsteps },
       { id: "C", title: "입양 후", status: statusC, substeps: cSubsteps },
     ];
-  }, [currentStageId, currentStepN]);
+  }, [stepMap]);
 
-  // ✅ 진행률: "현재 stage 안에서"만 계산
-  const progressPct = useMemo(() => {
-    const sid = stageOf(currentStepN);
-    const arr = STAGE_STEPS[sid];
-    const idx = arr.indexOf(currentStepN);
-    if (idx < 0) return 0;
-    return Math.round(((idx + 1) / arr.length) * 100);
-  }, [currentStepN]);
+  const effectiveProgressPct = useMemo(() => {
+    if (typeof progressPct === "number") return progressPct;
+    return computeProgress(baseSteps);
+  }, [progressPct, baseSteps]);
 
-  // ✅ 상단 3단계(원-막대) 진행 너비 계산
+  // 상단 3단계(입양 전-중-후) 진행 바 길이
   const topBarWidthPct = useMemo(() => {
-    const seg = 33.333;
-    const sid = stageOf(currentStepN);
+    const barMax = 66.666;
+    return Math.round(((effectiveProgressPct / 100) * barMax) * 1000) / 1000;
+  }, [effectiveProgressPct]);
 
-    if (sid === "A") return seg * (progressPct / 100);
-    if (sid === "B") return seg + seg * (progressPct / 100);
-    return seg * 2;
-  }, [currentStepN, progressPct]);
-
-  const currentText = useMemo(() => titleOf(currentStepN), [currentStepN]);
+  const currentText = useMemo(
+    () => currentLabel ?? titleOf(currentStepN),
+    [currentLabel, currentStepN]
+  );
 
   return (
     <div className="bg-white rounded-2xl p-10 shadow-sm border border-gray-100">
@@ -195,7 +201,9 @@ export function AdoptionTimeline({
           </p>
         </div>
 
-        <div className="text-xs font-semibold text-[#3182F6]">진행률 {progressPct}%</div>
+        <div className="text-xs font-semibold text-[#3182F6]">
+          진행률 {effectiveProgressPct}%
+        </div>
       </div>
 
       {/* 상단 3단계 */}
@@ -235,7 +243,7 @@ export function AdoptionTimeline({
         </div>
       </div>
 
-      {/* 하단 체크리스트 */}
+      {/* 단계별 리스트 */}
       <div className="grid grid-cols-3 gap-10">
         {stages.map((stage) => (
           <div key={stage.id}>
@@ -245,14 +253,13 @@ export function AdoptionTimeline({
 
             <div className="space-y-4">
               {stage.substeps.map((substep, index) => {
-                const isDone = substep.status === "completed";
-                const isTodo = substep.status !== "completed";
+                const isDone = substep.status === "DONE";
+                const isRejected = substep.status === "REJECTED";
 
                 const stepKey = substep.stepKey;
                 const isSelectable = Boolean(stepKey);
 
                 const isSelected = Boolean(stepKey && stepKey === selectedStepN);
-                const isCurrent = Boolean(stepKey && stepKey === currentStepN);
 
                 const editable = stepKey
                   ? isEditableForStep
@@ -260,17 +267,18 @@ export function AdoptionTimeline({
                     : true
                   : false;
 
+                const cardTone = isRejected
+                  ? "bg-red-50 border-red-200"
+                  : isDone
+                    ? "bg-white border-gray-200"
+                    : "bg-[#eef2ff] border-[#c7d2fe]";
+
                 const baseCard =
-                  `flex items-center gap-4 rounded-md border px-4 py-4 shadow-sm transition ` +
-                  (isTodo ? "bg-[#eef2ff] border-[#c7d2fe]" : "bg-white border-gray-200");
+                  `flex items-center gap-4 rounded-md border px-4 py-4 shadow-sm transition ${cardTone}`;
 
                 const selectable = isSelectable ? "cursor-pointer hover:shadow-md" : "";
                 const selectedRing = isSelected
                   ? " ring-2 ring-[#c7d2fe] border-[#3182F6]"
-                  : "";
-
-                const currentBadge = isCurrent
-                  ? " ml-auto rounded-full bg-[#3182F6] px-2 py-0.5 text-[11px] font-semibold text-white"
                   : "";
 
                 const CardTag: any = isSelectable ? "button" : "div";
@@ -291,26 +299,41 @@ export function AdoptionTimeline({
                   >
                     <div
                       className={`flex h-5 w-5 items-center justify-center rounded-sm ${
-                        isDone
-                          ? "bg-[#c7d2fe] text-[#3182F6]"
-                          : "border-2 border-[#3182F6] bg-white"
+                        isRejected
+                          ? "bg-red-100 text-red-600"
+                          : isDone
+                            ? "bg-[#c7d2fe] text-[#3182F6]"
+                            : "border-2 border-[#3182F6] bg-white"
                       }`}
                     >
                       {isDone && <Check className="h-4 w-4" />}
+                      {isRejected && <X className="h-4 w-4" />}
                     </div>
 
-                    <span className={`text-sm font-medium ${isDone ? "text-gray-500" : "text-gray-900"}`}>
+                    <span
+                      className={`text-sm font-medium ${
+                        isDone ? "text-gray-500" : isRejected ? "text-red-700" : "text-gray-900"
+                      }`}
+                    >
                       {substep.title}
                     </span>
 
-                    {/* ✅ 편집 불가면 락 아이콘 (선택적으로 표시) */}
-                    {stepKey && !editable && (
-                      <span className="ml-auto text-gray-400">
-                        <Lock className="h-4 w-4" />
-                      </span>
-                    )}
+                    <div className="ml-auto flex items-center gap-2">
+                      {/* 현재 단계가 편집 불가인 경우 잠금 표시 */}
+                      {stepKey && !editable && (
+                        <span className="text-gray-400">
+                          <Lock className="h-4 w-4" />
+                        </span>
+                      )}
 
-                    {isCurrent && <span className={currentBadge}>진행중</span>}
+                      <span
+                        className={`rounded-full px-2 py-0.5 text-[11px] font-semibold ${uiStatusClass(
+                          substep.status
+                        )}`}
+                      >
+                        {uiStatusLabel(substep.status)}
+                      </span>
+                    </div>
                   </CardTag>
                 );
               })}
@@ -321,6 +344,3 @@ export function AdoptionTimeline({
     </div>
   );
 }
-
-
-

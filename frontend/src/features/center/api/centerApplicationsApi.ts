@@ -134,6 +134,16 @@ export async function verifyShelterAdoption(
   });
 }
 
+export async function verifyShelterAdoptionStep(
+  stepInstanceId: number,
+  payload: VerifyAdoptionPayload
+): Promise<void> {
+  await api<void>(`/shelter/adoption-steps/${stepInstanceId}/verify`, {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
+}
+
 // Legacy document endpoints (Swagger에 없음)
 export async function fetchShelterApplicationDocuments(applicationId: number) {
   return api<ShelterApplicationDocument[]>(

@@ -32,15 +32,18 @@ export type AdoptionAfterStep =
   | "PICKUP"
   | "CARE";
 
-export type AdoptionStepStatus =
+export type StepStatus =
   | "NOT_STARTED"
   | "PENDING"
-  | "ACTIVE"
   | "SUBMITTED"
   | "APPROVED"
-  | "COMPLETED"
   | "REJECTED"
-  | "CANCELLED";
+  | "COMPLETED"
+  | "ACTIVE"
+  | "CANCELLED"
+  | (string & {});
+
+export type AdoptionStepStatus = StepStatus;
 
 export type AdoptionProcessStatus = "IN_PROGRESS" | "COMPLETED" | "CANCELLED";
 
@@ -68,6 +71,20 @@ export type AdoptionStepInstance = {
   rejectionReason?: string | null;
 };
 
+export type AdoptionStepInstanceResponse = {
+  id: number;
+  stepDef: {
+    stepOrder: number;
+    stepName: string;
+    description: string;
+  };
+  status: StepStatus;
+  submittedAt?: string | null;
+  approvedAt?: string | null;
+  completedAt?: string | null;
+  rejectionReason?: string | null;
+};
+
 export type AdoptionDetail = {
   id: number;
   userId?: number | null;
@@ -87,6 +104,15 @@ export type EducationCertResponse = {
   completionDate: string;
   certificateFileUrl: string;
 };
+
+export type AdoptionEducationCertUploadRequest = {
+  educationInstitution: string;
+  certificateNumber: string;
+  completionDate: string;
+  certificateFile: File;
+};
+
+export type AdoptionEducationCertResponse = EducationCertResponse;
 
 export type AdoptionContractResponse = {
   id: number;

@@ -1,4 +1,4 @@
-﻿﻿import { useEffect, useMemo, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { Button } from "@/shared/ui/button";
 import {
   deleteAdoptionApplication,
@@ -625,6 +625,9 @@ export function ApplicationStep({ isEditable, onSubmitSuccess, adoptionId }: Pro
   const [submitError, setSubmitError] = useState<string | null>(null);
 
   const [form, setForm] = useState<Form>(createEmptyForm());
+  const requestIdRef = useRef(0);
+  const lastFetchedIdRef = useRef<number | null>(null);
+  const abortRef = useRef<AbortController | null>(null);
 
   const activeStep = STEPS[stepIndex];
   const isLastStep = stepIndex === STEPS.length - 1;
@@ -637,25 +640,53 @@ export function ApplicationStep({ isEditable, onSubmitSuccess, adoptionId }: Pro
   }
 
   useEffect(() => {
+    // DEBUG: /survey fetch runs only when adoptionId changes to prevent loops.
+    // DEBUG: loop root cause was render-driven re-entry on same adoptionId after 400; guard with lastFetchedIdRef.
+    console.debug("[ApplicationStep] useEffect [getAdoptionApplication] running", {
+      dependencies: { adoptionId },
+      lastFetchedId: lastFetchedIdRef.current,
+      stack: new Error().stack,
+    });
+
     if (!hasAdoptionId) {
+      lastFetchedIdRef.current = null;
+      abortRef.current?.abort();
+      abortRef.current = null;
       setHasExisting(false);
       setLoadError(null);
       return;
     }
 
-    let active = true;
+    const safeAdoptionId = adoptionId as number;
+    if (lastFetchedIdRef.current === safeAdoptionId) {
+      // DEBUG: prevent duplicate fetch on same adoptionId
+      console.debug("[ApplicationStep] skip duplicate getAdoptionApplication", {
+        adoptionId: safeAdoptionId,
+        stack: new Error().stack,
+      });
+      return;
+    }
+
+    abortRef.current?.abort();
+    const controller = new AbortController();
+    abortRef.current = controller;
+    const requestId = ++requestIdRef.current;
+    lastFetchedIdRef.current = safeAdoptionId;
+
     setLoading(true);
     setLoadError(null);
 
-    const safeAdoptionId = adoptionId as number;
-    console.log("[ApplicationStep] Function: getAdoptionApplication (API Call)", {
+    // DEBUG: adoption survey API call trace
+    console.debug("[ApplicationStep] getAdoptionApplication (API Call)", {
       params: { safeAdoptionId },
+      requestId,
       stack: new Error().stack,
     });
 
-    getAdoptionApplication(safeAdoptionId)
+    getAdoptionApplication(safeAdoptionId, { signal: controller.signal })
       .then((data) => {
-        if (!active) return;
+        if (controller.signal.aborted) return;
+        if (requestId !== requestIdRef.current) return;
         const nextForm = mapApplicationToForm(data);
         setForm(nextForm);
         setHasExisting(Boolean(data && Object.keys(data).length > 0));
@@ -665,22 +696,30 @@ export function ApplicationStep({ isEditable, onSubmitSuccess, adoptionId }: Pro
         }
       })
       .catch((err) => {
-        if (!active) return;
-        if (err instanceof ApiError && (err.status === 400 || err.status === 404)) {
+        if (controller.signal.aborted) return;
+        if (requestId !== requestIdRef.current) return;
+        if (err instanceof ApiError && err.status === 400) {
+          // DEBUG: 400 should not trigger retries or dependency loops.
+          setHasExisting(false);
+          setLoadError("입양 신청서를 찾을 수 없습니다. (400)");
+          return;
+        }
+        if (err instanceof ApiError && err.status === 404) {
           setHasExisting(false);
           return;
         }
         setLoadError(resolveApiErrorMessage(err));
       })
       .finally(() => {
-        if (!active) return;
+        if (controller.signal.aborted) return;
+        if (requestId !== requestIdRef.current) return;
         setLoading(false);
       });
 
     return () => {
-      active = false;
+      controller.abort();
     };
-  }, [adoptionId, hasAdoptionId]);
+  }, [adoptionId]);
 
   /** ====== 전체 검증(최종 저장) ====== */
   function validateAll(next: Form): Errors {

@@ -43,7 +43,19 @@ function resolveStepKey(name?: string, stepOrder?: number | null): AdoptionStep 
   return null;
 }
 
-export default function useMyPage(adoptionId: number | null) {
+type UseMyPageOptions = {
+  skipAdoptionDetail?: boolean;
+};
+
+export default function useMyPage(
+  adoptionId?: number | null,
+  options: UseMyPageOptions = {}
+) {
+  const safeAdoptionId =
+    typeof adoptionId === "number" && Number.isFinite(adoptionId) && adoptionId > 0
+      ? adoptionId
+      : null;
+  const skipAdoptionDetail = options.skipAdoptionDetail ?? false;
   const [dogs, setDogs] = useState<MyDog[]>([]);
   const [loading, setLoading] = useState(true);
   const [postAdoptionId, setPostAdoptionId] = useState<number | null>(() => {
@@ -59,7 +71,7 @@ export default function useMyPage(adoptionId: number | null) {
   const [postAdoptionError, setPostAdoptionError] = useState<string | null>(null);
   const adoptionDetailAbortRef = useRef<AbortController | null>(null);
   const adoptionDetailRequestIdRef = useRef(0);
-  const adoptionIdRef = useRef<number | null>(adoptionId);
+  const adoptionIdRef = useRef<number | null>(safeAdoptionId);
   const isMountedRef = useRef(true);
 
   useEffect(() => {
@@ -70,8 +82,8 @@ export default function useMyPage(adoptionId: number | null) {
   }, []);
 
   useEffect(() => {
-    adoptionIdRef.current = adoptionId;
-  }, [adoptionId]);
+    adoptionIdRef.current = safeAdoptionId;
+  }, [safeAdoptionId]);
 
   useEffect(() => {
     let mounted = true;
@@ -107,13 +119,15 @@ export default function useMyPage(adoptionId: number | null) {
       setAdoptionError(null);
     }
 
-    console.log("[useMyPage] Function: refreshAdoptionDetail", {
+    // DEBUG: adoption detail refresh trace
+    console.debug("[useMyPage] Function: refreshAdoptionDetail", {
       params: { targetId, resolvedId },
       stack: new Error().stack,
     });
 
     try {
-      console.log("[useMyPage] Function: fetchAdoptionDetail (API Call)", {
+      // DEBUG: steps/status API call trace
+      console.debug("[useMyPage] Function: fetchAdoptionDetail (API Call)", {
         params: { resolvedId },
         stack: new Error().stack,
       });
@@ -167,19 +181,21 @@ export default function useMyPage(adoptionId: number | null) {
   }, [postAdoptionId]);
 
   useEffect(() => {
-    console.log("[useMyPage] useEffect [refreshAdoptionDetail] running", {
-      dependencies: { adoptionId },
+    // DEBUG: adoption detail fetch effect (guards against render-triggered loops)
+    console.debug("[useMyPage] useEffect [refreshAdoptionDetail] running", {
+      dependencies: { safeAdoptionId, skipAdoptionDetail },
       stack: new Error().stack,
     });
 
-    if (!adoptionId) return;
+    if (skipAdoptionDetail) return;
+    if (!safeAdoptionId) return;
     // Only refetch when adoptionId changes to avoid render-triggered loops.
-    void refreshAdoptionDetail(adoptionId);
+    void refreshAdoptionDetail(safeAdoptionId);
     return () => {
       adoptionDetailAbortRef.current?.abort();
       adoptionDetailAbortRef.current = null;
     };
-  }, [adoptionId]);
+  }, [safeAdoptionId, skipAdoptionDetail]);
 
   useEffect(() => {
     if (!postAdoptionId) return;
@@ -187,14 +203,14 @@ export default function useMyPage(adoptionId: number | null) {
   }, [postAdoptionId, refreshPostAdoption]);
 
   const startPostAdoption = useCallback(async () => {
-    if (!adoptionId) {
+    if (!safeAdoptionId) {
       setPostAdoptionError("Missing adoptionId.");
       return null;
     }
     setPostAdoptionLoading(true);
     setPostAdoptionError(null);
     try {
-      const detail = await startPostAdoptionProcess(adoptionId);
+      const detail = await startPostAdoptionProcess(safeAdoptionId);
       setPostAdoption(detail);
       setPostAdoptionId(detail.id);
       localStorage.setItem(POST_ADOPTION_ID_KEY, String(detail.id));
@@ -206,7 +222,7 @@ export default function useMyPage(adoptionId: number | null) {
     } finally {
       setPostAdoptionLoading(false);
     }
-  }, [adoptionId]);
+  }, [safeAdoptionId]);
 
   const cancelPostAdoption = useCallback(async () => {
     if (!postAdoptionId) return;
@@ -274,7 +290,7 @@ export default function useMyPage(adoptionId: number | null) {
   return {
     dogs,
     loading,
-    adoptionId,
+    adoptionId: safeAdoptionId,
     adoptionDetail,
     adoptionLoading,
     adoptionError,

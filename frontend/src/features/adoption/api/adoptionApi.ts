@@ -1,5 +1,7 @@
 // src/features/adoption/api/adoptionApi.ts
 import { api } from "@/shared/api/client";
+import { getAdoptionApplication } from "@/features/adoptionApplication/api";
+import type { AdoptionApplicationResponse } from "@/features/adoptionApplication/types";
 import type { AdoptionDog } from "../types";
 
 // --- Types ---
@@ -51,6 +53,26 @@ export type StartAdoptionRequest = {
 export type StartAdoptionResponse = {
   adoptionId: string;
 };
+
+export type AdoptionStepStatusItem = {
+  id?: number | string;
+  status?: string | null;
+  stepName?: string | null;
+  stepOrder?: number | null;
+  stepDef?: {
+    stepName?: string | null;
+    stepOrder?: number | null;
+  } | null;
+};
+
+export type AdoptionStepsStatusResponse =
+  | AdoptionStepStatusItem[]
+  | { steps?: AdoptionStepStatusItem[] }
+  | { data?: AdoptionStepStatusItem[] | { steps?: AdoptionStepStatusItem[] } }
+  | { result?: AdoptionStepStatusItem[] }
+  | { content?: AdoptionStepStatusItem[] }
+  | { items?: AdoptionStepStatusItem[] }
+  | { list?: AdoptionStepStatusItem[] };
 
 export type RegionItem = {
   orgCd: string;
@@ -171,6 +193,75 @@ export async function startAdoptionProcess(
   payload: StartAdoptionRequest
 ): Promise<StartAdoptionResponse> {
   return startAdoption(payload);
+}
+
+/** GET /api/adoptions/{adoptionId}/steps/status */
+export async function fetchAdoptionStepStatuses(
+  adoptionId: number,
+  options: RequestInit = {}
+): Promise<AdoptionStepsStatusResponse> {
+  // DEBUG: steps/status API call tracing
+  console.debug("[adoption] fetchAdoptionStepStatuses", {
+    adoptionId,
+    hasSignal: Boolean(options.signal),
+    stack: new Error().stack,
+  });
+  return api<AdoptionStepsStatusResponse>(`/adoptions/${adoptionId}/steps/status`, options);
+}
+
+export function normalizeAdoptionStepsStatusResponse(
+  response: AdoptionStepsStatusResponse
+): AdoptionStepStatusItem[] {
+  if (Array.isArray(response)) return response;
+  if (!response || typeof response !== "object") return [];
+
+  const record = response as Record<string, unknown>;
+  if (Array.isArray(record.steps)) return record.steps as AdoptionStepStatusItem[];
+  if (Array.isArray(record.data)) return record.data as AdoptionStepStatusItem[];
+  if (Array.isArray(record.result)) return record.result as AdoptionStepStatusItem[];
+  if (Array.isArray(record.content)) return record.content as AdoptionStepStatusItem[];
+  if (Array.isArray(record.items)) return record.items as AdoptionStepStatusItem[];
+  if (Array.isArray(record.list)) return record.list as AdoptionStepStatusItem[];
+
+  const data = record.data as Record<string, unknown> | undefined;
+  if (data) {
+    if (Array.isArray(data.steps)) return data.steps as AdoptionStepStatusItem[];
+    if (Array.isArray(data.items)) return data.items as AdoptionStepStatusItem[];
+    if (Array.isArray(data.list)) return data.list as AdoptionStepStatusItem[];
+  }
+
+  return [];
+}
+
+/** GET /api/adoptions/{adoptionId}/steps/{stepOrder} */
+export async function fetchAdoptionStepDetail(
+  adoptionId: number,
+  stepOrder: number,
+  options: RequestInit = {}
+): Promise<AdoptionStepStatusItem | null> {
+  if (!adoptionId || !stepOrder) return null;
+  // DEBUG: step detail API call tracing
+  console.debug("[adoption] fetchAdoptionStepDetail", {
+    adoptionId,
+    stepOrder,
+    hasSignal: Boolean(options.signal),
+    stack: new Error().stack,
+  });
+  return api<AdoptionStepStatusItem>(`/adoptions/${adoptionId}/steps/${stepOrder}`, options);
+}
+
+/** GET /api/adoptions/{adoptionId}/survey */
+export async function fetchAdoptionSurvey(
+  adoptionId: number,
+  options: RequestInit = {}
+): Promise<AdoptionApplicationResponse> {
+  // DEBUG: adoption survey API call tracing
+  console.debug("[adoption] fetchAdoptionSurvey", {
+    adoptionId,
+    hasSignal: Boolean(options.signal),
+    stack: new Error().stack,
+  });
+  return getAdoptionApplication(adoptionId, options);
 }
 
 // --- Helper Functions ---

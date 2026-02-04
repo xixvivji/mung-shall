@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { Link, useLocation, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { AdoptionTimeline, NextActions } from "@/features/manage";
 import useMyPage from "@/features/mypage/hooks/useMyPage";
+import useAdoptionStepsStatus from "@/features/manage/hooks/useAdoptionStepsStatus";
 import type { AdoptionStatusSummary, AdoptionStep, LikedDog } from "@/features/manage/types";
 import {
   cancelAdoptionProcess,
@@ -325,31 +326,50 @@ function AdopterManagePage() {
     if (!exists) setSelectedAdoptionId(null);
   }, [selectedAdoptionId, dedupedSummaries, isLoadingInProgress]);
 
+  useEffect(() => {
+    // DEBUG: track selected adoptionId changes and caller stack
+    console.debug("[manage] selectedAdoptionId change", {
+      selectedAdoptionId,
+      userId: user?.userId,
+      stack: new Error().stack,
+    });
+  }, [selectedAdoptionId, user?.userId]);
+
+  const { submitStep } = useMyPage(selectedAdoptionId, { skipAdoptionDetail: true });
+
   const {
-    adoptionLoading,
-    adoptionError,
-    currentStep: apiCurrentStep,
-    submitStep,
-  } = useMyPage(selectedAdoptionId);
+    uiSteps,
+    progressPct,
+    currentStep: statusCurrentStep,
+    currentLabel: statusCurrentLabel,
+    loading: stepsLoading,
+    error: stepsError,
+  } = useAdoptionStepsStatus(selectedAdoptionId, user?.userId);
+
+  const resolvedCurrentStep = statusCurrentStep ?? "APPLICATION";
+  const adoptionLoading = stepsLoading;
+  const adoptionError = stepsError;
 
   // ✅ 진행 단계 / 선택 단계
-  const [currentStep, setCurrentStep] = useState<AdoptionStep>(
-    apiCurrentStep ?? "SURVEY"
-  );
-  const [selectedStep, setSelectedStep] = useState<AdoptionStep>(
-    apiCurrentStep ?? "SURVEY"
-  );
+  const [currentStep, setCurrentStep] = useState<AdoptionStep>(resolvedCurrentStep);
+  const [selectedStep, setSelectedStep] = useState<AdoptionStep>(resolvedCurrentStep);
 
   // QA
   // 1) 진행중 입양 2개 이상에서 카드 57 클릭 -> URL ?adoptionId=57, survey/status가 57로 호출되는지 확인
   // 2) 관심강아지에서 입양하기 클릭 + 진행중 입양 존재 -> resolvedId 이동, URL/state 불일치 없음
   // 3) 진행중 입양 0개 -> 생성된 adoptionId로 이동, URL/state 일치 확인
 
-  // apiCurrentStep 변경되면 로컬 state 동기화
+  // server steps/status 변경되면 로컬 state 동기화
   useEffect(() => {
-    setCurrentStep(apiCurrentStep ?? "SURVEY");
-    setSelectedStep(apiCurrentStep ?? "SURVEY");
-  }, [apiCurrentStep, selectedAdoptionId]);
+    // DEBUG: sync step state from server status mapping
+    console.debug("[manage] sync steps from status", {
+      selectedAdoptionId,
+      statusCurrentStep,
+      stack: new Error().stack,
+    });
+    setCurrentStep(resolvedCurrentStep);
+    setSelectedStep(resolvedCurrentStep);
+  }, [resolvedCurrentStep, selectedAdoptionId, statusCurrentStep]);
 
   // ✅ NextActions에서 "다음 단계로 진행" 요청했을 때
   const advanceTo = (next: AdoptionStep) => {
@@ -605,6 +625,9 @@ function AdopterManagePage() {
             currentStep={currentStep}
             selectedStep={selectedStep}
             onSelectStep={setSelectedStep}
+            uiSteps={uiSteps}
+            progressPct={progressPct}
+            currentLabel={statusCurrentLabel}
           />
 
           <NextActions

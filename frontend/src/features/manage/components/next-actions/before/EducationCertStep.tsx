@@ -2,11 +2,17 @@
 import { Button } from "@/shared/ui/button";
 import { ApiError } from "@/shared/api/client";
 import {
+  fetchAdoptionStepStatuses,
+  normalizeAdoptionStepsStatusResponse,
+  type AdoptionStepStatusItem,
+} from "@/features/adoption/api/adoptionApi";
+import {
   deleteEducationCert,
   fetchEducationCert,
   uploadEducationCert,
 } from "@/features/postAdoption/api/postAdoptionApi";
-import type { EducationCertResponse } from "@/features/manage/types";
+import type { EducationCertResponse, StepStatus } from "@/features/manage/types";
+import { resolveServerStepKey } from "@/features/manage/utils/adoptionSteps";
 
 type Props = {
   isEditable: boolean;
@@ -33,14 +39,43 @@ function normalizeDateTimeInput(value?: string | null) {
   return value;
 }
 
+const ALLOWED_EDU_CERT_STATUSES = new Set<StepStatus>(["PENDING", "REJECTED"]);
+
+const normalizeStepStatus = (status?: string | null) =>
+  typeof status === "string" ? status.trim().toUpperCase() : "";
+
+const resolveStepName = (step: AdoptionStepStatusItem) =>
+  step.stepDef?.stepName ?? (typeof step.stepName === "string" ? step.stepName : null) ?? null;
+
+const resolveStepOrder = (step: AdoptionStepStatusItem) =>
+  step.stepDef?.stepOrder ?? (typeof step.stepOrder === "number" ? step.stepOrder : null) ?? null;
+
+const resolveStepInstanceId = (step?: AdoptionStepStatusItem | null) => {
+  if (!step) return null;
+  if (typeof step.id === "number" && Number.isFinite(step.id)) return step.id;
+  if (typeof step.id === "string" && step.id.trim() !== "") {
+    const parsed = Number(step.id);
+    return Number.isFinite(parsed) ? parsed : null;
+  }
+  return null;
+};
+
+const findEducationStepInstance = (steps: AdoptionStepStatusItem[]) =>
+  steps.find((step) => {
+    const stepName = resolveStepName(step);
+    const stepOrder = resolveStepOrder(step);
+    return resolveServerStepKey(stepName, stepOrder) === "EDUCATION_CERT";
+  }) ?? null;
+
 function resolveApiErrorMessage(error: unknown, fallback: string) {
   if (error instanceof ApiError) {
-    if (error.status === 401) return "Login required.";
-    if (error.status === 403) return "You do not have permission.";
-    if (error.status === 400) return "교육 수료증이 존재하지 않습니다.";
-    if (error.status === 404) return "교육 수료증이 존재하지 않습니다.";
-    if (error.status === 409) return "The certificate status has changed. Please refresh.";
-    if (error.status >= 500) return "Server error. Please try again.";
+    if (error.status === 401) return "로그인이 필요합니다.";
+    if (error.status === 403)
+      return error.message || "현재 단계 상태에서는 업로드할 수 없습니다.";
+    if (error.status === 400) return "입력값 또는 파일 업로드에 실패했습니다.";
+    if (error.status === 404) return "입양 정보 또는 수료증을 찾을 수 없습니다.";
+    if (error.status === 409) return "단계 상태가 변경되었습니다. 새로고침 후 다시 시도해 주세요.";
+    if (error.status >= 500) return "서버 오류입니다. 잠시 후 다시 시도해 주세요.";
     return error.message || fallback;
   }
   if (error instanceof Error) return error.message || fallback;
@@ -225,6 +260,46 @@ export function EducationCertStep({ isEditable, onSubmitSuccess, adoptionId }: P
     setSubmitting(true);
     setSubmitError(null);
     try {
+      const statusResponse = await fetchAdoptionStepStatuses(adoptionId);
+      const steps = normalizeAdoptionStepsStatusResponse(statusResponse);
+      const educationStep = findEducationStepInstance(steps);
+      const stepInstanceId = resolveStepInstanceId(educationStep);
+      const stepStatus = normalizeStepStatus(educationStep?.status ?? null);
+
+      if (import.meta.env.DEV) {
+        console.debug("[education-cert] step status", {
+          adoptionId,
+          stepInstanceId,
+          stepStatus,
+        });
+      }
+
+      if (!educationStep) {
+        setSubmitError("입양 교육 단계 정보를 찾을 수 없습니다. 새로고침 후 다시 시도해 주세요.");
+        return;
+      }
+
+      if (!ALLOWED_EDU_CERT_STATUSES.has(stepStatus as StepStatus)) {
+        const statusLabel = stepStatus || "UNKNOWN";
+        setSubmitError(
+          `현재 단계 상태(${statusLabel})에서는 업로드할 수 없습니다. 제출 대기(PENDING) 또는 반려(REJECTED) 상태에서만 가능합니다.`
+        );
+        return;
+      }
+
+      if (import.meta.env.DEV) {
+        console.debug("[education-cert] upload form keys", {
+          adoptionId,
+          keys: [
+            "educationInstitution",
+            "certificateNumber",
+            "completionDate",
+            "certificateFile",
+          ],
+          fileName: file?.name ?? null,
+        });
+      }
+
       await uploadEducationCert(adoptionId, {
         educationInstitution: educationInstitution.trim(),
         certificateNumber: certificateNumber.trim(),

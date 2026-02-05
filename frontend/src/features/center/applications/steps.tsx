@@ -1,12 +1,12 @@
 import * as React from "react";
 import { Badge } from "@/shared/ui/badge";
 import type {
-  ShelterDogWithAdoptionItem,
   ShelterAdoptionDetail,
   AdoptionSurveyResponse,
   AdoptionEducationCertResponse,
-  AdoptionDocumentItem,
   AdoptionContractResponse,
+  AdoptionDocumentType,
+  UploadedDocumentResponse,
 } from "../api/centerApplicationsApi";
 import { stepNameByOrder, stepBadgeVariant, stepStatusLabel } from "./utils/labels";
 import { formatDateTime } from "./utils/format";
@@ -15,12 +15,11 @@ export type StepDetailData =
   | { kind: "survey"; data: AdoptionSurveyResponse }
   | { kind: "educationCert"; data: AdoptionEducationCertResponse }
   | { kind: "meeting"; data: { stepInstanceId: number } }
-  | { kind: "documents"; data: AdoptionDocumentItem[] }
+  | { kind: "documents"; data: { type: AdoptionDocumentType; doc: UploadedDocumentResponse | null }[] }
   | { kind: "contract"; data: AdoptionContractResponse }
   | null;
 
 type Props = {
-  selected: ShelterDogWithAdoptionItem;
   detail: ShelterAdoptionDetail | null;
 
   selectedStepOrder: number | null;
@@ -47,8 +46,20 @@ function formatFileSize(bytes?: number) {
   return `${n.toFixed(i === 0 ? 0 : 1)} ${units[i]}`;
 }
 
+function documentTypeLabel(t: AdoptionDocumentType) {
+  switch (t) {
+    case "RESIDENT_REGISTRATION_COPY":
+      return "주민등록등본";
+    case "LEASE_AGREEMENT":
+      return "임대차계약서";
+    case "FAMILY_RELATIONSHIP_CERTIFICATE":
+      return "가족관계증명서";
+    default:
+      return String(t);
+  }
+}
+
 export function StepList({
-  selected,
   detail,
   selectedStepOrder,
   stepDetail,
@@ -71,7 +82,11 @@ export function StepList({
             const order = idx + 1;
             const status = String(s.status).toUpperCase();
 
+            // ✅ 지금 서버에서는 IN_PROGRESS 안 온다고 했으니 SUBMITTED 이상만 열기
             const isOpenable = ["SUBMITTED", "APPROVED", "REJECTED", "COMPLETED"].includes(status);
+
+            // ✅ 기본 승인/반려 가능 조건:
+            // - 1/2/4/5 단계: SUBMITTED일 때만 (4단계는 아래 documents 블록에서 "3개 제출" 추가 제어)
             const isActionable = status === "SUBMITTED";
 
             const isExpanded = selectedStepOrder === order;
@@ -237,63 +252,96 @@ export function StepList({
                         ) : null}
                       </div>
                     ) : stepDetail.kind === "documents" ? (
-                      <div className="space-y-3">
-                        <div className="text-xs text-slate-500">업로드된 입양 문서 목록</div>
+                      (() => {
+                        const total = stepDetail.data.length; // 보통 3
+                        const submittedDocs = stepDetail.data.filter((x) => Boolean(x.doc));
+                        const submittedCount = submittedDocs.length;
 
-                        {stepDetail.data.length === 0 ? (
-                          <div className="text-xs text-slate-500">업로드된 문서가 없습니다.</div>
-                        ) : (
-                          <ul className="space-y-2">
-                            {stepDetail.data.map((doc) => (
-                              <li key={doc.id} className="rounded-xl border border-slate-200 p-3">
-                                <div className="flex items-start justify-between gap-3">
-                                  <div className="min-w-0">
-                                    <div className="text-sm font-medium text-slate-900 truncate">
-                                      {doc.originalFileName || "-"}
+                        // ✅ 4단계 승인/반려는 "3개 모두 제출"일 때만
+                        const allSubmitted = total > 0 && submittedCount === total;
+                        const canActionHere = isActionable && allSubmitted;
+
+                        return (
+                          <div className="space-y-3">
+                            <div className="flex items-center justify-between">
+                              <div className="text-xs text-slate-500">제출된 입양 문서</div>
+                              <div className="text-xs text-slate-500">
+                                제출 {submittedCount}/{total}
+                              </div>
+                            </div>
+
+                            {/* ✅ 1개라도 제출되면(=step SUBMITTED) 제출된 파일 "조회 가능" → 여기 리스트에 노출됨 */}
+                            {submittedDocs.length === 0 ? (
+                              <div className="text-xs text-slate-500">제출된 문서가 없습니다.</div>
+                            ) : (
+                              <ul className="space-y-2">
+                                {submittedDocs.map(({ type, doc }) => (
+                                  <li key={type} className="rounded-xl border border-slate-200 p-3">
+                                    <div className="flex items-start justify-between gap-3">
+                                      <div className="min-w-0">
+                                        <div className="flex items-center gap-2">
+                                          <div className="text-sm font-medium text-slate-900 truncate">
+                                            {documentTypeLabel(type)}
+                                          </div>
+                                          <Badge variant={"secondary" as any}>제출완료</Badge>
+                                        </div>
+
+                                        <div className="mt-1 text-xs text-slate-700 truncate">
+                                          {doc?.originalFileName || "-"}
+                                        </div>
+                                        <div className="mt-0.5 text-xs text-slate-500">
+                                          크기: {formatFileSize(doc?.fileSize)}
+                                        </div>
+                                      </div>
+
+                                      {doc?.filePath ? (
+                                        <a
+                                          href={doc.filePath}
+                                          target="_blank"
+                                          rel="noreferrer"
+                                          className="shrink-0 text-sm text-slate-900 underline"
+                                        >
+                                          열기
+                                        </a>
+                                      ) : null}
                                     </div>
-                                    <div className="mt-1 text-xs text-slate-500">
-                                      유형: {String(doc.documentType)} · 크기: {formatFileSize(doc.fileSize)}
-                                    </div>
-                                  </div>
+                                  </li>
+                                ))}
+                              </ul>
+                            )}
 
-                                  {doc.filePath ? (
-                                    <a
-                                      href={doc.filePath}
-                                      target="_blank"
-                                      rel="noreferrer"
-                                      className="shrink-0 text-sm text-slate-900 underline"
-                                    >
-                                      열기
-                                    </a>
-                                  ) : null}
-                                </div>
-                              </li>
-                            ))}
-                          </ul>
-                        )}
+                            {/* ✅ 3개 미만이면 버튼 숨기고 안내 */}
+                            {isActionable && !allSubmitted ? (
+                              <div className="rounded-xl bg-slate-50 p-3 text-xs text-slate-600">
+                                문서 {total}개가 모두 제출되어야 승인/반려가 가능합니다.
+                              </div>
+                            ) : null}
 
-                        {isActionable ? (
-                          <div className="pt-2 flex flex-wrap gap-2">
-                            <button
-                              type="button"
-                              disabled={actionLoading}
-                              onClick={onStepApprove}
-                              className="rounded-xl bg-slate-900 px-3 py-2 text-sm font-medium text-white hover:bg-slate-800 disabled:bg-slate-200 disabled:text-slate-500"
-                            >
-                              승인
-                            </button>
+                            {/* ✅ 3개 모두 제출 시에만 승인/반려 버튼 */}
+                            {canActionHere ? (
+                              <div className="pt-2 flex flex-wrap gap-2">
+                                <button
+                                  type="button"
+                                  disabled={actionLoading}
+                                  onClick={onStepApprove}
+                                  className="rounded-xl bg-slate-900 px-3 py-2 text-sm font-medium text-white hover:bg-slate-800 disabled:bg-slate-200 disabled:text-slate-500"
+                                >
+                                  승인
+                                </button>
 
-                            <button
-                              type="button"
-                              disabled={actionLoading}
-                              onClick={onStepReject}
-                              className="rounded-xl bg-red-600 px-3 py-2 text-sm font-medium text-white hover:bg-red-500 disabled:bg-red-200 disabled:text-red-400"
-                            >
-                              반려
-                            </button>
+                                <button
+                                  type="button"
+                                  disabled={actionLoading}
+                                  onClick={onStepReject}
+                                  className="rounded-xl bg-red-600 px-3 py-2 text-sm font-medium text-white hover:bg-red-500 disabled:bg-red-200 disabled:text-red-400"
+                                >
+                                  반려
+                                </button>
+                              </div>
+                            ) : null}
                           </div>
-                        ) : null}
-                      </div>
+                        );
+                      })()
                     ) : stepDetail.kind === "contract" ? (
                       (() => {
                         const c = stepDetail.data;

@@ -1,10 +1,35 @@
 import { Link } from "react-router-dom";
+import { useEffect, useState } from "react";
 import { ROUTES } from "@/shared/constants/routes";
+import { getRandomDogImages } from "@/features/home/api/dogImageApi";
 
-const mockCards = ["#FAD1D5", "#F8D7A8", "#C7EDE6", "#D9D2F9", "#FFE4B5"];
+type CardItem = {
+  id: number;
+  imageUrl: string;
+};
 
 export default function IntroSection4() {
-  const items = [...mockCards, ...mockCards];
+  const [cards, setCards] = useState<CardItem[]>([]);
+
+  useEffect(() => {
+    getRandomDogImages(15)
+      .then((res) => {
+        console.log("🔍 randomDogImages sample", res?.[0]);
+        
+        const mapped: CardItem[] = res
+          .map((item) => ({
+            id: item.id, // 🔹 /adoption/:id 로 라우트
+            imageUrl: item.imageUrls?.[0],
+          }))
+          .filter((v): v is CardItem => Boolean(v.imageUrl));
+
+        // 무한 슬라이드용으로 두 번 이어붙임
+        setCards([...mapped, ...mapped]);
+      })
+      .catch((err) => {
+        console.error("랜덤 강아지 이미지 로딩 실패", err);
+      });
+  }, []);
 
   return (
     <section className="w-full bg-white py-28">
@@ -22,21 +47,31 @@ export default function IntroSection4() {
           </Link>
         </div>
 
-        <div className="relative mt-16 overflow-hidden py-8 mb-50">
+        <div className="relative mt-16 overflow-hidden py-8">
+          {/* 좌측 페이드 */}
           <div className="pointer-events-none absolute left-0 top-0 z-10 h-full w-28 bg-gradient-to-r from-white to-transparent" />
+          {/* 우측 페이드 */}
           <div className="pointer-events-none absolute right-0 top-0 z-10 h-full w-28 bg-gradient-to-l from-white to-transparent" />
 
           <div className="flex w-max items-center animate-slide-left gap-8">
-            {items.map((color, idx) => (
-              <div
-                key={`${color}-${idx}`}
-                className="relative z-0 h-[260px] w-[180px] flex-shrink-0 rounded-3xl transition-transform duration-300 ease-out hover:z-10 hover:scale-105"
-                style={{ backgroundColor: color }}
-              />
+            {cards.map((card, idx) => (
+              <Link
+                key={`${card.id}-${idx}`}
+                to={ROUTES.adoptionDetail(card.id)}
+                className="relative h-[260px] w-[180px] flex-shrink-0 overflow-hidden
+                           rounded-3xl transition-transform duration-300 ease-out
+                           hover:z-10 hover:scale-105"
+              >
+                <img
+                  src={card.imageUrl}
+                  alt="강아지 이미지"
+                  className="h-full w-full object-cover"
+                  loading="lazy"
+                />
+              </Link>
             ))}
           </div>
         </div>
-
       </div>
     </section>
   );

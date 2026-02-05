@@ -10,7 +10,7 @@ export default {
         },
       },
       animation: {
-        "slide-left": "slide-left 30s linear infinite",
+        "slide-left": "slide-left 80s linear infinite",
       },
     },
   },

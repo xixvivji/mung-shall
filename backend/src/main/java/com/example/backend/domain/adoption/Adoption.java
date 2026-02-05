@@ -1,5 +1,7 @@
 package com.example.backend.domain.adoption;
 
+import com.example.backend.domain.postadoption.PostAdoption;
+import com.example.backend.domain.adoption.step.counseling.AdoptionCounseling;
 import com.example.backend.domain.dog.AbandonedDog;
 import com.example.backend.domain.user.User;
 import com.example.backend.domain.adoption.enums.AdoptionProcessStatus;
@@ -51,6 +53,12 @@ public class Adoption {
 
     @OneToMany(mappedBy = "adoption", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<AdoptionStepInstance> steps = new ArrayList<>();
+
+    @OneToOne(mappedBy = "adoption", cascade = CascadeType.ALL, orphanRemoval = true)
+    private PostAdoption postAdoption;
+
+    @OneToOne(mappedBy = "adoption", cascade = CascadeType.ALL, orphanRemoval = true)
+    private AdoptionCounseling adoptionCounseling;
 
     @CreationTimestamp
     private LocalDateTime createdAt;

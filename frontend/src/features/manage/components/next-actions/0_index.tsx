@@ -303,7 +303,9 @@ export function NextActions({
       )}
 
       {selectedStepN === "APPROVAL" && (
-        <ApprovalStep onStartReview={onStartReview} />
+          <ApprovalStep
+              canReview={reviewStarted}
+          />
       )}
 
       {/* =======================

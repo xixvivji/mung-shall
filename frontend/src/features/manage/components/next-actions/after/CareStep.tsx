@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import "@/shared/styles/uiverse/PostAdoptionStepper.css";
 
 type RoadmapDetail = {
@@ -125,7 +125,13 @@ export function CareStep() {
         []
     );
 
-    const [day0Photo, setDay0Photo] = useState<{ file: File | null; error?: string }>({ file: null });
+    const [day0Photo, setDay0Photo] = useState<{ file: File | null; previewUrl?: string; error?: string }>({ file: null });
+
+    useEffect(() => {
+        return () => {
+            if (day0Photo.previewUrl) URL.revokeObjectURL(day0Photo.previewUrl);
+        };
+    }, [day0Photo.previewUrl]);
 
     const [checklist, setChecklist] = useState<ChecklistState>(() => {
         const init: ChecklistState = {};
@@ -192,12 +198,22 @@ export function CareStep() {
     };
 
     const onDay0PhotoChange = (file: File | null) => {
+        // 기존 preview 제거
+        if (day0Photo.previewUrl) URL.revokeObjectURL(day0Photo.previewUrl);
+
         if (!file) {
-            setDay0Photo({ file: null, error: "파일을 선택하세요." });
+            setDay0Photo({ file: null, previewUrl: undefined, error: "파일을 선택하세요." });
             return;
         }
+
         const error = validatePhoto(file);
-        setDay0Photo({ file: error ? null : file, error: error ?? undefined });
+        if (error) {
+            setDay0Photo({ file: null, previewUrl: undefined, error });
+            return;
+        }
+
+        const previewUrl = URL.createObjectURL(file);
+        setDay0Photo({ file, previewUrl, error: undefined });
     };
 
     const completeCurrentStep = () => {
@@ -217,7 +233,7 @@ export function CareStep() {
     const onNext = () => setActiveIndex((v) => Math.min(stepStates.length - 1, v + 1));
 
     return (
-        <div className="grid gap-6 lg:grid-cols-[420px_1fr]">
+        <div className="grid gap-6 lg:grid-cols-[520px_1fr]">
             <div className="stepper-box">
                 {stepStates.map((s, idx) => {
                     const stepClass =
@@ -308,7 +324,7 @@ export function CareStep() {
                                 : activeIndex !== activeStepIndex
                                     ? "진행중인 단계에서만 완료할 수 있습니다."
                                     : !allCheckedTodos
-                                        ? "입양자 해야 할 것 항목을 모두 체크하세요."
+                                        ? "입양자 체크리스트 항목을 모두 체크하세요."
                                         : !allCheckedMedical
                                             ? "예방접종·의료 정보 항목을 모두 체크하세요."
                                             : needsDay0Photo && !day0PhotoOk
@@ -322,20 +338,37 @@ export function CareStep() {
 
                 <div className="flex flex-col gap-4">
                     <section className="rounded-xl border border-gray-200 p-4">
-                        <h4 className="text-sm font-semibold text-gray-900">입양자 해야 할 것</h4>
+                        <h4 className="text-sm font-semibold text-gray-900">입양자 체크리스트</h4>
 
                         {activeIndex === 0 ? (
-                            <div className="mt-3 space-y-2">
+                            <div className="mt-3">
                                 <label className="block text-sm font-medium text-gray-800">집 도착 사진 업로드</label>
-                                <input
-                                    type="file"
-                                    accept={PHOTO_ACCEPT_TYPES}
-                                    onChange={(e) => onDay0PhotoChange(e.target.files?.[0] ?? null)}
-                                    className="block w-full text-sm text-gray-700 file:mr-4 file:rounded-md file:border-0 file:bg-gray-100 file:px-4 file:py-2 file:text-sm file:font-medium file:text-gray-700 hover:file:bg-gray-200"
-                                    disabled={isCompleted || activeIndex !== activeStepIndex}
-                                />
-                                {day0Photo.file ? <p className="text-xs text-gray-500">선택된 파일: {day0Photo.file.name}</p> : null}
-                                {day0Photo.error ? <p className="text-xs text-red-600">{day0Photo.error}</p> : null}
+
+                                <div className="mt-2 flex flex-wrap items-center gap-3">
+                                    <input
+                                        type="file"
+                                        accept={PHOTO_ACCEPT_TYPES}
+                                        onChange={(e) => onDay0PhotoChange(e.target.files?.[0] ?? null)}
+                                        className="block w-full max-w-[360px] text-sm text-gray-700 file:mr-4 file:rounded-md file:border-0 file:bg-gray-100 file:px-4 file:py-2 file:text-sm file:font-medium file:text-gray-700 hover:file:bg-gray-200"
+                                        disabled={isCompleted || activeIndex !== activeStepIndex}
+                                    />
+
+                                    {day0Photo.previewUrl ? (
+                                        <div className="flex items-center gap-3">
+                                            <img
+                                                src={day0Photo.previewUrl}
+                                                alt="집 도착 사진 미리보기"
+                                                className="h-16 w-16 rounded-lg border border-gray-200 object-cover"
+                                            />
+                                            <div className="text-xs text-gray-500">
+                                                <div className="max-w-[220px] truncate">선택: {day0Photo.file?.name}</div>
+                                                <div className="text-gray-400">* 업로드는 추후 백엔드 연동 예정</div>
+                                            </div>
+                                        </div>
+                                    ) : null}
+                                </div>
+
+                                {day0Photo.error ? <p className="mt-2 text-xs text-red-600">{day0Photo.error}</p> : null}
                             </div>
                         ) : null}
 

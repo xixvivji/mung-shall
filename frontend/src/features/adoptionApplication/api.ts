@@ -8,6 +8,8 @@ import type {
 
 const APPLICATION_PATH = (adoptionId: number | string) =>
   `/adoptions/${adoptionId}/survey`;
+const DOCUMENTS_PATH = (adoptionId: number | string) =>
+  `/adoptions/${adoptionId}/documents`;
 
 type UnknownRecord = Record<string, unknown>;
 
@@ -50,10 +52,24 @@ const toSnakeCaseDeep = (value: unknown): unknown => {
 
 const useSnakeCase = () => import.meta.env.VITE_API_SNAKE_CASE === "true";
 
-const normalizeApplicationResponse = (data: unknown): AdoptionApplicationResponse => {
+const normalizeApplicationResponse = (
+  data: unknown
+): AdoptionApplicationResponse => {
   if (!isRecord(data)) return {};
   const normalized = toCamelCaseDeep(data);
   return isRecord(normalized) ? (normalized as AdoptionApplicationResponse) : {};
+};
+
+const normalizeDocumentUploadResponse = (
+  data: unknown
+): AdoptionDocumentUploadResponse[] => {
+  if (Array.isArray(data)) {
+    return data as AdoptionDocumentUploadResponse[];
+  }
+  if (isRecord(data)) {
+    return [data as AdoptionDocumentUploadResponse];
+  }
+  return [];
 };
 
 const serializeApplicationPayload = (payload: AdoptionApplicationRequest) => {
@@ -104,20 +120,65 @@ export async function deleteAdoptionApplication(
   await api<void>(APPLICATION_PATH(adoptionId), { method: "DELETE" });
 }
 
-export async function uploadAdoptionDocument(
-  applicationId: number,
-  type: DocumentType,
-  file: File
-): Promise<AdoptionDocumentUploadResponse> {
-  const formData = new FormData();
-  formData.append("type", type);
-  formData.append("file", file);
+export async function getAdoptionDocuments(
+  adoptionId: number | string
+): Promise<AdoptionDocumentUploadResponse[]> {
+  try {
+    const data = await api<unknown>(DOCUMENTS_PATH(adoptionId));
+    return normalizeDocumentUploadResponse(data);
+  } catch (error) {
+    const status =
+      typeof (error as { status?: number }).status === "number"
+        ? (error as { status: number }).status
+        : undefined;
+    const message =
+      typeof (error as { message?: unknown }).message === "string"
+        ? (error as { message: string }).message
+        : "";
 
-  return api<AdoptionDocumentUploadResponse>(
-    `/adoptions/applications/${applicationId}/documents`,
+    if (
+      status === 403 &&
+      message.includes("문서 제출 데이터가 존재하지 않습니다.")
+    ) {
+      return [];
+    }
+    throw error;
+  }
+}
+
+export async function uploadAdoptionDocuments(
+  adoptionId: number | string,
+  items: Array<{ type: DocumentType; file: File }>
+): Promise<AdoptionDocumentUploadResponse[]> {
+  const formData = new FormData();
+  const mapping: Record<string, DocumentType> = {};
+  items.forEach((item, index) => {
+    formData.append("files", item.file);
+    mapping[`files[${index}]`] = item.type;
+  });
+
+  formData.append(
+    "documentTypes",
+    new Blob([JSON.stringify({ documentTypes: mapping })], {
+      type: "application/json",
+    })
+  );
+
+  const data = await api<unknown>(
+    DOCUMENTS_PATH(adoptionId),
     {
       method: "POST",
       body: formData,
     }
   );
+
+  return normalizeDocumentUploadResponse(data);
+}
+
+export async function uploadAdoptionDocument(
+  adoptionId: number | string,
+  type: DocumentType,
+  file: File
+): Promise<AdoptionDocumentUploadResponse[]> {
+  return uploadAdoptionDocuments(adoptionId, [{ type, file }]);
 }

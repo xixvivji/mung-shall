@@ -173,10 +173,13 @@ export function mapServerStepsToUiSteps(
 ): UiStep[] {
   const statusByKey = new Map<AdoptionStep, UiStep>();
 
-  serverSteps.forEach((step) => {
+  serverSteps.forEach((step, idx) => {
     const stepName = resolveRawStepName(step);
     const stepOrder = resolveRawStepOrder(step);
-    const key = resolveServerStepKey(stepName, stepOrder);
+    let key = resolveServerStepKey(stepName, stepOrder);
+    if (!key) {
+      key = STEP_ORDER_FALLBACK[idx + 1] ?? null;
+    }
     if (!key) return;
 
     const uiStatus = mapServerStatusToUiStatus(resolveRawStatus(step));
@@ -190,7 +193,7 @@ export function mapServerStepsToUiSteps(
         status: uiStatus,
         serverStatus: resolveRawStatus(step),
         serverStepName: stepName ?? null,
-        stepOrder,
+        stepOrder: stepOrder ?? idx + 1,
       });
     }
   });

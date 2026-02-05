@@ -396,22 +396,22 @@ export default function BoardForm({
                 </div>
             </div>
 
-            <div className="flex flex-wrap items-center gap-3">
-                <button
-                    type="submit"
-                    className="h-12 rounded-[12px] bg-[#5B7CFA] px-6 text-sm font-semibold text-white transition hover:brightness-95 disabled:cursor-not-allowed disabled:opacity-60"
-                    disabled={submitting || uploading}
-                >
-                    {submitting ? "처리 중..." : submitLabel}
-                </button>
-                <button
-                    type="button"
-                    className="h-12 rounded-[12px] border border-[#E5E7EB] bg-white px-6 text-sm font-semibold text-[#1F2937] transition hover:bg-[#F7F8FA]"
-                    onClick={onCancel}
-                    disabled={submitting || uploading || !onCancel}
-                >
-                    {cancelLabel}
-                </button>
+            <div className="flex flex-wrap items-center justify-end gap-3">
+            <button
+                type="button"
+                className="h-12 rounded-[12px] border border-[#E5E7EB] bg-white px-6 text-sm font-semibold text-[#1F2937] transition hover:bg-[#F7F8FA]"
+                onClick={onCancel}
+                disabled={submitting || uploading || !onCancel}
+            >
+                {cancelLabel}
+            </button>
+            <button
+                type="submit"
+                className="h-12 rounded-[12px] bg-[#0064FF] px-6 text-sm font-semibold text-white transition hover:brightness-95 disabled:cursor-not-allowed disabled:opacity-60"
+                disabled={submitting || uploading}
+            >
+                {submitting ? "처리 중..." : submitLabel}
+            </button>
             </div>
         </form>
     );

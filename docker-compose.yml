@@ -21,7 +21,7 @@ services:
     container_name: backend-server
     image: backend-image:latest
     ports:
-      - "8080:8080"
+      - "127.0.0.1:8080:8080"
     environment:
       - SPRING_DATASOURCE_URL=jdbc:mysql://mysql-container:3306/mydb?useSSL=false&allowPublicKeyRetrieval=true&characterEncoding=UTF-8
       - SPRING_DATASOURCE_USERNAME=root
@@ -63,7 +63,7 @@ services:
     container_name: mysql-container
     image: mysql:8.0.23
     ports:
-      - "3306:3306"
+      - "127.0.0.1:3306:3306"
     environment:
       MYSQL_ROOT_PASSWORD: ${DB_ROOT_PASSWORD}
       MYSQL_DATABASE: mydb
@@ -78,7 +78,7 @@ services:
     container_name: redis-container
     image: redis:alpine
     ports:
-      - "6379:6379"
+      - "127.0.0.1:6379:6379"
     volumes:
       - redis_data:/data
     networks:
@@ -96,7 +96,7 @@ services:
       - '--config.file=/etc/prometheus/custom_config/prometheus.yml'
       - '--storage.tsdb.retention.time=15d'
     ports:
-      - "9091:9090"
+      - "127.0.0.1:9091:9090"
     networks:
       - app-network
     restart: always
@@ -106,7 +106,7 @@ services:
     image: grafana/grafana:latest
     container_name: grafana
     ports:
-      - "3000:3000"
+      - "127.0.0.1:3000:3000"
     volumes:
       - grafana_data:/var/lib/grafana
     networks:

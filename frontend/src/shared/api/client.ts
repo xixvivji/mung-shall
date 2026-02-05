@@ -59,6 +59,10 @@ export async function api<T>(path: string, options: ApiOptions = {}): Promise<T>
   const hasBody = init.body !== undefined;
   const isFormData = typeof FormData !== "undefined" && init.body instanceof FormData;
 
+  if (isFormData && headers.has("Content-Type")) {
+    headers.delete("Content-Type");
+  }
+
   if (!skipAuth && !skipRefresh) {
     const token = getAccessToken();
     const remainingMs = token ? getTokenRemainingMs(token) : null;

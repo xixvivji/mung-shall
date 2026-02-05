@@ -4,24 +4,18 @@ import {
   getShelterAdoptionDetail,
   getAdoptionStepsStatus,
   verifyShelterAdoption,
-  getAdoptionSurvey, // 1단계
-  getAdoptionEducationCert, // 2단계
+  getAdoptionSurvey,
+  getAdoptionEducationCert,
+  getAdoptionDocuments,
+  getAdoptionContract,
   verifyShelterAdoptionStep,
   type AdoptionProcessStatus,
   type ShelterDogWithAdoptionItem,
   type ShelterAdoptionDetail,
   type AdoptionFinalStatus,
-  type AdoptionEducationCertResponse,
-  type AdoptionSurveyResponse,
 } from "../../api/centerApplicationsApi";
 import { resolveApiErrorMessage } from "../utils/errors";
-
-// ✅ steps.tsx / components.tsx 와 동일한 타입으로 통일
-export type StepDetailData =
-  | { kind: "survey"; data: AdoptionSurveyResponse }
-  | { kind: "educationCert"; data: AdoptionEducationCertResponse }
-  | { kind: "meeting"; data: { stepInstanceId: number } }
-  | null;
+import type { StepDetailData } from "../steps";
 
 export function useCenterApplications() {
   const [apps, setApps] = React.useState<ShelterDogWithAdoptionItem[]>([]);
@@ -45,7 +39,6 @@ export function useCenterApplications() {
   const [rejectReason, setRejectReason] = React.useState("");
   const [rejectError, setRejectError] = React.useState<string | null>(null);
 
-  // ✅ 단계(제출 데이터)
   const [selectedStepOrder, setSelectedStepOrder] = React.useState<number | null>(null);
   const [stepDetail, setStepDetail] = React.useState<StepDetailData>(null);
   const [stepDetailLoading, setStepDetailLoading] = React.useState(false);
@@ -138,7 +131,6 @@ export function useCenterApplications() {
     setActionMessage(null);
   }, [selectedAdoptionId, filter]);
 
-  // ✅ 입양 선택 바뀌면 제출데이터 초기화
   React.useEffect(() => {
     setSelectedStepOrder(null);
     setStepDetail(null);
@@ -255,9 +247,8 @@ export function useCenterApplications() {
         }
 
         if (stepOrder === 3) {
-          // ✅ 3단계는 데이터 호출 필요 없음: detail.steps에서 stepInstanceId만 꺼내서 세팅
           const step = detail?.steps?.[2] as any;
-          const stepInstanceId = step?.stepInstanceId ?? step?.id ?? null;
+          const stepInstanceId = step?.id ?? step?.stepInstanceId ?? null;
 
           if (!stepInstanceId) {
             setStepDetail(null);
@@ -269,8 +260,19 @@ export function useCenterApplications() {
           return;
         }
 
+        if (stepOrder === 4) {
+          const docs = await getAdoptionDocuments(adoptionId);
+          setStepDetail({ kind: "documents", data: Array.isArray(docs) ? docs : [] });
+          return;
+        }
+
+        if (stepOrder === 5) {
+          const contract = await getAdoptionContract(adoptionId);
+          setStepDetail({ kind: "contract", data: contract });
+          return;
+        }
         setStepDetail(null);
-        setStepDetailError("현재는 1~3단계만 조회할 수 있어요.");
+        setStepDetailError("지원하지 않는 단계입니다.");
       } catch (err) {
         setStepDetail(null);
         setStepDetailError(resolveApiErrorMessage(err, "단계 데이터를 불러오지 못했습니다."));
@@ -281,11 +283,10 @@ export function useCenterApplications() {
     [detail]
   );
 
-  // ✅ detail 로딩 후: "SUBMITTED(제출됨)" 단계 자동 확장 + 해당 단계 데이터 자동 조회
+
   React.useEffect(() => {
     if (!selected) return;
     if (!detail?.steps?.length) return;
-
     if (selectedStepOrder != null) return;
 
     const submittedIdx = detail.steps.findIndex((s) => String(s.status).toUpperCase() === "SUBMITTED");
@@ -297,9 +298,7 @@ export function useCenterApplications() {
     setStepDetail(null);
     setStepDetailError(null);
 
-    if (order === 1 || order === 2 || order === 3) {
-      fetchStepDetail(selected.adoptionId, order);
-    }
+    fetchStepDetail(selected.adoptionId, order);
   }, [detail, selected, selectedStepOrder, fetchStepDetail]);
 
   const toggleStep = (stepOrder: number) => {
@@ -315,10 +314,26 @@ export function useCenterApplications() {
     fetchStepDetail(selected.adoptionId, stepOrder);
   };
 
+  const getCurrentStepInstanceId = React.useCallback(() => {
+    if (!detail?.steps?.length) return null;
+    if (!selectedStepOrder) return null;
+
+    const step = detail.steps[selectedStepOrder - 1] as any;
+    const stepInstanceId = step?.id ?? step?.stepInstanceId ?? null;
+
+    return typeof stepInstanceId === "number" && stepInstanceId > 0 ? stepInstanceId : null;
+  }, [detail, selectedStepOrder]);
+
   const handleStepApprove = async () => {
     if (!selected) return;
-    if (!stepDetail) return;
+    if (!selectedStepOrder) return;
     if (actionLoading) return;
+
+    const stepInstanceId = getCurrentStepInstanceId();
+    if (!stepInstanceId) {
+      setActionError("stepInstanceId를 찾지 못했어요.");
+      return;
+    }
 
     const ok = window.confirm("해당 단계를 승인할까요?");
     if (!ok) return;
@@ -328,16 +343,14 @@ export function useCenterApplications() {
     setActionMessage(null);
 
     try {
-      await verifyShelterAdoptionStep(stepDetail.data.stepInstanceId, { isApproved: true, rejectionReason: "" });
+      await verifyShelterAdoptionStep(stepInstanceId, { isApproved: true, rejectionReason: "" });
 
       setActionMessage("단계 승인 처리가 완료되었습니다.");
 
       const next = await fetchDetail(selected.adoptionId);
       setDetail(next);
 
-      if (selectedStepOrder === 1 || selectedStepOrder === 2 || selectedStepOrder === 3) {
-        await fetchStepDetail(selected.adoptionId, selectedStepOrder);
-      }
+      await fetchStepDetail(selected.adoptionId, selectedStepOrder);
     } catch (err) {
       setActionError(resolveApiErrorMessage(err));
     } finally {
@@ -347,8 +360,14 @@ export function useCenterApplications() {
 
   const handleStepRejectQuick = async () => {
     if (!selected) return;
-    if (!stepDetail) return;
+    if (!selectedStepOrder) return;
     if (actionLoading) return;
+
+    const stepInstanceId = getCurrentStepInstanceId();
+    if (!stepInstanceId) {
+      setActionError("stepInstanceId를 찾지 못했어요.");
+      return;
+    }
 
     const reason = window.prompt("반려 사유를 입력하세요")?.trim();
     if (!reason) return;
@@ -358,16 +377,14 @@ export function useCenterApplications() {
     setActionMessage(null);
 
     try {
-      await verifyShelterAdoptionStep(stepDetail.data.stepInstanceId, { isApproved: false, rejectionReason: reason });
+      await verifyShelterAdoptionStep(stepInstanceId, { isApproved: false, rejectionReason: reason });
 
       setActionMessage("단계 반려 처리가 완료되었습니다.");
 
       const next = await fetchDetail(selected.adoptionId);
       setDetail(next);
 
-      if (selectedStepOrder === 1 || selectedStepOrder === 2 || selectedStepOrder === 3) {
-        await fetchStepDetail(selected.adoptionId, selectedStepOrder);
-      }
+      await fetchStepDetail(selected.adoptionId, selectedStepOrder);
     } catch (err) {
       setActionError(resolveApiErrorMessage(err));
     } finally {

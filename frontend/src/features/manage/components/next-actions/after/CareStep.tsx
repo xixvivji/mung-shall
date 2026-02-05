@@ -33,7 +33,6 @@ function statusLabel(status: CareUiStatus) {
     return "Pending";
 }
 
-/** Day0 사진 업로드 */
 const PHOTO_ACCEPT_TYPES = ".jpg,.jpeg,.png";
 const MAX_PHOTO_MB = 10;
 
@@ -48,7 +47,6 @@ function validatePhoto(file: File): string | null {
     return null;
 }
 
-/** Day4-7 접종 증빙 업로드 */
 const EVIDENCE_ACCEPT_TYPES = ".pdf,.jpg,.jpeg,.png";
 const MAX_EVIDENCE_MB = 10;
 
@@ -91,14 +89,12 @@ export function CareStep() {
             {
                 title: "1주 적응 (Day 4–7)",
                 adopterTodos: ["집 루틴 만들기(식사-휴식-짧은 산책)", "하네스 적응(간식으로 긍정 연결)", "‘이름-시선’ 5분씩 연습", "혼자 있는 연습 1–5분부터 시작"],
-                // ⚠️ 여기서 "종합백신 1차 + 코로나장염 1차 확인"은 UI에서 업로드로 대체할 거라
-                // medicalInfo에는 "다음 접종 일정"만 남기고, 업로드 섹션을 별도로 렌더링함.
                 medicalInfo: ["다음 접종(2주 후) 일정 인지"],
             },
             {
                 title: "2주 점검 (Day 14)",
                 adopterTodos: ["배변 루틴 강화(성공 시 즉시 보상)", "‘앉아/기다려/이리와’ 짧게 연습", "손/발/귀 만지기 허용 훈련", "사회화는 ‘노출’만 진행"],
-                medicalInfo: ["종합백신 2차 + 코로나장염 2차 체크", "외부 활동 전 접종 여부 확인"],
+                medicalInfo: ["외부 활동 전 접종 여부 확인"],
             },
             {
                 title: "1개월 건강 체크 (Day 30)",
@@ -128,7 +124,7 @@ export function CareStep() {
         };
     }, [day0Photo.previewUrl]);
 
-    /** Day4-7 접종 증빙 */
+    /** Day4-7(인덱스2) 접종 증빙 */
     const [week1Evidence, setWeek1Evidence] = useState<{
         file: File | null;
         previewUrl?: string;
@@ -141,6 +137,20 @@ export function CareStep() {
             if (week1Evidence.previewUrl) URL.revokeObjectURL(week1Evidence.previewUrl);
         };
     }, [week1Evidence.previewUrl]);
+
+    /** Day14(인덱스3) 접종 증빙 */
+    const [week2Evidence, setWeek2Evidence] = useState<{
+        file: File | null;
+        previewUrl?: string;
+        error?: string;
+        status: SubmitStatus;
+    }>({ file: null, previewUrl: undefined, error: undefined, status: "NOT_SUBMITTED" });
+
+    useEffect(() => {
+        return () => {
+            if (week2Evidence.previewUrl) URL.revokeObjectURL(week2Evidence.previewUrl);
+        };
+    }, [week2Evidence.previewUrl]);
 
     const [checklist, setChecklist] = useState<ChecklistState>(() => {
         const init: ChecklistState = {};
@@ -184,13 +194,20 @@ export function CareStep() {
     const needsDay0Photo = activeIndex === 0;
     const day0PhotoOk = !needsDay0Photo || !!day0Photo.file;
 
-    // ✅ Day4-7(인덱스 2)에서는 "접종 증빙 제출"이 필요
     const needsWeek1Evidence = activeIndex === 2;
-    const week1EvidenceOk =
-        !needsWeek1Evidence || week1Evidence.status === "PENDING" || week1Evidence.status === "APPROVED";
+    const week1EvidenceOk = !needsWeek1Evidence || week1Evidence.status === "PENDING" || week1Evidence.status === "APPROVED";
+
+    const needsWeek2Evidence = activeIndex === 3;
+    const week2EvidenceOk = !needsWeek2Evidence || week2Evidence.status === "PENDING" || week2Evidence.status === "APPROVED";
 
     const canCompleteCurrent =
-        !isCompleted && activeIndex === activeStepIndex && allCheckedTodos && allCheckedMedical && day0PhotoOk && week1EvidenceOk;
+        !isCompleted &&
+        activeIndex === activeStepIndex &&
+        allCheckedTodos &&
+        allCheckedMedical &&
+        day0PhotoOk &&
+        week1EvidenceOk &&
+        week2EvidenceOk;
 
     const toggleTodo = (todoIndex: number) => {
         if (isCompleted) return;
@@ -249,12 +266,37 @@ export function CareStep() {
     };
 
     const submitWeek1Evidence = () => {
-        // 백엔드 아직 없음 → 프론트 상태만 PENDING으로 전환
         if (!week1Evidence.file) {
             setWeek1Evidence((prev) => ({ ...prev, error: "파일을 첨부한 뒤 제출해 주세요." }));
             return;
         }
         setWeek1Evidence((prev) => ({ ...prev, status: "PENDING", error: undefined }));
+    };
+
+    const onWeek2EvidenceChange = (file: File | null) => {
+        if (week2Evidence.previewUrl) URL.revokeObjectURL(week2Evidence.previewUrl);
+
+        if (!file) {
+            setWeek2Evidence((prev) => ({ ...prev, file: null, previewUrl: undefined, error: "파일을 선택하세요." }));
+            return;
+        }
+
+        const error = validateEvidence(file);
+        if (error) {
+            setWeek2Evidence((prev) => ({ ...prev, file: null, previewUrl: undefined, error, status: "NOT_SUBMITTED" }));
+            return;
+        }
+
+        const previewUrl = URL.createObjectURL(file);
+        setWeek2Evidence((prev) => ({ ...prev, file, previewUrl, error: undefined, status: "NOT_SUBMITTED" }));
+    };
+
+    const submitWeek2Evidence = () => {
+        if (!week2Evidence.file) {
+            setWeek2Evidence((prev) => ({ ...prev, error: "파일을 첨부한 뒤 제출해 주세요." }));
+            return;
+        }
+        setWeek2Evidence((prev) => ({ ...prev, status: "PENDING", error: undefined }));
     };
 
     const completeCurrentStep = () => {
@@ -280,11 +322,7 @@ export function CareStep() {
             <div className="stepper-box">
                 {stepStates.map((s, idx) => {
                     const stepClass =
-                        s.status === "completed"
-                            ? "stepper-step stepper-completed"
-                            : s.status === "active"
-                                ? "stepper-step stepper-active"
-                                : "stepper-step stepper-pending";
+                        s.status === "completed" ? "stepper-step stepper-completed" : s.status === "active" ? "stepper-step stepper-active" : "stepper-step stepper-pending";
 
                     const isSelected = activeIndex === idx;
 
@@ -298,15 +336,7 @@ export function CareStep() {
                         >
                             <div className="stepper-circle">
                                 {s.status === "completed" ? (
-                                    <svg
-                                        viewBox="0 0 16 16"
-                                        className="bi bi-check-lg"
-                                        fill="currentColor"
-                                        height="16"
-                                        width="16"
-                                        xmlns="http://www.w3.org/2000/svg"
-                                        aria-hidden="true"
-                                    >
+                                    <svg viewBox="0 0 16 16" className="bi bi-check-lg" fill="currentColor" height="16" width="16" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
                                         <path d="M12.736 3.97a.733.733 0 0 1 1.047 0c.286.289.29.756.01 1.05L7.88 12.01a.733.733 0 0 1-1.065.02L3.217 8.384a.757.757 0 0 1 0-1.06.733.733 0 0 1 1.047 0l3.052 3.093 5.4-6.425z" />
                                     </svg>
                                 ) : (
@@ -329,12 +359,7 @@ export function CareStep() {
                     <button type="button" className="stepper-button" onClick={onPrev} disabled={activeIndex === 0}>
                         이전
                     </button>
-                    <button
-                        type="button"
-                        className="stepper-button stepper-button-primary"
-                        onClick={onNext}
-                        disabled={activeIndex === stepStates.length - 1}
-                    >
+                    <button type="button" className="stepper-button stepper-button-primary" onClick={onNext} disabled={activeIndex === stepStates.length - 1}>
                         다음
                     </button>
                 </div>
@@ -351,8 +376,7 @@ export function CareStep() {
                             <p className="mt-2 text-sm text-gray-500">이 단계는 이미 완료되었습니다. 다음 단계로 진행해 주세요.</p>
                         ) : activeIndex !== activeStepIndex ? (
                             <p className="mt-2 text-sm text-gray-500">
-                                현재 진행중인 단계는{" "}
-                                <span className="font-semibold text-gray-900">{BASE_STEPS[activeStepIndex]?.title}</span> 입니다.
+                                현재 진행중인 단계는 <span className="font-semibold text-gray-900">{BASE_STEPS[activeStepIndex]?.title}</span> 입니다.
                             </p>
                         ) : null}
                     </div>
@@ -374,8 +398,10 @@ export function CareStep() {
                                             : needsDay0Photo && !day0PhotoOk
                                                 ? "집 도착 사진을 업로드하세요."
                                                 : needsWeek1Evidence && !week1EvidenceOk
-                                                    ? "접종 증빙 서류를 제출해 주세요."
-                                                    : "이 단계를 완료합니다."
+                                                    ? "1차 접종 증빙 서류를 제출해 주세요."
+                                                    : needsWeek2Evidence && !week2EvidenceOk
+                                                        ? "2차 접종 증빙 서류를 제출해 주세요."
+                                                        : "이 단계를 완료합니다."
                         }
                     >
                         {isCompleted ? "완료됨" : "이 단계 완료"}
@@ -402,11 +428,7 @@ export function CareStep() {
 
                                     {day0Photo.previewUrl ? (
                                         <div className="flex items-center gap-3">
-                                            <img
-                                                src={day0Photo.previewUrl}
-                                                alt="집 도착 사진 미리보기"
-                                                className="h-16 w-16 rounded-lg border border-gray-200 object-cover"
-                                            />
+                                            <img src={day0Photo.previewUrl} alt="집 도착 사진 미리보기" className="h-16 w-16 rounded-lg border border-gray-200 object-cover" />
                                             <div className="text-xs text-gray-500">
                                                 <div className="max-w-[220px] truncate">선택: {day0Photo.file?.name}</div>
                                                 <div className="text-gray-400">* 업로드는 추후 백엔드 연동 예정</div>
@@ -425,19 +447,8 @@ export function CareStep() {
                                 const disabled = isCompleted || !isActiveStep;
 
                                 return (
-                                    <label
-                                        key={t}
-                                        className={`flex items-start gap-2 text-sm ${
-                                            disabled ? "cursor-default text-gray-500" : "cursor-pointer text-gray-700"
-                                        }`}
-                                    >
-                                        <input
-                                            type="checkbox"
-                                            className="mt-1 h-4 w-4"
-                                            checked={checked}
-                                            disabled={disabled}
-                                            onChange={() => toggleTodo(i)}
-                                        />
+                                    <label key={t} className={`flex items-start gap-2 text-sm ${disabled ? "cursor-default text-gray-500" : "cursor-pointer text-gray-700"}`}>
+                                        <input type="checkbox" className="mt-1 h-4 w-4" checked={checked} disabled={disabled} onChange={() => toggleTodo(i)} />
                                         <span className={checked ? "line-through text-gray-400" : ""}>{t}</span>
                                     </label>
                                 );
@@ -451,42 +462,31 @@ export function CareStep() {
                     <section className="rounded-xl border border-gray-200 p-4">
                         <h4 className="text-sm font-semibold text-gray-900">예방접종 · 의료 정보</h4>
 
-                        {/* ✅ 일반 체크항목 */}
+                        {/* 일반 체크항목 */}
                         <div className="mt-3 space-y-2">
                             {selected.medicalInfo.map((t, i) => {
                                 const checked = selectedMedicalChecks[i] ?? false;
                                 const disabled = isCompleted || !isActiveStep;
 
                                 return (
-                                    <label
-                                        key={t}
-                                        className={`flex items-start gap-2 text-sm ${
-                                            disabled ? "cursor-default text-gray-500" : "cursor-pointer text-gray-700"
-                                        }`}
-                                    >
-                                        <input
-                                            type="checkbox"
-                                            className="mt-1 h-4 w-4"
-                                            checked={checked}
-                                            disabled={disabled}
-                                            onChange={() => toggleMedical(i)}
-                                        />
+                                    <label key={t} className={`flex items-start gap-2 text-sm ${disabled ? "cursor-default text-gray-500" : "cursor-pointer text-gray-700"}`}>
+                                        <input type="checkbox" className="mt-1 h-4 w-4" checked={checked} disabled={disabled} onChange={() => toggleMedical(i)} />
                                         <span className={checked ? "line-through text-gray-400" : ""}>{t}</span>
                                     </label>
                                 );
                             })}
                         </div>
 
-                        {/* ✅ Day4-7(인덱스2) 접종 증빙 업로드 + 제출 */}
+                        {/* Day4-7(인덱스2) 접종 증빙 업로드 + 제출 */}
                         {activeIndex === 2 ? (
                             <div className="mt-5 rounded-lg border border-gray-100 bg-gray-50 p-4">
                                 <div className="flex items-start justify-between gap-3">
-                                    <div>
+                                    <div className="min-w-0">
                                         <p className="text-sm font-semibold text-gray-900">종합백신 1차 / 코로나장염 1차 증빙</p>
                                         <p className="mt-1 text-xs text-gray-500">접종 확인서(병원 발급) 또는 접종 스티커 사진을 업로드해 주세요.</p>
                                     </div>
 
-                                    <div className="text-xs font-semibold">
+                                    <div className="text-xs font-semibold whitespace-nowrap">
                                         {week1Evidence.status === "PENDING" ? (
                                             <span className="rounded-full bg-blue-100 px-3 py-1 text-blue-700">기관 확인중</span>
                                         ) : week1Evidence.status === "APPROVED" ? (
@@ -506,24 +506,17 @@ export function CareStep() {
                                         disabled={isCompleted || !isActiveStep || week1Evidence.status === "PENDING"}
                                     />
 
-                                    {/* 미리보기(이미지) + 파일명 */}
                                     {week1Evidence.file ? (
                                         <div className="mt-3 flex items-center gap-3">
                                             {week1Evidence.previewUrl && week1Evidence.file.type !== "application/pdf" ? (
-                                                <img
-                                                    src={week1Evidence.previewUrl}
-                                                    alt="접종 증빙 미리보기"
-                                                    className="h-16 w-16 rounded-lg border border-gray-200 object-cover"
-                                                />
+                                                <img src={week1Evidence.previewUrl} alt="접종 증빙 미리보기" className="h-16 w-16 rounded-lg border border-gray-200 object-cover" />
                                             ) : (
-                                                <div className="flex h-16 w-16 items-center justify-center rounded-lg border border-gray-200 bg-white text-xs text-gray-500">
-                                                    PDF
-                                                </div>
+                                                <div className="flex h-16 w-16 items-center justify-center rounded-lg border border-gray-200 bg-white text-xs text-gray-500">PDF</div>
                                             )}
 
-                                            <div className="min-w-0">
-                                                <div className="text-xs text-gray-600">선택: {week1Evidence.file.name}</div>
-                                                <div className="text-xs text-gray-400">* 제출 시 “기관 확인중”으로 표시됩니다.</div>
+                                            <div className="min-w-0 text-xs text-gray-500">
+                                                <div className="truncate">선택: {week1Evidence.file.name}</div>
+                                                <div className="text-gray-400">* 제출 시 “기관 확인중”으로 표시됩니다.</div>
                                             </div>
                                         </div>
                                     ) : null}
@@ -536,9 +529,68 @@ export function CareStep() {
                                             onClick={submitWeek1Evidence}
                                             disabled={isCompleted || !isActiveStep || week1Evidence.status === "PENDING"}
                                             className="rounded-lg border border-gray-200 bg-white px-4 py-2 text-sm font-semibold text-gray-800 hover:bg-gray-100 disabled:cursor-not-allowed disabled:opacity-40"
-                                            title={week1Evidence.status === "PENDING" ? "기관 확인중입니다." : "접종 증빙을 제출합니다."}
                                         >
                                             {week1Evidence.status === "PENDING" ? "기관 확인중" : "제출하기"}
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        ) : null}
+
+                        {/* Day14(인덱스3) 2차 접종 증빙 업로드 + 제출 */}
+                        {activeIndex === 3 ? (
+                            <div className="mt-5 rounded-lg border border-gray-100 bg-gray-50 p-4">
+                                <div className="flex items-start justify-between gap-3">
+                                    <div className="min-w-0">
+                                        <p className="text-sm font-semibold text-gray-900">종합백신 2차 / 코로나장염 2차 증빙</p>
+                                        <p className="mt-1 text-xs text-gray-500">접종 확인서(병원 발급) 또는 접종 스티커 사진을 업로드해 주세요.</p>
+                                    </div>
+
+                                    <div className="text-xs font-semibold whitespace-nowrap">
+                                        {week2Evidence.status === "PENDING" ? (
+                                            <span className="rounded-full bg-blue-100 px-3 py-1 text-blue-700">기관 확인중</span>
+                                        ) : week2Evidence.status === "APPROVED" ? (
+                                            <span className="rounded-full bg-emerald-100 px-3 py-1 text-emerald-700">승인 완료</span>
+                                        ) : (
+                                            <span className="rounded-full bg-gray-100 px-3 py-1 text-gray-600">미제출</span>
+                                        )}
+                                    </div>
+                                </div>
+
+                                <div className="mt-3">
+                                    <input
+                                        type="file"
+                                        accept={EVIDENCE_ACCEPT_TYPES}
+                                        onChange={(e) => onWeek2EvidenceChange(e.target.files?.[0] ?? null)}
+                                        className="block w-full max-w-[420px] text-sm text-gray-700 file:mr-4 file:rounded-md file:border-0 file:bg-white file:px-4 file:py-2 file:text-sm file:font-medium file:text-gray-700 hover:file:bg-gray-100"
+                                        disabled={isCompleted || !isActiveStep || week2Evidence.status === "PENDING"}
+                                    />
+
+                                    {week2Evidence.file ? (
+                                        <div className="mt-3 flex items-center gap-3">
+                                            {week2Evidence.previewUrl && week2Evidence.file.type !== "application/pdf" ? (
+                                                <img src={week2Evidence.previewUrl} alt="접종 증빙 미리보기" className="h-16 w-16 rounded-lg border border-gray-200 object-cover" />
+                                            ) : (
+                                                <div className="flex h-16 w-16 items-center justify-center rounded-lg border border-gray-200 bg-white text-xs text-gray-500">PDF</div>
+                                            )}
+
+                                            <div className="min-w-0 text-xs text-gray-500">
+                                                <div className="truncate">선택: {week2Evidence.file.name}</div>
+                                                <div className="text-gray-400">* 제출 시 “기관 확인중”으로 표시됩니다.</div>
+                                            </div>
+                                        </div>
+                                    ) : null}
+
+                                    {week2Evidence.error ? <p className="mt-2 text-xs text-red-600">{week2Evidence.error}</p> : null}
+
+                                    <div className="mt-3">
+                                        <button
+                                            type="button"
+                                            onClick={submitWeek2Evidence}
+                                            disabled={isCompleted || !isActiveStep || week2Evidence.status === "PENDING"}
+                                            className="rounded-lg border border-gray-200 bg-white px-4 py-2 text-sm font-semibold text-gray-800 hover:bg-gray-100 disabled:cursor-not-allowed disabled:opacity-40"
+                                        >
+                                            {week2Evidence.status === "PENDING" ? "기관 확인중" : "제출하기"}
                                         </button>
                                     </div>
                                 </div>

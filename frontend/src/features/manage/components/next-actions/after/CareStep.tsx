@@ -127,7 +127,7 @@ export function CareStep() {
             },
             {
                 title: "2개월 체크 (Day 60)",
-                adopterTodos: ["산책·훈련 루틴 유지 확인", "혼자 있는 시간 10–30분 유지", "문제 행동 발생 여부 점검", "사후관리 화상 채팅 참여"],
+                adopterTodos: ["산책·훈련 루틴 유지 확인", "혼자 있는 시간 10–30분 유지", "문제 행동 발생 여부 점검"],
                 medicalInfo: ["외부 활동 안정 여부 점검"],
             },
             {
@@ -673,6 +673,15 @@ export function CareStep() {
                     {activeIndex === 4 ? (
                         <section className="rounded-xl border border-gray-200 p-4">
                             <h4 className="text-sm font-semibold text-gray-900">1차 화상 상담 진행</h4>
+                            <div className="mt-3 rounded-lg border border-dashed border-gray-200 bg-gray-50 p-4 text-sm text-gray-500">
+                                WebRTC(OpenVidu) 연결 영역 (추후 구현)
+                            </div>
+                        </section>
+                    ) : null}
+
+                    {activeIndex === 5 ? (
+                        <section className="rounded-xl border border-gray-200 p-4">
+                            <h4 className="text-sm font-semibold text-gray-900">2차 화상 상담 진행</h4>
                             <div className="mt-3 rounded-lg border border-dashed border-gray-200 bg-gray-50 p-4 text-sm text-gray-500">
                                 WebRTC(OpenVidu) 연결 영역 (추후 구현)
                             </div>

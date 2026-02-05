@@ -9,6 +9,8 @@ import com.example.backend.repository.dog.AbandonedDogRepository;
 import com.example.backend.repository.dog.DogKindRepository;
 import com.example.backend.repository.dog.personality.DogPersonalityRepository;
 import com.example.backend.repository.shelter.ShelterRepository;
+import com.example.backend.service.recommendation.DogPersonalityAugmentationService;
+
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.batch.core.Job;
@@ -46,6 +48,7 @@ public class DogBatchConfig {
     private final DogKindRepository dogKindRepository;
 
     private final RestTemplate restTemplate;
+    private final DogPersonalityAugmentationService augmentationService;
 
     @Value("${api.abandoned-dog.url}")
     private String apiUrl;
@@ -213,9 +216,11 @@ public class DogBatchConfig {
                         .orElse(null);
                 if (dog == null) return null;
 
-                DogPersonality p = DogPersonality.builder()
+                DogPersonalityAugmentationService.AugmentationResult result = augmentationService.build(dog);
+
+                DogPersonality dp = DogPersonality.builder()
                         .abandonedDog(dog)
-                        .augmentedText(buildAugmentedText(dog))
+                        .augmentedText(result.augmentedText())
                         .activity(3)
                         .barking(3)
                         .separationAnxiety(3)
@@ -223,7 +228,7 @@ public class DogBatchConfig {
                         .strangerFriendliness(3)
                         .build();
 
-                return p;
+                return dp;
             }
 
             // UPDATE
@@ -234,7 +239,8 @@ public class DogBatchConfig {
             // augmentedText가 null/empty/whitespace-only면 생성
             if (!StringUtils.hasText(p.getAugmentedText())) {
                 AbandonedDog dog = p.getAbandonedDog();
-                p.setAugmentedText(buildAugmentedText(dog));
+                var result = augmentationService.build(dog);
+                p.setAugmentedText(result.augmentedText());
             }
             return p;
         };
@@ -387,78 +393,6 @@ public class DogBatchConfig {
 
         dog.setShelter(shelter);
         return dog;
-    }
-
-    /**
-     * ✅ LLM 없이 “정규화된 증강 텍스트”를 만드는 최소 규칙 버전
-     * - 지금은 5개 특성을 "직접 점수"로 확정하지 않고,
-     *   입양 추천에 쓰기 쉬운 문장 템플릿(활동성/짖음/분리불안/털빠짐/친화력)을 구성
-     * - 후속 단계에서 이 텍스트를 임베딩하면 됨
-     */
-    private String buildAugmentedText(AbandonedDog dog) {
-        String breed = safe(dog.getKindNm(), "품종 정보 없음");
-        String age = safe(dog.getAge(), "나이 정보 없음");
-        String weight = safe(dog.getWeight(), "체중 정보 없음");
-        String sex = safe(dog.getSexCd(), "성별 정보 없음");
-        String special = safe(dog.getSpecialMark(), "특이사항 정보 없음");
-
-        // 아주 약한 휴리스틱(“점수”가 아니라 “서술”)
-        String activity = inferActivity(age, breed);
-        String barking = inferBarking(breed, special);
-        String separation = inferSeparation(age);
-        String shedding = inferShedding(breed);
-        String friendliness = inferFriendliness(breed, special);
-
-        return """
-            [기본정보] 품종=%s, 나이=%s, 체중=%s, 성별=%s
-            [보호소기록] %s
-            [성향요약]
-            - 활동성: %s
-            - 짖음: %s
-            - 분리불안: %s
-            - 털빠짐: %s
-            - 친화력(낯선사람): %s
-            """.formatted(breed, age, weight, sex, special, activity, barking, separation, shedding, friendliness).trim();
-    }
-
-    private String inferActivity(String age, String breed) {
-        String a = (age == null) ? "" : age;
-        if (a.contains("개월") || a.contains("1살") || a.contains("2살")) return "어린 연령대로 활동량이 비교적 높을 가능성이 있어요.";
-        if (a.contains("10살") || a.contains("11") || a.contains("12")) return "노령에 가까우면 실내에서 차분히 지내는 성향일 수 있어요.";
-        if (breed.contains("보더") || breed.contains("콜리") || breed.contains("리트리버")) return "일반적으로 활동성을 좋아하는 편일 수 있어요(산책/놀이 권장).";
-        return "일상 산책 수준의 활동을 소화할 가능성이 있어요.";
-    }
-
-    private String inferBarking(String breed, String special) {
-        String s = (special == null) ? "" : special;
-        if (s.contains("입질") || s.contains("경계")) return "경계 상황에서 소리로 반응할 수 있어요(초기 적응 필요).";
-        if (breed.contains("말티즈") || breed.contains("포메") || breed.contains("치와와")) return "소형견 특성상 소리에 민감할 수 있어요(훈련으로 완화 가능).";
-        return "짖음은 환경/훈련에 따라 달라질 수 있어요.";
-    }
-
-    private String inferSeparation(String age) {
-        String a = (age == null) ? "" : age;
-        if (a.contains("개월") || a.contains("1살")) return "어린 강아지는 혼자있는 훈련이 필요할 수 있어요(분리불안 예방).";
-        return "적응 상태에 따라 혼자있는 시간 훈련이 필요할 수 있어요.";
-    }
-
-    private String inferShedding(String breed) {
-        if (breed.contains("푸들") || breed.contains("비숑")) return "상대적으로 털빠짐 부담이 적은 편일 수 있어요(개체차 있음).";
-        if (breed.contains("진도") || breed.contains("시바") || breed.contains("허스키") || breed.contains("리트리버"))
-            return "털갈이 시기에는 털빠짐이 많을 수 있어요(빗질/청소 필요).";
-        return "털빠짐 정도는 계절/건강/관리 상태에 따라 달라요.";
-    }
-
-    private String inferFriendliness(String breed, String special) {
-        String s = (special == null) ? "" : special;
-        if (s.contains("사람") && (s.contains("좋아") || s.contains("친화"))) return "사람을 좋아하는 편이라는 기록이 있어요.";
-        if (s.contains("경계") || s.contains("겁")) return "낯선 환경/사람에 적응 시간이 필요할 수 있어요.";
-        if (breed.contains("리트리버") || breed.contains("푸들")) return "일반적으로 사람과 교감이 좋은 편일 수 있어요(개체차 있음).";
-        return "초기엔 천천히 친해지는 접근이 좋아요.";
-    }
-
-    private String safe(String v, String fallback) {
-        return StringUtils.hasText(v) ? v.trim() : fallback;
     }
 
     private record FetchResult(int totalCount, int totalPages, List<PublicApiResponse.Item> items) {}

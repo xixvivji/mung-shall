@@ -1,4 +1,11 @@
-import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import {
+  cloneElement,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type ReactNode,
+} from "react";
 import { Button } from "@/shared/ui/button";
 import {
   deleteAdoptionApplication,
@@ -120,6 +127,9 @@ type Form = {
 type Errors = Record<string, string>;
 
 const APPLICATION_ID_KEY = "adoptionApplicationId";
+const STEP_INDEX_KEY = "adoptionApplicationStepIndex";
+
+const DEFAULT_ERROR_MESSAGE = "요청에 실패했습니다. 잠시 후 다시 시도해주세요.";
 
 function isValidEmail(v: string) {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v.trim());
@@ -138,30 +148,64 @@ function todayISO() {
 function trimAll(s: string) {
   return s.trim().replace(/\s+/g, " ");
 }
+function formatPhone(v: string) {
+  const digits = v.replace(/\D/g, "").slice(0, 11);
+  if (digits.length < 4) return digits;
+  if (digits.length < 8) return `${digits.slice(0, 3)}-${digits.slice(3)}`;
+  return `${digits.slice(0, 3)}-${digits.slice(3, 7)}-${digits.slice(7)}`;
+}
 
 function Field({
+  name,
   label,
   required = true,
   hint,
   error,
   children,
 }: {
+  name: string;
   label: string;
   required?: boolean;
   hint?: string;
   error?: string;
   children: ReactNode;
 }) {
+  const inputId = `field-${name}`;
+
   return (
-    <div className="space-y-1.5">
+    <div
+      className="space-y-1.5"
+      data-field={name}
+      data-has-error={Boolean(error)}
+    >
       <div className="flex items-center justify-between">
-        <p className="text-sm font-medium text-gray-900">
+        <label htmlFor={inputId} className="text-sm font-medium text-gray-900">
           {label} {required ? <span className="text-red-500">*</span> : null}
-        </p>
+        </label>
         {hint ? <span className="text-xs text-gray-400">{hint}</span> : null}
       </div>
-      {children}
-      {error ? <p className="text-xs text-red-600">{error}</p> : null}
+
+      {typeof children === "object" && children !== null ? (
+        // @ts-ignore
+        children.props?.id ? (
+          children
+        ) : (
+          // @ts-ignore
+          cloneElement(children as any, {
+            id: inputId,
+            "aria-invalid": Boolean(error),
+            "aria-describedby": error ? `${inputId}-error` : undefined,
+          })
+        )
+      ) : (
+        children
+      )}
+
+      {error ? (
+        <p className="text-xs text-red-600" id={`${inputId}-error`}>
+          {error}
+        </p>
+      ) : null}
     </div>
   );
 }
@@ -171,11 +215,15 @@ function TextInput({
   onChange,
   placeholder,
   disabled,
+  inputMode,
+  type,
 }: {
   value: string;
   onChange: (v: string) => void;
   placeholder?: string;
   disabled?: boolean;
+  inputMode?: React.HTMLAttributes<HTMLInputElement>["inputMode"];
+  type?: string;
 }) {
   return (
     <input
@@ -183,6 +231,8 @@ function TextInput({
       onChange={(e) => onChange(e.target.value)}
       placeholder={placeholder}
       disabled={disabled}
+      inputMode={inputMode}
+      type={type}
       className="h-10 w-full rounded-xl border border-gray-200 bg-white px-3 text-sm outline-none focus:border-gray-400 disabled:bg-gray-50"
     />
   );
@@ -369,8 +419,6 @@ const MONTHLY_EXPENSE_VALUES = [
   "NOT_SURE",
 ] as const;
 
-const DEFAULT_ERROR_MESSAGE = "요청에 실패했습니다. 잠시 후 다시 시도해주세요.";
-
 const createEmptyForm = (): Form => ({
   name: "",
   dateOfBirth: "",
@@ -518,7 +566,7 @@ const mapApplicationToForm = (data: AdoptionApplicationResponse | null): Form =>
     name: typeof data.name === "string" ? data.name : base.name,
     dateOfBirth: normalizeDate(data.dateOfBirth),
     gender: asEnum(data.gender, GENDER_VALUES, base.gender),
-    phoneNumber: typeof data.phoneNumber === "string" ? data.phoneNumber : base.phoneNumber,
+    phoneNumber: typeof data.phoneNumber === "string" ? formatPhone(data.phoneNumber) : base.phoneNumber,
     email: typeof data.email === "string" ? data.email : base.email,
     address: typeof data.address === "string" ? data.address : base.address,
     detailAddress: typeof data.detailAddress === "string" ? data.detailAddress : base.detailAddress,
@@ -639,87 +687,15 @@ export function ApplicationStep({ isEditable, onSubmitSuccess, adoptionId }: Pro
     setForm((prev) => ({ ...prev, [key]: value }));
   }
 
-  useEffect(() => {
-    // DEBUG: /survey fetch runs only when adoptionId changes to prevent loops.
-    // DEBUG: loop root cause was render-driven re-entry on same adoptionId after 400; guard with lastFetchedIdRef.
-    console.debug("[ApplicationStep] useEffect [getAdoptionApplication] running", {
-      dependencies: { adoptionId },
-      lastFetchedId: lastFetchedIdRef.current,
-      stack: new Error().stack,
-    });
-
-    if (!hasAdoptionId) {
-      lastFetchedIdRef.current = null;
-      abortRef.current?.abort();
-      abortRef.current = null;
-      setHasExisting(false);
-      setLoadError(null);
-      return;
-    }
-
-    const safeAdoptionId = adoptionId as number;
-    if (lastFetchedIdRef.current === safeAdoptionId) {
-      // DEBUG: prevent duplicate fetch on same adoptionId
-      console.debug("[ApplicationStep] skip duplicate getAdoptionApplication", {
-        adoptionId: safeAdoptionId,
-        stack: new Error().stack,
-      });
-      return;
-    }
-
-    abortRef.current?.abort();
-    const controller = new AbortController();
-    abortRef.current = controller;
-    const requestId = ++requestIdRef.current;
-    lastFetchedIdRef.current = safeAdoptionId;
-
-    setLoading(true);
-    setLoadError(null);
-
-    // DEBUG: adoption survey API call trace
-    console.debug("[ApplicationStep] getAdoptionApplication (API Call)", {
-      params: { safeAdoptionId },
-      requestId,
-      stack: new Error().stack,
-    });
-
-    getAdoptionApplication(safeAdoptionId, { signal: controller.signal })
-      .then((data) => {
-        if (controller.signal.aborted) return;
-        if (requestId !== requestIdRef.current) return;
-        const nextForm = mapApplicationToForm(data);
-        setForm(nextForm);
-        setHasExisting(Boolean(data && Object.keys(data).length > 0));
-        const savedId = resolveApplicationId(data);
-        if (savedId) {
-          localStorage.setItem(APPLICATION_ID_KEY, String(savedId));
-        }
-      })
-      .catch((err) => {
-        if (controller.signal.aborted) return;
-        if (requestId !== requestIdRef.current) return;
-        if (err instanceof ApiError && err.status === 400) {
-          // DEBUG: 400 should not trigger retries or dependency loops.
-          setHasExisting(false);
-          setLoadError("입양 신청서를 찾을 수 없습니다. (400)");
-          return;
-        }
-        if (err instanceof ApiError && err.status === 404) {
-          setHasExisting(false);
-          return;
-        }
-        setLoadError(resolveApiErrorMessage(err));
-      })
-      .finally(() => {
-        if (controller.signal.aborted) return;
-        if (requestId !== requestIdRef.current) return;
-        setLoading(false);
-      });
-
-    return () => {
-      controller.abort();
-    };
-  }, [adoptionId]);
+  function focusFirstError(errs: Errors) {
+    const firstKey = Object.keys(errs)[0];
+    if (!firstKey) return;
+    const el = document.querySelector(`[data-field="${firstKey}"]`) as HTMLElement | null;
+    if (!el) return;
+    el.scrollIntoView({ behavior: "smooth", block: "center" });
+    const input = el.querySelector("input, select, textarea, button") as HTMLElement | null;
+    input?.focus?.();
+  }
 
   /** ====== 전체 검증(최종 저장) ====== */
   function validateAll(next: Form): Errors {
@@ -881,15 +857,12 @@ export function ApplicationStep({ isEditable, onSubmitSuccess, adoptionId }: Pro
         "detailAddress",
       ]);
     }
-
     if (step === "EMERGENCY") {
       return pickErrors(all, ["emergencyContacts"]);
     }
-
     if (step === "PET_PREF") {
       return pickErrors(all, ["petPreference"]);
     }
-
     if (step === "COHAB") {
       const base = pickErrors(all, ["cohabitantAgreement"]);
       if (next.hasCohabitant) {
@@ -904,37 +877,29 @@ export function ApplicationStep({ isEditable, onSubmitSuccess, adoptionId }: Pro
       }
       return base;
     }
-
     if (step === "CURRENT_PETS") {
       if (!next.hasCurrentPets) return {};
       return pickErrors(all, ["currentPetDetails"]);
     }
-
     if (step === "PAST_PETS") {
       if (!next.hasPastPetExperience) return {};
       return pickErrors(all, ["pastPetExperiences"]);
     }
-
     if (step === "RESIDENCE") {
       return pickErrors(all, ["residenceType", "maritalStatus"]);
     }
-
     if (step === "JOB_LIFE") {
       return pickErrors(all, ["job", "workingHours", "aloneTimeManagement"]);
     }
-
     if (step === "PET_SPACE") {
       return pickErrors(all, ["petLivingSpaceLocation", "petLivingSpacePhotoUrl"]);
     }
-
     if (step === "REQUIRED_CONSENTS") {
       return pickErrors(all, ["agreesToLifetimeCommitment", "agreesToFollowUp"]);
     }
-
     if (step === "COST_NEUTERING") {
       return pickErrors(all, ["monthlyExpenseRange", "agreesToNeutering"]);
     }
-
     if (step === "MOTIVATION_PLAN") {
       return pickErrors(all, [
         "motivationForAdoption",
@@ -943,11 +908,9 @@ export function ApplicationStep({ isEditable, onSubmitSuccess, adoptionId }: Pro
         "agreesToRegularUpdates",
       ]);
     }
-
     if (step === "EXTRA_QUESTIONS") {
       return pickErrors(all, ["additionalQuestions"]);
     }
-
     return {};
   }
 
@@ -955,7 +918,7 @@ export function ApplicationStep({ isEditable, onSubmitSuccess, adoptionId }: Pro
     return {
       ...next,
       name: trimAll(next.name),
-      phoneNumber: trimAll(next.phoneNumber),
+      phoneNumber: formatPhone(trimAll(next.phoneNumber)),
       email: trimAll(next.email),
       address: trimAll(next.address),
       detailAddress: trimAll(next.detailAddress),
@@ -971,7 +934,7 @@ export function ApplicationStep({ isEditable, onSubmitSuccess, adoptionId }: Pro
       emergencyContacts: next.emergencyContacts.map((c) => ({
         ...c,
         contactName: trimAll(c.contactName),
-        contactPhoneNumber: trimAll(c.contactPhoneNumber),
+        contactPhoneNumber: formatPhone(trimAll(c.contactPhoneNumber)),
         relationship: trimAll(c.relationship),
       })),
       cohabitantDetails: next.cohabitantDetails.map((d) => ({
@@ -1027,7 +990,9 @@ export function ApplicationStep({ isEditable, onSubmitSuccess, adoptionId }: Pro
     setErrors((prev) => {
       const next: Errors = {};
       for (const [k, v] of Object.entries(prev)) {
-        const matched = prefixes.some((p) => k === p || k.startsWith(p + ".") || k.startsWith(p + "["));
+        const matched = prefixes.some(
+          (p) => k === p || k.startsWith(p + ".") || k.startsWith(p + "[")
+        );
         if (!matched) next[k] = v;
       }
       return next;
@@ -1041,7 +1006,10 @@ export function ApplicationStep({ isEditable, onSubmitSuccess, adoptionId }: Pro
     clearStepErrors(activeStep.id);
     setErrors((prev) => ({ ...prev, ...stepErrors }));
 
-    if (Object.keys(stepErrors).length > 0) return;
+    if (Object.keys(stepErrors).length > 0) {
+      focusFirstError(stepErrors);
+      return;
+    }
 
     setForm(s);
     setStepIndex((i) => Math.min(i + 1, STEPS.length - 1));
@@ -1059,20 +1027,17 @@ export function ApplicationStep({ isEditable, onSubmitSuccess, adoptionId }: Pro
       return;
     }
 
-    console.log("[ApplicationStep] Function: handleFinalSave", {
-      params: { adoptionId },
-      stack: new Error().stack,
-    });
-
     const safeAdoptionId = adoptionId as number;
     const s = sanitize(form);
     const all = validateAll(s);
     setErrors(all);
+
     if (Object.keys(all).length > 0) {
       setForm(s);
       setStepIndex(0);
       setOpen(true);
       setSubmitError("필수 항목을 확인해주세요.");
+      setTimeout(() => focusFirstError(all), 50);
       return;
     }
 
@@ -1149,17 +1114,11 @@ export function ApplicationStep({ isEditable, onSubmitSuccess, adoptionId }: Pro
 
     setSubmitting(true);
     setSubmitError(null);
-    console.log("[ApplicationStep] Function: upsertAdoptionApplication (API Call)", {
-      params: { safeAdoptionId, payload },
-      stack: new Error().stack,
-    });
 
     try {
       const response = await upsertAdoptionApplication(safeAdoptionId, payload);
       const savedId = resolveApplicationId(response);
-      if (savedId) {
-        localStorage.setItem(APPLICATION_ID_KEY, String(savedId));
-      }
+      if (savedId) localStorage.setItem(APPLICATION_ID_KEY, String(savedId));
       setHasExisting(true);
 
       setForm(s);
@@ -1187,19 +1146,11 @@ export function ApplicationStep({ isEditable, onSubmitSuccess, adoptionId }: Pro
     setDeleting(true);
     setSubmitError(null);
 
-    console.log("[ApplicationStep] Function: handleDelete", {
-      params: { adoptionId },
-      stack: new Error().stack,
-    });
-
     try {
       const safeAdoptionId = adoptionId as number;
-      console.log("[ApplicationStep] Function: deleteAdoptionApplication (API Call)", {
-        params: { safeAdoptionId },
-        stack: new Error().stack,
-      });
       await deleteAdoptionApplication(safeAdoptionId);
       localStorage.removeItem(APPLICATION_ID_KEY);
+      localStorage.removeItem(STEP_INDEX_KEY);
       setForm(createEmptyForm());
       setErrors({});
       setHasExisting(false);
@@ -1212,6 +1163,73 @@ export function ApplicationStep({ isEditable, onSubmitSuccess, adoptionId }: Pro
     }
   }
 
+  useEffect(() => {
+    if (!open) return;
+    // 스텝 위치 복구
+    const raw = localStorage.getItem(STEP_INDEX_KEY);
+    const n = raw ? Number(raw) : 0;
+    if (Number.isFinite(n)) setStepIndex(Math.max(0, Math.min(STEPS.length - 1, n)));
+  }, [open]);
+
+  useEffect(() => {
+    if (!open) return;
+    localStorage.setItem(STEP_INDEX_KEY, String(stepIndex));
+  }, [open, stepIndex]);
+
+  useEffect(() => {
+    if (!hasAdoptionId) {
+      lastFetchedIdRef.current = null;
+      abortRef.current?.abort();
+      abortRef.current = null;
+      setHasExisting(false);
+      setLoadError(null);
+      return;
+    }
+
+    const safeAdoptionId = adoptionId as number;
+    if (lastFetchedIdRef.current === safeAdoptionId) return;
+
+    abortRef.current?.abort();
+    const controller = new AbortController();
+    abortRef.current = controller;
+    const requestId = ++requestIdRef.current;
+    lastFetchedIdRef.current = safeAdoptionId;
+
+    setLoading(true);
+    setLoadError(null);
+
+    getAdoptionApplication(safeAdoptionId, { signal: controller.signal })
+      .then((data) => {
+        if (controller.signal.aborted) return;
+        if (requestId !== requestIdRef.current) return;
+
+        const nextForm = mapApplicationToForm(data);
+        setForm(nextForm);
+        setHasExisting(Boolean(data && Object.keys(data).length > 0));
+        const savedId = resolveApplicationId(data);
+        if (savedId) localStorage.setItem(APPLICATION_ID_KEY, String(savedId));
+      })
+      .catch((err) => {
+        if (controller.signal.aborted) return;
+        if (requestId !== requestIdRef.current) return;
+
+        if (err instanceof ApiError && (err.status === 400 || err.status === 404)) {
+          setHasExisting(false);
+          setLoadError(null);
+          setForm(createEmptyForm());
+          return;
+        }
+        setLoadError(resolveApiErrorMessage(err));
+      })
+      .finally(() => {
+        if (controller.signal.aborted) return;
+        if (requestId !== requestIdRef.current) return;
+        setLoading(false);
+      });
+
+    return () => controller.abort();
+  }, [adoptionId, hasAdoptionId]);
+
   const summary = useMemo(() => {
     return {
       name: form.name ? form.name : "미작성",
@@ -1219,6 +1237,17 @@ export function ApplicationStep({ isEditable, onSubmitSuccess, adoptionId }: Pro
       address: form.address ? form.address : "미작성",
       cohabitant: form.hasCohabitant ? "있음" : "없음",
     };
+  }, [form]);
+
+  const stepErrorMap = useMemo(() => {
+    const s = sanitize(form);
+    const map: Record<StepId, number> = {} as any;
+    for (const st of STEPS) {
+      const stepErrs = validateByStep(st.id, s);
+      map[st.id] = Object.keys(stepErrs).length;
+    }
+    return map;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [form]);
 
   /** ====== 스텝 UI 렌더 ====== */
@@ -1231,6 +1260,22 @@ export function ApplicationStep({ isEditable, onSubmitSuccess, adoptionId }: Pro
           <div>
             <p className="text-lg font-semibold text-gray-900">입양 신청서 작성</p>
             <p className="mt-1 text-sm text-gray-500">{activeStep.desc}</p>
+
+            {/* 작은 요약(사용자 안심용) */}
+            <div className="mt-3 flex flex-wrap gap-2 text-xs text-gray-500">
+              <span className="rounded-full bg-gray-50 px-3 py-1 border border-gray-200">
+                이름: <span className="font-semibold text-gray-700">{summary.name}</span>
+              </span>
+              <span className="rounded-full bg-gray-50 px-3 py-1 border border-gray-200">
+                연락처: <span className="font-semibold text-gray-700">{summary.phone}</span>
+              </span>
+              <span className="rounded-full bg-gray-50 px-3 py-1 border border-gray-200">
+                주소: <span className="font-semibold text-gray-700">{summary.address}</span>
+              </span>
+              <span className="rounded-full bg-gray-50 px-3 py-1 border border-gray-200">
+                동거인: <span className="font-semibold text-gray-700">{summary.cohabitant}</span>
+              </span>
+            </div>
           </div>
 
           <div className="text-right">
@@ -1246,24 +1291,35 @@ export function ApplicationStep({ isEditable, onSubmitSuccess, adoptionId }: Pro
         </div>
 
         <div className="flex flex-wrap gap-2">
-          {STEPS.map((s, idx) => {
+          {STEPS.map((st, idx) => {
             const isActive = idx === stepIndex;
             const isDone = idx < stepIndex;
+            const errCount = stepErrorMap[st.id] ?? 0;
+
             return (
               <button
-                key={s.id}
+                key={st.id}
                 type="button"
                 onClick={() => setStepIndex(idx)}
                 className={[
-                  "rounded-full border px-3 py-1 text-xs font-semibold transition",
+                  "rounded-full border px-3 py-1 text-xs font-semibold transition flex items-center gap-2",
                   isActive
                     ? "border-[#5f7cf7] bg-blue-50 text-blue-700"
-                    : isDone
-                    ? "border-gray-200 bg-gray-50 text-gray-700"
-                    : "border-gray-200 bg-white text-gray-500 hover:bg-gray-50",
+                    : errCount > 0
+                      ? "border-gray-200 bg-gray-50 text-gray-700 hover:bg-blue-100"
+                      : isDone
+                        ? "border-gray-200 bg-gray-50 text-gray-700"
+                        : "border-blue-200 bg-blue text-gray-500 hover:bg-gray-50",
                 ].join(" ")}
               >
-                {idx + 1}. {s.title}
+                <span>
+                  {idx + 1}. {st.title}
+                </span>
+                {errCount > 0 ? (
+                  <span className="rounded-full bg-red-600 px-2 py-0.5 text-[10px] text-white">
+                    {errCount}
+                  </span>
+                ) : null}
               </button>
             );
           })}
@@ -1272,30 +1328,29 @@ export function ApplicationStep({ isEditable, onSubmitSuccess, adoptionId }: Pro
     );
   }
 
-
   function renderStepBody() {
     switch (activeStep.id) {
       case "BASIC_INFO":
         return (
           <div className="space-y-8">
-            {/* 기본 정보 */}
             <section className="space-y-4">
               <p className="text-sm font-semibold text-gray-900">✅ 기본 정보</p>
               <div className="grid grid-cols-2 gap-4">
-                <Field label="이름" error={errors["name"]}>
+                <Field name="name" label="이름" error={errors["name"]}>
                   <TextInput value={form.name} onChange={(v) => setField("name", v)} />
                 </Field>
 
-                <Field label="생년월일" error={errors["dateOfBirth"]}>
+                <Field name="dateOfBirth" label="생년월일" error={errors["dateOfBirth"]}>
                   <input
                     type="date"
+                    max={todayISO()}
                     value={form.dateOfBirth}
                     onChange={(e) => setField("dateOfBirth", e.target.value)}
                     className="h-10 w-full rounded-xl border border-gray-200 bg-white px-3 text-sm outline-none focus:border-gray-400"
                   />
                 </Field>
 
-                <Field label="성별" error={errors["gender"]}>
+                <Field name="gender" label="성별" error={errors["gender"]}>
                   <Select
                     value={form.gender}
                     onChange={(v) => setField("gender", v as Gender)}
@@ -1307,23 +1362,25 @@ export function ApplicationStep({ isEditable, onSubmitSuccess, adoptionId }: Pro
                   />
                 </Field>
 
-                <Field label="연락처" error={errors["phoneNumber"]}>
+                <Field name="phoneNumber" label="연락처" error={errors["phoneNumber"]}>
                   <TextInput
                     value={form.phoneNumber}
-                    onChange={(v) => setField("phoneNumber", v)}
-                    placeholder="000-0000-0000"
+                    onChange={(v) => setField("phoneNumber", formatPhone(v))}
+                    placeholder="010-0000-0000"
+                    inputMode="numeric"
                   />
                 </Field>
 
-                <Field label="이메일" error={errors["email"]}>
+                <Field name="email" label="이메일" error={errors["email"]}>
                   <TextInput
                     value={form.email}
                     onChange={(v) => setField("email", v)}
                     placeholder="name@example.com"
+                    type="email"
                   />
                 </Field>
 
-                <Field label="주소" error={errors["address"]}>
+                <Field name="address" label="주소" error={errors["address"]}>
                   <TextInput
                     value={form.address}
                     onChange={(v) => setField("address", v)}
@@ -1332,7 +1389,7 @@ export function ApplicationStep({ isEditable, onSubmitSuccess, adoptionId }: Pro
                 </Field>
 
                 <div className="col-span-2">
-                  <Field label="상세주소" error={errors["detailAddress"]}>
+                  <Field name="detailAddress" label="상세주소" error={errors["detailAddress"]}>
                     <TextInput
                       value={form.detailAddress}
                       onChange={(v) => setField("detailAddress", v)}
@@ -1348,7 +1405,6 @@ export function ApplicationStep({ isEditable, onSubmitSuccess, adoptionId }: Pro
       case "EMERGENCY":
         return (
           <div className="space-y-8">
-            {/* 비상연락망 */}
             <section className="space-y-4">
               <div className="flex items-center justify-between">
                 <p className="text-sm font-semibold text-gray-900">✅ 비상연락망</p>
@@ -1391,7 +1447,11 @@ export function ApplicationStep({ isEditable, onSubmitSuccess, adoptionId }: Pro
                     </div>
 
                     <div className="grid grid-cols-3 gap-3">
-                      <Field label="이름" error={errors[`emergencyContacts.${idx}.contactName`]}>
+                      <Field
+                        name={`emergencyContacts.${idx}.contactName`}
+                        label="이름"
+                        error={errors[`emergencyContacts.${idx}.contactName`]}
+                      >
                         <TextInput
                           value={c.contactName}
                           onChange={(v) =>
@@ -1405,21 +1465,31 @@ export function ApplicationStep({ isEditable, onSubmitSuccess, adoptionId }: Pro
                         />
                       </Field>
 
-                      <Field label="연락처" error={errors[`emergencyContacts.${idx}.contactPhoneNumber`]}>
+                      <Field
+                        name={`emergencyContacts.${idx}.contactPhoneNumber`}
+                        label="연락처"
+                        error={errors[`emergencyContacts.${idx}.contactPhoneNumber`]}
+                      >
                         <TextInput
                           value={c.contactPhoneNumber}
                           onChange={(v) =>
                             setField(
                               "emergencyContacts",
                               form.emergencyContacts.map((x, i) =>
-                                i === idx ? { ...x, contactPhoneNumber: v } : x
+                                i === idx ? { ...x, contactPhoneNumber: formatPhone(v) } : x
                               )
                             )
                           }
+                          placeholder="010-0000-0000"
+                          inputMode="numeric"
                         />
                       </Field>
 
-                      <Field label="관계" error={errors[`emergencyContacts.${idx}.relationship`]}>
+                      <Field
+                        name={`emergencyContacts.${idx}.relationship`}
+                        label="관계"
+                        error={errors[`emergencyContacts.${idx}.relationship`]}
+                      >
                         <TextInput
                           value={c.relationship}
                           onChange={(v) =>
@@ -1446,7 +1516,7 @@ export function ApplicationStep({ isEditable, onSubmitSuccess, adoptionId }: Pro
           <div className="space-y-8">
             <section className="space-y-4">
               <p className="text-sm font-semibold text-gray-900">✅ 입양 희망</p>
-              <Field label="희망 유형" error={errors["petPreference"]}>
+              <Field name="petPreference" label="희망 유형" error={errors["petPreference"]}>
                 <Select
                   value={form.petPreference}
                   onChange={(v) => setField("petPreference", v as PetPreference)}
@@ -1468,7 +1538,7 @@ export function ApplicationStep({ isEditable, onSubmitSuccess, adoptionId }: Pro
               <p className="text-sm font-semibold text-gray-900">✅ 동거인</p>
 
               <div className="flex flex-wrap items-center gap-6">
-                <Field label="동거인 여부" required>
+                <Field name="hasCohabitant" label="동거인 여부" required>
                   <Toggle
                     value={form.hasCohabitant}
                     onChange={(v) => setField("hasCohabitant", v)}
@@ -1477,7 +1547,11 @@ export function ApplicationStep({ isEditable, onSubmitSuccess, adoptionId }: Pro
                 </Field>
 
                 <div className="flex-1">
-                  <Field label="동거인 전원 동의" error={errors["cohabitantAgreement"]}>
+                  <Field
+                    name="cohabitantAgreement"
+                    label="동거인 전원 동의"
+                    error={errors["cohabitantAgreement"]}
+                  >
                     <Checkbox
                       checked={form.cohabitantAgreement}
                       onChange={(v) => setField("cohabitantAgreement", v)}
@@ -1490,29 +1564,47 @@ export function ApplicationStep({ isEditable, onSubmitSuccess, adoptionId }: Pro
               {form.hasCohabitant ? (
                 <div className="space-y-4">
                   <div className="grid grid-cols-2 gap-4">
-                    <Field label="성인 수" error={errors["cohabitantComposition.numberOfAdults"]}>
-                      <TextInput
-                        value={String(form.cohabitantComposition.numberOfAdults)}
-                        onChange={(v) =>
+                    <Field
+                      name="cohabitantComposition.numberOfAdults"
+                      label="성인 수"
+                      error={errors["cohabitantComposition.numberOfAdults"]}
+                    >
+                      <input
+                        type="number"
+                        min={1}
+                        step={1}
+                        value={form.cohabitantComposition.numberOfAdults}
+                        onChange={(e) => {
+                          const v = e.target.value;
                           setField("cohabitantComposition", {
                             ...form.cohabitantComposition,
                             numberOfAdults: v === "" ? "" : Number(v),
-                          })
-                        }
+                          });
+                        }}
                         placeholder="예) 2"
+                        className="h-10 w-full rounded-xl border border-gray-200 bg-white px-3 text-sm outline-none focus:border-gray-400"
                       />
                     </Field>
 
-                    <Field label="아동 수" error={errors["cohabitantComposition.numberOfChildren"]}>
-                      <TextInput
-                        value={String(form.cohabitantComposition.numberOfChildren)}
-                        onChange={(v) =>
+                    <Field
+                      name="cohabitantComposition.numberOfChildren"
+                      label="아동 수"
+                      error={errors["cohabitantComposition.numberOfChildren"]}
+                    >
+                      <input
+                        type="number"
+                        min={0}
+                        step={1}
+                        value={form.cohabitantComposition.numberOfChildren}
+                        onChange={(e) => {
+                          const v = e.target.value;
                           setField("cohabitantComposition", {
                             ...form.cohabitantComposition,
                             numberOfChildren: v === "" ? "" : Number(v),
-                          })
-                        }
+                          });
+                        }}
                         placeholder="예) 0"
+                        className="h-10 w-full rounded-xl border border-gray-200 bg-white px-3 text-sm outline-none focus:border-gray-400"
                       />
                     </Field>
                   </div>
@@ -1553,7 +1645,11 @@ export function ApplicationStep({ isEditable, onSubmitSuccess, adoptionId }: Pro
                       </div>
 
                       <div className="grid grid-cols-3 gap-3">
-                        <Field label="관계" error={errors[`cohabitantDetails.${idx}.relationship`]}>
+                        <Field
+                          name={`cohabitantDetails.${idx}.relationship`}
+                          label="관계"
+                          error={errors[`cohabitantDetails.${idx}.relationship`]}
+                        >
                           <TextInput
                             value={d.relationship}
                             onChange={(v) =>
@@ -1568,23 +1664,32 @@ export function ApplicationStep({ isEditable, onSubmitSuccess, adoptionId }: Pro
                           />
                         </Field>
 
-                        <Field label="나이" error={errors[`cohabitantDetails.${idx}.age`]}>
-                          <TextInput
-                            value={String(d.age)}
-                            onChange={(v) =>
+                        <Field
+                          name={`cohabitantDetails.${idx}.age`}
+                          label="나이"
+                          error={errors[`cohabitantDetails.${idx}.age`]}
+                        >
+                          <input
+                            type="number"
+                            min={0}
+                            max={120}
+                            step={1}
+                            value={d.age}
+                            onChange={(e) =>
                               setField(
                                 "cohabitantDetails",
                                 form.cohabitantDetails.map((x, i) =>
-                                  i === idx ? { ...x, age: v === "" ? "" : Number(v) } : x
+                                  i === idx ? { ...x, age: e.target.value === "" ? "" : Number(e.target.value) } : x
                                 )
                               )
                             }
                             placeholder="예) 29"
+                            className="h-10 w-full rounded-xl border border-gray-200 bg-white px-3 text-sm outline-none focus:border-gray-400"
                           />
                         </Field>
 
                         <div className="space-y-2">
-                          <Field label="알레르기 여부" required>
+                          <Field name={`cohabitantDetails.${idx}.hasAllergy`} label="알레르기 여부" required>
                             <Toggle
                               value={d.hasAllergy}
                               onChange={(v) =>
@@ -1599,7 +1704,11 @@ export function ApplicationStep({ isEditable, onSubmitSuccess, adoptionId }: Pro
                             />
                           </Field>
 
-                          <Field label="입양 동의" error={errors[`cohabitantDetails.${idx}.adoptionAgreement`]}>
+                          <Field
+                            name={`cohabitantDetails.${idx}.adoptionAgreement`}
+                            label="입양 동의"
+                            error={errors[`cohabitantDetails.${idx}.adoptionAgreement`]}
+                          >
                             <Checkbox
                               checked={d.adoptionAgreement}
                               onChange={(v) =>
@@ -1632,7 +1741,7 @@ export function ApplicationStep({ isEditable, onSubmitSuccess, adoptionId }: Pro
           <div className="space-y-6">
             <section className="space-y-4">
               <p className="text-sm font-semibold text-gray-900">✅ 현재 반려동물</p>
-              <Field label="현재 반려동물 여부" required>
+              <Field name="hasCurrentPets" label="현재 반려동물 여부" required>
                 <Toggle
                   value={form.hasCurrentPets}
                   onChange={(v) => setField("hasCurrentPets", v)}
@@ -1681,7 +1790,10 @@ export function ApplicationStep({ isEditable, onSubmitSuccess, adoptionId }: Pro
                           variant="outline"
                           className="rounded-lg"
                           onClick={() =>
-                            setField("currentPetDetails", form.currentPetDetails.filter((_, i) => i !== idx))
+                            setField(
+                              "currentPetDetails",
+                              form.currentPetDetails.filter((_, i) => i !== idx)
+                            )
                           }
                           disabled={form.currentPetDetails.length === 1}
                         >
@@ -1690,62 +1802,99 @@ export function ApplicationStep({ isEditable, onSubmitSuccess, adoptionId }: Pro
                       </div>
 
                       <div className="grid grid-cols-2 gap-3">
-                        <Field label="종류" error={errors[`currentPetDetails.${idx}.petType`]}>
+                        <Field
+                          name={`currentPetDetails.${idx}.petType`}
+                          label="종류"
+                          error={errors[`currentPetDetails.${idx}.petType`]}
+                        >
                           <TextInput
                             value={p.petType}
                             onChange={(v) =>
                               setField(
                                 "currentPetDetails",
-                                form.currentPetDetails.map((x, i) => (i === idx ? { ...x, petType: v } : x))
+                                form.currentPetDetails.map((x, i) =>
+                                  i === idx ? { ...x, petType: v } : x
+                                )
                               )
                             }
                             placeholder="예) 강아지/고양이"
                           />
                         </Field>
 
-                        <Field label="품종" error={errors[`currentPetDetails.${idx}.breed`]}>
+                        <Field
+                          name={`currentPetDetails.${idx}.breed`}
+                          label="품종"
+                          error={errors[`currentPetDetails.${idx}.breed`]}
+                        >
                           <TextInput
                             value={p.breed}
                             onChange={(v) =>
                               setField(
                                 "currentPetDetails",
-                                form.currentPetDetails.map((x, i) => (i === idx ? { ...x, breed: v } : x))
+                                form.currentPetDetails.map((x, i) =>
+                                  i === idx ? { ...x, breed: v } : x
+                                )
                               )
                             }
                             placeholder="예) 믹스"
                           />
                         </Field>
 
-                        <Field label="마릿수" error={errors[`currentPetDetails.${idx}.count`]}>
-                          <TextInput
-                            value={String(p.count)}
-                            onChange={(v) =>
+                        <Field
+                          name={`currentPetDetails.${idx}.count`}
+                          label="마릿수"
+                          error={errors[`currentPetDetails.${idx}.count`]}
+                        >
+                          <input
+                            type="number"
+                            min={1}
+                            step={1}
+                            value={p.count}
+                            onChange={(e) =>
                               setField(
                                 "currentPetDetails",
                                 form.currentPetDetails.map((x, i) =>
-                                  i === idx ? { ...x, count: v === "" ? "" : Number(v) } : x
+                                  i === idx
+                                    ? { ...x, count: e.target.value === "" ? "" : Number(e.target.value) }
+                                    : x
                                 )
                               )
                             }
+                            className="h-10 w-full rounded-xl border border-gray-200 bg-white px-3 text-sm outline-none focus:border-gray-400"
                           />
                         </Field>
 
-                        <Field label="나이" error={errors[`currentPetDetails.${idx}.age`]}>
-                          <TextInput
-                            value={String(p.age)}
-                            onChange={(v) =>
+                        <Field
+                          name={`currentPetDetails.${idx}.age`}
+                          label="나이"
+                          error={errors[`currentPetDetails.${idx}.age`]}
+                        >
+                          <input
+                            type="number"
+                            min={0}
+                            max={30}
+                            step={1}
+                            value={p.age}
+                            onChange={(e) =>
                               setField(
                                 "currentPetDetails",
                                 form.currentPetDetails.map((x, i) =>
-                                  i === idx ? { ...x, age: v === "" ? "" : Number(v) } : x
+                                  i === idx
+                                    ? { ...x, age: e.target.value === "" ? "" : Number(e.target.value) }
+                                    : x
                                 )
                               )
                             }
+                            className="h-10 w-full rounded-xl border border-gray-200 bg-white px-3 text-sm outline-none focus:border-gray-400"
                           />
                         </Field>
 
                         <div className="col-span-2">
-                          <Field label="추가 입양 이유" error={errors[`currentPetDetails.${idx}.reasonForAdoptingMore`]}>
+                          <Field
+                            name={`currentPetDetails.${idx}.reasonForAdoptingMore`}
+                            label="추가 입양 이유"
+                            error={errors[`currentPetDetails.${idx}.reasonForAdoptingMore`]}
+                          >
                             <TextArea
                               value={p.reasonForAdoptingMore}
                               onChange={(v) =>
@@ -1770,14 +1919,12 @@ export function ApplicationStep({ isEditable, onSubmitSuccess, adoptionId }: Pro
           </div>
         );
 
-
-
       case "PAST_PETS":
         return (
           <div className="space-y-6">
             <section className="space-y-4">
               <p className="text-sm font-semibold text-gray-900">✅ 과거 양육 경험</p>
-              <Field label="과거 양육 경험 여부" required>
+              <Field name="hasPastPetExperience" label="과거 양육 경험 여부" required>
                 <Toggle
                   value={form.hasPastPetExperience}
                   onChange={(v) => setField("hasPastPetExperience", v)}
@@ -1837,7 +1984,11 @@ export function ApplicationStep({ isEditable, onSubmitSuccess, adoptionId }: Pro
                       </div>
 
                       <div className="grid grid-cols-2 gap-3">
-                        <Field label="종류" error={errors[`pastPetExperiences.${idx}.pastPetType`]}>
+                        <Field
+                          name={`pastPetExperiences.${idx}.pastPetType`}
+                          label="종류"
+                          error={errors[`pastPetExperiences.${idx}.pastPetType`]}
+                        >
                           <TextInput
                             value={p.pastPetType}
                             onChange={(v) =>
@@ -1851,21 +2002,39 @@ export function ApplicationStep({ isEditable, onSubmitSuccess, adoptionId }: Pro
                           />
                         </Field>
 
-                        <Field label="마릿수" error={errors[`pastPetExperiences.${idx}.pastPetCount`]}>
-                          <TextInput
-                            value={String(p.pastPetCount)}
-                            onChange={(v) =>
+                        <Field
+                          name={`pastPetExperiences.${idx}.pastPetCount`}
+                          label="마릿수"
+                          error={errors[`pastPetExperiences.${idx}.pastPetCount`]}
+                        >
+                          <input
+                            type="number"
+                            min={1}
+                            step={1}
+                            value={p.pastPetCount}
+                            onChange={(e) =>
                               setField(
                                 "pastPetExperiences",
                                 form.pastPetExperiences.map((x, i) =>
-                                  i === idx ? { ...x, pastPetCount: v === "" ? "" : Number(v) } : x
+                                  i === idx
+                                    ? {
+                                        ...x,
+                                        pastPetCount:
+                                          e.target.value === "" ? "" : Number(e.target.value),
+                                      }
+                                    : x
                                 )
                               )
                             }
+                            className="h-10 w-full rounded-xl border border-gray-200 bg-white px-3 text-sm outline-none focus:border-gray-400"
                           />
                         </Field>
 
-                        <Field label="기간" error={errors[`pastPetExperiences.${idx}.duration`]}>
+                        <Field
+                          name={`pastPetExperiences.${idx}.duration`}
+                          label="기간"
+                          error={errors[`pastPetExperiences.${idx}.duration`]}
+                        >
                           <TextInput
                             value={p.duration}
                             onChange={(v) =>
@@ -1880,7 +2049,7 @@ export function ApplicationStep({ isEditable, onSubmitSuccess, adoptionId }: Pro
                           />
                         </Field>
 
-                        <Field label="현재도 함께 지냄" required>
+                        <Field name={`pastPetExperiences.${idx}.isCurrentlyWithYou`} label="현재도 함께 지냄" required>
                           <Toggle
                             value={p.isCurrentlyWithYou}
                             onChange={(v) =>
@@ -1896,7 +2065,11 @@ export function ApplicationStep({ isEditable, onSubmitSuccess, adoptionId }: Pro
                         </Field>
 
                         <div className="col-span-2">
-                          <Field label="상세" error={errors[`pastPetExperiences.${idx}.details`]}>
+                          <Field
+                            name={`pastPetExperiences.${idx}.details`}
+                            label="상세"
+                            error={errors[`pastPetExperiences.${idx}.details`]}
+                          >
                             <TextArea
                               value={p.details}
                               onChange={(v) =>
@@ -1928,7 +2101,7 @@ export function ApplicationStep({ isEditable, onSubmitSuccess, adoptionId }: Pro
               <p className="text-sm font-semibold text-gray-900">✅ 주거 형태</p>
 
               <div className="grid grid-cols-2 gap-4">
-                <Field label="주거 형태" error={errors["residenceType"]}>
+                <Field name="residenceType" label="주거 형태" error={errors["residenceType"]}>
                   <Select
                     value={form.residenceType}
                     onChange={(v) => setField("residenceType", v as ResidenceType)}
@@ -1942,7 +2115,7 @@ export function ApplicationStep({ isEditable, onSubmitSuccess, adoptionId }: Pro
                   />
                 </Field>
 
-                <Field label="혼인 상태" error={errors["maritalStatus"]}>
+                <Field name="maritalStatus" label="혼인 상태" error={errors["maritalStatus"]}>
                   <Select
                     value={form.maritalStatus}
                     onChange={(v) => setField("maritalStatus", v as MaritalStatus)}
@@ -1957,11 +2130,11 @@ export function ApplicationStep({ isEditable, onSubmitSuccess, adoptionId }: Pro
               </div>
 
               <div className="grid grid-cols-2 gap-4">
-                <Field label="주거 소유 여부" required>
+                <Field name="isOwner" label="주거 소유 여부" required>
                   <Toggle value={form.isOwner} onChange={(v) => setField("isOwner", v)} labels={["임차", "자가"]} />
                 </Field>
 
-                <Field label="보호자 교육 이수" required>
+                <Field name="completedOwnerEducation" label="보호자 교육 이수" required>
                   <Toggle
                     value={form.completedOwnerEducation}
                     onChange={(v) => setField("completedOwnerEducation", v)}
@@ -1980,11 +2153,11 @@ export function ApplicationStep({ isEditable, onSubmitSuccess, adoptionId }: Pro
               <p className="text-sm font-semibold text-gray-900">✅ 직업/생활 패턴</p>
 
               <div className="grid grid-cols-2 gap-4">
-                <Field label="직업" error={errors["job"]}>
+                <Field name="job" label="직업" error={errors["job"]}>
                   <TextInput value={form.job} onChange={(v) => setField("job", v)} placeholder="예) 회사원" />
                 </Field>
 
-                <Field label="근무시간" error={errors["workingHours"]} hint="예) 09:00~18:00">
+                <Field name="workingHours" label="근무시간" error={errors["workingHours"]} hint="예) 09:00~18:00">
                   <TextInput
                     value={form.workingHours}
                     onChange={(v) => setField("workingHours", v)}
@@ -1993,7 +2166,12 @@ export function ApplicationStep({ isEditable, onSubmitSuccess, adoptionId }: Pro
                 </Field>
               </div>
 
-              <Field label="혼자 있는 시간 관리 계획" error={errors["aloneTimeManagement"]} hint="20자 이상">
+              <Field
+                name="aloneTimeManagement"
+                label="혼자 있는 시간 관리 계획"
+                error={errors["aloneTimeManagement"]}
+                hint="20자 이상"
+              >
                 <TextArea
                   value={form.aloneTimeManagement}
                   onChange={(v) => setField("aloneTimeManagement", v)}
@@ -2011,7 +2189,11 @@ export function ApplicationStep({ isEditable, onSubmitSuccess, adoptionId }: Pro
             <section className="space-y-4">
               <p className="text-sm font-semibold text-gray-900">✅ 반려 공간</p>
 
-              <Field label="반려 공간 위치/설명" error={errors["petLivingSpaceLocation"]}>
+              <Field
+                name="petLivingSpaceLocation"
+                label="반려 공간 위치/설명"
+                error={errors["petLivingSpaceLocation"]}
+              >
                 <TextArea
                   value={form.petLivingSpaceLocation}
                   onChange={(v) => setField("petLivingSpaceLocation", v)}
@@ -2020,7 +2202,12 @@ export function ApplicationStep({ isEditable, onSubmitSuccess, adoptionId }: Pro
                 />
               </Field>
 
-              <Field label="반려 공간 사진 URL" error={errors["petLivingSpacePhotoUrl"]} hint="https://...">
+              <Field
+                name="petLivingSpacePhotoUrl"
+                label="반려 공간 사진 URL"
+                error={errors["petLivingSpacePhotoUrl"]}
+                hint="https://..."
+              >
                 <TextInput
                   value={form.petLivingSpacePhotoUrl}
                   onChange={(v) => setField("petLivingSpacePhotoUrl", v)}
@@ -2037,7 +2224,11 @@ export function ApplicationStep({ isEditable, onSubmitSuccess, adoptionId }: Pro
             <section className="space-y-3">
               <p className="text-sm font-semibold text-gray-900">✅ 필수 동의</p>
 
-              <Field label="평생 책임 동의" error={errors["agreesToLifetimeCommitment"]}>
+              <Field
+                name="agreesToLifetimeCommitment"
+                label="평생 책임 동의"
+                error={errors["agreesToLifetimeCommitment"]}
+              >
                 <Checkbox
                   checked={form.agreesToLifetimeCommitment}
                   onChange={(v) => setField("agreesToLifetimeCommitment", v)}
@@ -2045,7 +2236,7 @@ export function ApplicationStep({ isEditable, onSubmitSuccess, adoptionId }: Pro
                 />
               </Field>
 
-              <Field label="사후관리(추적) 동의" error={errors["agreesToFollowUp"]}>
+              <Field name="agreesToFollowUp" label="사후관리(추적) 동의" error={errors["agreesToFollowUp"]}>
                 <Checkbox
                   checked={form.agreesToFollowUp}
                   onChange={(v) => setField("agreesToFollowUp", v)}
@@ -2063,7 +2254,7 @@ export function ApplicationStep({ isEditable, onSubmitSuccess, adoptionId }: Pro
               <p className="text-sm font-semibold text-gray-900">✅ 비용/중성화</p>
 
               <div className="grid grid-cols-2 gap-4">
-                <Field label="월 예상 지출" error={errors["monthlyExpenseRange"]}>
+                <Field name="monthlyExpenseRange" label="월 예상 지출" error={errors["monthlyExpenseRange"]}>
                   <Select
                     value={form.monthlyExpenseRange}
                     onChange={(v) => setField("monthlyExpenseRange", v as MonthlyExpenseRange)}
@@ -2077,7 +2268,7 @@ export function ApplicationStep({ isEditable, onSubmitSuccess, adoptionId }: Pro
                   />
                 </Field>
 
-                <Field label="중성화 동의" error={errors["agreesToNeutering"]}>
+                <Field name="agreesToNeutering" label="중성화 동의" error={errors["agreesToNeutering"]}>
                   <Checkbox
                     checked={form.agreesToNeutering}
                     onChange={(v) => setField("agreesToNeutering", v)}
@@ -2095,7 +2286,12 @@ export function ApplicationStep({ isEditable, onSubmitSuccess, adoptionId }: Pro
             <section className="space-y-4">
               <p className="text-sm font-semibold text-gray-900">✅ 동기/계획</p>
 
-              <Field label="입양 동기" error={errors["motivationForAdoption"]} hint="150자 이상">
+              <Field
+                name="motivationForAdoption"
+                label="입양 동기"
+                error={errors["motivationForAdoption"]}
+                hint="150자 이상"
+              >
                 <TextArea
                   value={form.motivationForAdoption}
                   onChange={(v) => setField("motivationForAdoption", v)}
@@ -2105,7 +2301,12 @@ export function ApplicationStep({ isEditable, onSubmitSuccess, adoptionId }: Pro
               </Field>
 
               <div className="grid grid-cols-2 gap-4">
-                <Field label="생활 변화 대응" error={errors["lifeChangeCopingPlan"]} hint="20자 이상">
+                <Field
+                  name="lifeChangeCopingPlan"
+                  label="생활 변화 대응"
+                  error={errors["lifeChangeCopingPlan"]}
+                  hint="20자 이상"
+                >
                   <TextArea
                     value={form.lifeChangeCopingPlan}
                     onChange={(v) => setField("lifeChangeCopingPlan", v)}
@@ -2114,7 +2315,12 @@ export function ApplicationStep({ isEditable, onSubmitSuccess, adoptionId }: Pro
                   />
                 </Field>
 
-                <Field label="여행/외출 시 계획" error={errors["travelCopingPlan"]} hint="20자 이상">
+                <Field
+                  name="travelCopingPlan"
+                  label="여행/외출 시 계획"
+                  error={errors["travelCopingPlan"]}
+                  hint="20자 이상"
+                >
                   <TextArea
                     value={form.travelCopingPlan}
                     onChange={(v) => setField("travelCopingPlan", v)}
@@ -2124,7 +2330,7 @@ export function ApplicationStep({ isEditable, onSubmitSuccess, adoptionId }: Pro
                 </Field>
               </div>
 
-              <Field label="정기 업데이트 동의" error={errors["agreesToRegularUpdates"]}>
+              <Field name="agreesToRegularUpdates" label="정기 업데이트 동의" error={errors["agreesToRegularUpdates"]}>
                 <Checkbox
                   checked={form.agreesToRegularUpdates}
                   onChange={(v) => setField("agreesToRegularUpdates", v)}
@@ -2140,7 +2346,12 @@ export function ApplicationStep({ isEditable, onSubmitSuccess, adoptionId }: Pro
           <div className="space-y-8">
             <section className="space-y-4">
               <p className="text-sm font-semibold text-gray-900">✅ 추가 질문/전달사항</p>
-              <Field label="추가 질문/전달사항" error={errors["additionalQuestions"]} hint="없으면 '없음'">
+              <Field
+                name="additionalQuestions"
+                label="추가 질문/전달사항"
+                error={errors["additionalQuestions"]}
+                hint="없으면 '없음'"
+              >
                 <TextArea
                   value={form.additionalQuestions}
                   onChange={(v) => setField("additionalQuestions", v)}
@@ -2156,17 +2367,16 @@ export function ApplicationStep({ isEditable, onSubmitSuccess, adoptionId }: Pro
         return null;
     }
   }
-  /** ====== 간단 모달 래퍼 ====== */
+
   return (
     <div className="space-y-3">
-      {/* 요약 카드 */}
       <div className="rounded-2xl border border-gray-200 bg-white p-4">
-        <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <p className="text-sm font-semibold text-gray-900">입양 신청서</p>
             <p className="mt-1 text-xs text-gray-500">
               {!hasAdoptionId
-                ? "입양 정보가 없어 저장/조회할 수 없습니다."
+                ? "입양 정보가 없어 작성/제출할 수 없습니다."
                 : loading
                   ? "저장된 신청서를 불러오는 중..."
                   : loadError
@@ -2178,50 +2388,47 @@ export function ApplicationStep({ isEditable, onSubmitSuccess, adoptionId }: Pro
           </div>
 
           <div className="flex items-center gap-2">
-            {errorCount > 0 ? (
-              <span className="rounded-full bg-red-50 px-2 py-1 text-xs font-semibold text-red-700">
-                미작성 {errorCount}건
-              </span>
+            {!hasExisting ? (
+              <Button
+                onClick={() => setOpen(true)}
+                disabled={!isEditable || loading || !hasAdoptionId}
+                className="
+                  h-10 rounded-md
+                  bg-[#3182f6] text-white
+                  hover:bg-[#1f6fe0]
+                  disabled:cursor-not-allowed disabled:opacity-50
+                "
+              >
+                서류 작성하기
+              </Button>
             ) : (
-              <span className="rounded-full bg-emerald-50 px-2 py-1 text-xs font-semibold text-emerald-700">
-                누락 없음
-              </span>
+              <>
+                <Button
+                  onClick={() => setOpen(true)}
+                  disabled={!isEditable || loading || !hasAdoptionId}
+                  className="
+                    h-10 rounded-md
+                    bg-[#3182f6] text-white
+                    hover:bg-[#1f6fe0]
+                    disabled:cursor-not-allowed disabled:opacity-50
+                  "
+                >
+                  서류 수정하기
+                </Button>
+
+                <Button
+                  className="h-10 rounded-md bg-[#0064FF] hover:bg-[#0056E6] disabled:opacity-50"
+                  onClick={handleFinalSave}
+                  disabled={!isEditable || submitting || loading || !hasAdoptionId}
+                >
+                  {submitting ? "제출 중..." : "제출하기"}
+                </Button>
+              </>
             )}
-
-            {/* ✅ 서류 작성하기: 흰색 버튼 */}
-            <Button
-              onClick={() => setOpen(true)}
-              disabled={!isEditable}
-              className="
-                rounded-md
-                border border-gray-300
-                bg-white text-gray-700
-                hover:bg-gray-50
-                disabled:cursor-not-allowed disabled:opacity-50
-              "
-            >
-              서류 작성하기
-            </Button>
-
-            {/* ✅ 제출하기: 모달에서 작성한 내용을 서버에 제출하고 다음 단계로 이동 */}
-            <Button
-              className="rounded-md bg-[#0064FF] hover:bg-[#0056E6] disabled:opacity-50"
-              onClick={handleFinalSave}
-              disabled={!isEditable || submitting || loading || !hasAdoptionId}
-            >
-              {submitting ? "제출 중..." : "제출하기"}
-            </Button>
           </div>
         </div>
       </div>
 
-      {!open && submitError ? (
-        <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-xs text-red-600">
-          {submitError}
-        </div>
-      ) : null}
-
-      {/* 모달 */}
       {open ? (
         <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/40 p-4">
           <div className="w-full max-w-5xl overflow-hidden rounded-3xl bg-white shadow-xl">
@@ -2246,6 +2453,7 @@ export function ApplicationStep({ isEditable, onSubmitSuccess, adoptionId }: Pro
                   {loadError}
                 </div>
               ) : null}
+
               {renderStepHeader()}
 
               <div className="mt-6">
@@ -2255,7 +2463,8 @@ export function ApplicationStep({ isEditable, onSubmitSuccess, adoptionId }: Pro
               </div>
             </div>
 
-            <div className="flex items-center justify-between border-t border-gray-100 px-6 py-4">
+            {/* ✅ sticky footer */}
+            <div className="sticky bottom-0 flex items-center justify-between border-t border-gray-100 bg-white px-6 py-4">
               <div className="text-xs text-gray-500">
                 {errorCount > 0 ? `현재 전체 에러: ${errorCount}개` : "작성 완료 상태입니다."}
               </div>
@@ -2271,16 +2480,10 @@ export function ApplicationStep({ isEditable, onSubmitSuccess, adoptionId }: Pro
                 </Button>
 
                 {!isLastStep ? (
-                  // ✅ 다음: 흰색(보조)로 유지
-                  <Button
-                    variant="outline"
-                    className="rounded-md"
-                    onClick={handleNext}
-                  >
+                  <Button variant="outline" className="rounded-md" onClick={handleNext}>
                     다음
                   </Button>
                 ) : (
-                  // ✅ 확인(제출): 제출하기 로직을 그대로 호출하고 다음 단계로 이동
                   <>
                     {hasExisting ? (
                       <Button
@@ -2292,6 +2495,7 @@ export function ApplicationStep({ isEditable, onSubmitSuccess, adoptionId }: Pro
                         {deleting ? "삭제 중..." : "삭제"}
                       </Button>
                     ) : null}
+
                     <Button
                       className="rounded-md bg-[#0064FF] hover:bg-[#0056E6] disabled:opacity-50"
                       onClick={handleFinalSave}

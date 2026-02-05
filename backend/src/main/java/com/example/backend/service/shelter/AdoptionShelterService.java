@@ -256,8 +256,9 @@ public class AdoptionShelterService {
             }
         });
 
-        adoption.setProcessStatus(AdoptionProcessStatus.COMPLETED);
         adoption.setStatus(AdoptionStatus.APPROVED);
+        adoption.setProcessStatus(AdoptionProcessStatus.COMPLETED);
+        adoption.setCompletedAt(LocalDateTime.now());
         adoptionRepository.save(adoption);
 
         // 입양 프로세스 최종 승인 시, 사후 입양 프로세스 시작

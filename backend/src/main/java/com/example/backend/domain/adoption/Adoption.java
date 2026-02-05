@@ -66,6 +66,8 @@ public class Adoption {
     @UpdateTimestamp
     private LocalDateTime updatedAt;
 
+    private LocalDateTime completedAt;
+
     public void addStep(AdoptionStepInstance stepInstance) {
         steps.add(stepInstance);
         stepInstance.setAdoption(this);

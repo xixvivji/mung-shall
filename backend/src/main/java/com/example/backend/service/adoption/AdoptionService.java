@@ -18,7 +18,7 @@ import com.example.backend.repository.adoption.AdoptionStepInstanceRepository;
 import com.example.backend.repository.UserRepository;
 import com.example.backend.repository.dog.AbandonedDogRepository;
 import com.example.backend.repository.adoption.survey.AdoptionSurveyRepository;
-import com.example.backend.repository.dog.interest.UserDogInterestRepository; // Added
+import com.example.backend.repository.dog.interest.UserDogInterestRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;

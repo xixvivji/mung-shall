@@ -4,7 +4,10 @@ import com.example.backend.domain.adoption.Adoption;
 import com.example.backend.domain.postadoption.PostAdoption;
 import com.example.backend.domain.postadoption.PostAdoptionStepDef;
 import com.example.backend.domain.postadoption.PostAdoptionStepInstance;
-import com.example.backend.domain.postadoption.enums.PostAdoptionProcessStatus;
+import com.example.backend.domain.postadoption.embed.ChecklistItemDef;
+import com.example.backend.domain.postadoption.embed.ChecklistItemInstance;
+import com.example.backend.domain.postadoption.embed.SubmissionDef;
+import com.example.backend.domain.postadoption.embed.SubmissionInstance;
 import com.example.backend.domain.postadoption.enums.PostAdoptionStepStatus;
 import com.example.backend.repository.adoption.AdoptionRepository;
 import com.example.backend.repository.postadoption.PostAdoptionRepository;
@@ -14,7 +17,9 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDate;
 import java.util.List;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -48,14 +53,25 @@ public class PostAdoptionService {
             throw new IllegalStateException("입양 후 단계 정의(PostAdoptionStepDef)가 설정되어 있지 않습니다.");
         }
 
+        // Get the completedAt date from the Adoption.
+        // Assuming Adoption has a getCompletedAt() method that returns LocalDateTime.
+        LocalDate adoptionCompletedDate = adoption.getCompletedAt().toLocalDate();
+
         for (PostAdoptionStepDef stepDef : stepDefs) {
+            LocalDate dueDate = adoptionCompletedDate.plusDays(stepDef.getDaysAfterAdoption());
+            List<ChecklistItemInstance> checklistInstances = createChecklistInstances(stepDef.getChecklistDefs());
+            List<SubmissionInstance> submissionInstances = createSubmissionInstances(stepDef.getSubmissionDefs());
+
             PostAdoptionStepInstance stepInstance = new PostAdoptionStepInstance(
                     postAdoption,
                     stepDef.getName(),
                     stepDef.getDescription(),
                     stepDef.getDefaultOrder(),
                     PostAdoptionStepStatus.NOT_STARTED,
-                    stepDef
+                    stepDef,
+                    dueDate,
+                    checklistInstances,
+                    submissionInstances
             );
             postAdoptionStepInstanceRepository.save(stepInstance);
         }
@@ -81,29 +97,15 @@ public class PostAdoptionService {
                 .orElseThrow(() -> new IllegalArgumentException("Post-adoption process not found with ID: " + postAdoptionId));
     }
 
-    /**
-     * 입양 후 프로세스를 취소합니다.
-     * @param postAdoptionId 취소할 입양 후 프로세스 ID
-     */
-    public void cancelPostAdoptionProcess(Long postAdoptionId) {
-        PostAdoption postAdoption = postAdoptionRepository.findById(postAdoptionId)
-                .orElseThrow(() -> new IllegalArgumentException("Post-adoption process not found with ID: " + postAdoptionId));
+    private List<ChecklistItemInstance> createChecklistInstances(List<ChecklistItemDef> defs) {
+        return defs.stream()
+                .map(def -> new ChecklistItemInstance(def.getItemText(), false)) // Initially unchecked
+                .collect(Collectors.toList());
+    }
 
-        if (postAdoption.getProcessStatus() == PostAdoptionProcessStatus.COMPLETED ||
-                postAdoption.getProcessStatus() == PostAdoptionProcessStatus.CANCELLED) {
-            throw new IllegalStateException("이미 완료되었거나 취소된 입양 후 프로세스는 취소할 수 없습니다.");
-        }
-
-        postAdoption.setProcessStatus(PostAdoptionProcessStatus.CANCELLED);
-        postAdoptionRepository.save(postAdoption);
-
-        // 모든 단계 인스턴스 상태도 CANCELLED로 변경
-        postAdoptionStepInstanceRepository.findByPostAdoptionIdOrderByStepOrderAsc(postAdoptionId)
-                .forEach(step -> {
-                    if (step.getStatus() != PostAdoptionStepStatus.COMPLETED) {
-                        step.setStatus(PostAdoptionStepStatus.CANCELLED);
-                        postAdoptionStepInstanceRepository.save(step);
-                    }
-                });
+    private List<SubmissionInstance> createSubmissionInstances(List<SubmissionDef> defs) {
+        return defs.stream()
+                .map(def -> new SubmissionInstance(def.getSubmissionName(), def.getDescription(), false, def.getType(), null, null)) // Initially not submitted
+                .collect(Collectors.toList());
     }
 }

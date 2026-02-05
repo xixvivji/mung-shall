@@ -62,9 +62,9 @@ public class DogController {
     @GetMapping("/{id}")
     public ResponseEntity<DogDetailResponse> getDogDetail(
             @Parameter(description = "유기견의 고유 ID", required = true) @PathVariable Long id,
-            @Parameter(hidden = true) Authentication authentication
+            @AuthenticationPrincipal CustomUserPrincipal principal
     ) {
-        Long currentUserId = ((CustomUserPrincipal) authentication.getPrincipal()).getUserId();
+        Long currentUserId = principal != null ? principal.getUserId() : null;
 
         DogDetailResponse dogDetail = dogService.getDogDetail(id, currentUserId);
         return ResponseEntity.ok(dogDetail);

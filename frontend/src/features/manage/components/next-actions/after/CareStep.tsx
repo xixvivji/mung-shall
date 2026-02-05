@@ -8,20 +8,22 @@ type RoadmapDetail = {
     platformFeatures: string[];
 };
 
-type ChecklistState = Record<number, boolean[]>; // stepIndex -> boolean[]
+type ChecklistState = Record<number, boolean[]>;
+
+const BASE_STEPS: Omit<StepperItem, "status">[] = [
+    { title: "입양 당일 체크", time: "Day 0" },
+    { title: "3일차 체크", time: "Day 3" },
+    { title: "1주 적응", time: "Day 7" },
+    { title: "2주 점검", time: "Day 14" },
+    { title: "1개월 건강 체크", time: "Day 30" },
+    { title: "2개월 체크", time: "Day 60" },
+    { title: "3개월 마무리", time: "Day 90" },
+];
 
 export function CareStep() {
     const [activeIndex, setActiveIndex] = useState(0);
 
-    const [stepStates, setStepStates] = useState<StepperItem[]>([
-        { title: "입양 당일 체크", status: "active", time: "Day 0" },
-        { title: "3일차 체크", status: "pending", time: "Day 3" },
-        { title: "1주 적응", status: "pending", time: "Day 7" },
-        { title: "2주 점검", status: "pending", time: "Day 14" },
-        { title: "1개월 건강 체크", status: "pending", time: "Day 30" },
-        { title: "2개월 체크", status: "pending", time: "Day 60" },
-        { title: "3개월 마무리", status: "pending", time: "Day 90" },
-    ]);
+    const [completedSet, setCompletedSet] = useState<Set<number>>(() => new Set());
 
     const roadmap = useMemo<RoadmapDetail[]>(
         () => [
@@ -79,17 +81,33 @@ export function CareStep() {
         return init;
     });
 
+    const activeStepIndex = useMemo(() => {
+        for (let i = 0; i < BASE_STEPS.length; i++) {
+            if (!completedSet.has(i)) return i;
+        }
+        return BASE_STEPS.length - 1; // 전부 완료면 마지막 유지
+    }, [completedSet]);
+
+    const stepStates = useMemo<StepperItem[]>(() => {
+        return BASE_STEPS.map((s, idx) => {
+            const status: StepperItem["status"] = completedSet.has(idx)
+                ? "completed"
+                : idx === activeStepIndex
+                    ? "active"
+                    : "pending";
+
+            return { ...s, status };
+        });
+    }, [completedSet, activeStepIndex]);
+
     const selected = roadmap[activeIndex];
-    const isCompleted = stepStates[activeIndex]?.status === "completed";
+    const isCompleted = completedSet.has(activeIndex);
 
     const selectedChecks = checklist[activeIndex] ?? [];
-
     const allChecked = selectedChecks.length > 0 && selectedChecks.every(Boolean);
 
-    const onPrev = () => setActiveIndex((v) => Math.max(0, v - 1));
-    const onNext = () => setActiveIndex((v) => Math.min(stepStates.length - 1, v + 1));
-
     const toggleTodo = (todoIndex: number) => {
+        if (isCompleted) return;
         setChecklist((prev) => {
             const current = prev[activeIndex] ?? [];
             const next = [...current];
@@ -102,23 +120,24 @@ export function CareStep() {
         if (isCompleted) return;
         if (!allChecked) return;
 
-        setStepStates((prev) => {
-            const next = prev.map((s) => ({ ...s }));
-
-            next[activeIndex].status = "completed";
-
-            const nextIdx = activeIndex + 1;
-            if (next[nextIdx] && next[nextIdx].status !== "completed") {
-                next[nextIdx].status = "active";
-            }
-
+        setCompletedSet((prev) => {
+            const next = new Set(prev);
+            next.add(activeIndex);
             return next;
         });
 
-        if (activeIndex < stepStates.length - 1) {
-            setActiveIndex((v) => Math.min(stepStates.length - 1, v + 1));
-        }
+        const nextIdx = (() => {
+            for (let i = activeIndex + 1; i < BASE_STEPS.length; i++) {
+                if (!completedSet.has(i)) return i;
+            }
+            return Math.min(BASE_STEPS.length - 1, activeIndex + 1);
+        })();
+
+        setActiveIndex(nextIdx);
     };
+
+    const onPrev = () => setActiveIndex((v) => Math.max(0, v - 1));
+    const onNext = () => setActiveIndex((v) => Math.min(stepStates.length - 1, v + 1));
 
     return (
         <div className="grid gap-6 lg:grid-cols-[420px_1fr]">
@@ -139,28 +158,39 @@ export function CareStep() {
                     <div>
                         <p className="text-sm text-gray-500">선택한 단계</p>
                         <h3 className="mt-1 text-lg font-semibold text-gray-900">{selected.title}</h3>
-                        {isCompleted ? (
-                            <p className="mt-2 text-sm text-gray-500">이 단계는 이미 완료되었습니다. 다음 단계로 진행해 주세요.</p>
-                        ) : null}
 
+                        {isCompleted ? (
+                            <p className="mt-2 text-sm text-gray-500">
+                                이 단계는 이미 완료되었습니다. 다음 단계로 진행해 주세요.
+                            </p>
+                        ) : activeIndex !== activeStepIndex ? (
+                            <p className="mt-2 text-sm text-gray-500">
+                                현재 진행중인 단계는{" "}
+                                <span className="font-semibold text-gray-900">
+                  {BASE_STEPS[activeStepIndex]?.title}
+                </span>
+                                입니다.
+                            </p>
+                        ) : null}
                     </div>
 
                     <button
                         type="button"
                         onClick={completeCurrentStep}
-                        disabled={isCompleted || !allChecked}
+                        disabled={isCompleted || !allChecked || activeIndex !== activeStepIndex}
                         className="h-10 shrink-0 rounded-xl bg-[#0064FF] px-4 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:opacity-40"
                         title={
                             isCompleted
                                 ? "이미 완료된 단계입니다."
-                                : !allChecked
-                                    ? "입양자 해야 할 것 항목을 모두 체크하세요."
-                                    : "이 단계를 완료합니다."
+                                : activeIndex !== activeStepIndex
+                                    ? "진행중인 단계에서만 완료할 수 있습니다."
+                                    : !allChecked
+                                        ? "입양자 해야 할 것 항목을 모두 체크하세요."
+                                        : "이 단계를 완료합니다."
                         }
                     >
                         {isCompleted ? "완료됨" : "이 단계 완료"}
                     </button>
-
                 </div>
 
                 <div className="grid gap-4 md:grid-cols-3">
@@ -169,16 +199,20 @@ export function CareStep() {
                         <div className="mt-3 space-y-2">
                             {selected.adopterTodos.map((t, i) => {
                                 const checked = selectedChecks[i] ?? false;
+                                const disabled = isCompleted || activeIndex !== activeStepIndex;
+
                                 return (
                                     <label
                                         key={t}
-                                        className={`flex items-start gap-2 text-sm ${isCompleted ? "cursor-default text-gray-500" : "cursor-pointer text-gray-700"}`}
+                                        className={`flex items-start gap-2 text-sm ${
+                                            disabled ? "cursor-default text-gray-500" : "cursor-pointer text-gray-700"
+                                        }`}
                                     >
                                         <input
                                             type="checkbox"
                                             className="mt-1 h-4 w-4"
                                             checked={checked}
-                                            disabled={isCompleted}
+                                            disabled={disabled}
                                             onChange={() => toggleTodo(i)}
                                         />
                                         <span className={checked ? "line-through text-gray-400" : ""}>{t}</span>
@@ -188,7 +222,7 @@ export function CareStep() {
                         </div>
 
                         <p className="mt-4 text-xs text-gray-400">
-                            * 체크를 모두 완료하면 “이 단계 완료” 버튼이 활성화됩니다.
+                            * 진행중인 단계에서 체크/완료가 가능합니다.
                         </p>
                     </section>
 

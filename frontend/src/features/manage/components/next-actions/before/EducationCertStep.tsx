@@ -39,7 +39,7 @@ function normalizeDateTimeInput(value?: string | null) {
   return value;
 }
 
-const ALLOWED_EDU_CERT_STATUSES = new Set<StepStatus>(["PENDING", "REJECTED"]);
+const ALLOWED_EDU_CERT_STATUSES = new Set<StepStatus>(["PENDING"]);
 
 const normalizeStepStatus = (status?: string | null) =>
   typeof status === "string" ? status.trim().toUpperCase() : "";
@@ -50,22 +50,60 @@ const resolveStepName = (step: AdoptionStepStatusItem) =>
 const resolveStepOrder = (step: AdoptionStepStatusItem) =>
   step.stepDef?.stepOrder ?? (typeof step.stepOrder === "number" ? step.stepOrder : null) ?? null;
 
-const resolveStepInstanceId = (step?: AdoptionStepStatusItem | null) => {
-  if (!step) return null;
-  if (typeof step.id === "number" && Number.isFinite(step.id)) return step.id;
-  if (typeof step.id === "string" && step.id.trim() !== "") {
-    const parsed = Number(step.id);
-    return Number.isFinite(parsed) ? parsed : null;
-  }
-  return null;
+const normalizeServerKey = (value?: string | null) =>
+  typeof value === "string" ? value.trim().toUpperCase() : "";
+
+const resolveServerStepKeyFromDef = (step: AdoptionStepStatusItem) => {
+  const stepDef = step.stepDef as {
+    stepKey?: string;
+    key?: string;
+    code?: string;
+  };
+  const rawKey = stepDef?.stepKey ?? stepDef?.key ?? stepDef?.code ?? null;
+  return normalizeServerKey(rawKey);
 };
 
-const findEducationStepInstance = (steps: AdoptionStepStatusItem[]) =>
-  steps.find((step) => {
-    const stepName = resolveStepName(step);
-    const stepOrder = resolveStepOrder(step);
-    return resolveServerStepKey(stepName, stepOrder) === "EDUCATION_CERT";
-  }) ?? null;
+const EDU_KEYWORDS = ["교육", "EDUCATION", "수료증", "수료"];
+
+const matchesEducationKeywords = (stepName?: string | null) => {
+  if (!stepName) return false;
+  const upper = stepName.toUpperCase();
+  return EDU_KEYWORDS.some((keyword) =>
+    keyword === "EDUCATION" ? upper.includes(keyword) : stepName.includes(keyword)
+  );
+};
+
+let hasLoggedEducationStepSample = false;
+
+const logEducationStepSampleOnce = (steps: AdoptionStepStatusItem[]) => {
+  if (!import.meta.env.DEV || hasLoggedEducationStepSample) return;
+  const sample = steps.find(Boolean);
+  if (sample) {
+    console.debug("[education-cert] step sample", sample);
+    hasLoggedEducationStepSample = true;
+  }
+};
+
+const findEducationStepInstance = (steps: AdoptionStepStatusItem[]) => {
+  logEducationStepSampleOnce(steps);
+  return (
+    steps.find((step) => {
+      // 변경 이유: stepDef가 불안정하므로 서버 키 > 키워드 > 기존 매핑 순으로 보강
+      const serverKey = resolveServerStepKeyFromDef(step);
+      if (serverKey) return serverKey === "EDUCATION_CERT";
+
+      const stepName = resolveStepName(step);
+      if (matchesEducationKeywords(stepName)) return true;
+
+      const stepOrder = resolveStepOrder(step);
+      return resolveServerStepKey(stepName, stepOrder) === "EDUCATION_CERT";
+    }) ?? null
+  );
+};
+
+const fallbackEducationStep = (steps: AdoptionStepStatusItem[]) =>
+  // 변경 이유: stepDef가 없을 때 2번째 step을 교육 단계로 fallback
+  steps.length > 1 ? steps[1] : null;
 
 function resolveApiErrorMessage(error: unknown, fallback: string) {
   if (error instanceof ApiError) {
@@ -262,8 +300,9 @@ export function EducationCertStep({ isEditable, onSubmitSuccess, adoptionId }: P
     try {
       const statusResponse = await fetchAdoptionStepStatuses(adoptionId);
       const steps = normalizeAdoptionStepsStatusResponse(statusResponse);
-      const educationStep = findEducationStepInstance(steps);
-      const stepInstanceId = resolveStepInstanceId(educationStep);
+      const educationStep =
+        findEducationStepInstance(steps) ?? fallbackEducationStep(steps);
+      const stepInstanceId = educationStep?.id ?? null;
       const stepStatus = normalizeStepStatus(educationStep?.status ?? null);
 
       if (import.meta.env.DEV) {
@@ -275,14 +314,18 @@ export function EducationCertStep({ isEditable, onSubmitSuccess, adoptionId }: P
       }
 
       if (!educationStep) {
-        setSubmitError("입양 교육 단계 정보를 찾을 수 없습니다. 새로고침 후 다시 시도해 주세요.");
+        // 변경 이유: 단계 매핑 실패를 명확히 안내하고, DEV에서 전체 steps를 확인
+        setSubmitError("단계 매핑 오류(서버 응답 stepDef 확인 필요)");
+        if (import.meta.env.DEV) {
+          console.debug("[education-cert] steps response", steps);
+        }
         return;
       }
 
       if (!ALLOWED_EDU_CERT_STATUSES.has(stepStatus as StepStatus)) {
         const statusLabel = stepStatus || "UNKNOWN";
         setSubmitError(
-          `현재 단계 상태(${statusLabel})에서는 업로드할 수 없습니다. 제출 대기(PENDING) 또는 반려(REJECTED) 상태에서만 가능합니다.`
+          `현재 단계 상태(${statusLabel})에서는 업로드할 수 없습니다. 제출 대기(PENDING) 상태에서만 가능합니다.`
         );
         return;
       }

@@ -329,7 +329,6 @@ export function NextActions({
         />
       )}
 
-      {/* ✅ 어떤 Step이든 "컴포넌트 내부에 제출 버튼이 없을 수 있으니" 안전장치로 전진 버튼 제공 */}
       <div className="mt-8 flex items-center justify-between gap-3">
         <button
           className="rounded-md border border-gray-200 px-4 py-2 text-sm text-gray-700 disabled:opacity-40"

@@ -25,6 +25,7 @@ type DogCardProps = {
   favoriteActive: boolean;
   favoriteDisabled?: boolean;
   onToggleFavorite: () => void;
+  showFavoriteButton?: boolean;
 };
 
 export default function DogCard({
@@ -32,6 +33,7 @@ export default function DogCard({
   favoriteActive,
   favoriteDisabled,
   onToggleFavorite,
+  showFavoriteButton = true,
   variant = "link",
   selected = false,
   draggable = false,
@@ -39,6 +41,10 @@ export default function DogCard({
   className = "",
 }: DogCardProps) {
   const { user } = useAuth();
+  const normalizedUserType = String(
+    user?.userType ?? (user as { type?: string } | null)?.type ?? ""
+  ).toLowerCase();
+  const isShelter = normalizedUserType === "shelter";
   const baseClass = [
     "group relative rounded-2xl border bg-white transition",
     selected ? "border-[#5f7cf7] ring-2 ring-[#5f7cf7]" : "border-[#eee] hover:border-[#ddd]",
@@ -74,7 +80,7 @@ export default function DogCard({
     </>
   );
 
-  const favoriteButton = user ? (
+  const favoriteButton = user && showFavoriteButton && !isShelter ? (
     <FavoriteHeart active={favoriteActive} disabled={favoriteDisabled} onToggle={onToggleFavorite} />
   ) : null;
 

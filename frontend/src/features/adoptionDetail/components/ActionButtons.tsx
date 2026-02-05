@@ -15,32 +15,62 @@ type Props = {
   adopting?: boolean;
 };
 
+type FavoriteButtonProps = {
+  dogId: string;
+  onAlert: (options: { title: string; message: string }) => void;
+};
+
+function FavoriteButton({ dogId, onAlert }: FavoriteButtonProps) {
+  const { isFavorite, pendingIds, toggleFavorite } = useFavoriteDogs();
+  const id = String(dogId);
+  const liked = isFavorite(id);
+  const pending = pendingIds.has(id);
+
+  const label = liked ? "관심강아지 해제" : "관심강아지 등록";
+  const pendingLabel = liked ? "관심강아지 해제 중.." : "관심강아지 등록 중..";
+
+  const handleToggleLike = async () => {
+    const result = await toggleFavorite(id);
+    if (result.status === "unauthenticated") {
+      onAlert({ title: "로그인 필요", message: "로그인이 필요합니다." });
+      return;
+    }
+    if (result.status === "error") {
+      onAlert({
+        title: "관심강아지 처리 실패",
+        message: resolveFavoriteErrorMessage(result.error),
+      });
+    }
+  };
+
+  return (
+    <Button
+      type="button"
+      variant="outline"
+      className="border-[#ddd] bg-white text-[#333] hover:bg-[#f8f8f8] active:scale-[0.98]"
+      onClick={handleToggleLike}
+      disabled={pending}
+      aria-pressed={liked}
+      aria-busy={pending}
+    >
+      {pending ? pendingLabel : label}
+    </Button>
+  );
+}
+
 export default function ActionButtons({ dogId, adopting = true }: Props) {
   const { openAlert, alertProps } = useAlertModal();
-  const { isFavorite, pendingIds, toggleFavorite } = useFavoriteDogs();
   const { user } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
   const [isStarting, setIsStarting] = useState(false);
 
-  const id = String(dogId);
-  const liked = isFavorite(id);
-  const pending = pendingIds.has(id);
+  const normalizedUserType = String(
+    user?.userType ?? (user as { type?: string } | null)?.type ?? ""
+  ).toLowerCase();
+  const isShelter = normalizedUserType === "shelter";
+
   const canAdopt = adopting == false;
-
-  const label = liked ? "관심강아지 해제" : "관심강아지 등록";
-  const pendingLabel = liked ? "관심강아지 해제 중..." : "관심강아지 등록 중...";
-
-  const handleToggleLike = async () => {
-    const result = await toggleFavorite(id);
-    if (result.status === "unauthenticated") {
-      openAlert({ title: "로그인 필요", message: "로그인이 필요합니다." });
-      return;
-    }
-    if (result.status === "error") {
-      openAlert({ title: "관심강아지 처리 실패", message: resolveFavoriteErrorMessage(result.error) });
-    }
-  };
 
   const handleStartAdoption = async () => {
     const numericDogId = Number(dogId);
@@ -79,7 +109,7 @@ export default function ActionButtons({ dogId, adopting = true }: Props) {
       if (
         err instanceof ApiError &&
         err.status === 400 &&
-        err.message.includes("이미 해당 유기견에 대한 입양 절차가 진행 중입니다.")
+        err.message.includes("이미 해당 공고에 입양 신청이 진행 중입니다.")
       ) {
         const shouldMove = window.confirm(
           "이미 진행 중인 입양입니다. 입양 관리로 이동할까요?"
@@ -108,7 +138,10 @@ export default function ActionButtons({ dogId, adopting = true }: Props) {
         navigate(ROUTES.login, { state: { from: location.pathname } });
         return;
       }
-      openAlert({ title: "입양 신청 실패", message: "입양 신청 중 오류가 발생했습니다. 잠시 후 다시 시도해 주세요." });
+      openAlert({
+        title: "입양 신청 실패",
+        message: "입양 신청 중 오류가 발생했습니다. 잠시 후 다시 시도해 주세요.",
+      });
       console.error(err);
     } finally {
       setIsStarting(false);
@@ -117,27 +150,19 @@ export default function ActionButtons({ dogId, adopting = true }: Props) {
 
   return (
     <div className="flex flex-wrap gap-3">
-      <button
-        type="button"
-        className="rounded-md bg-[#3182f6] px-5 py-2 text-sm font-semibold text-white disabled:opacity-60"
-        onClick={handleStartAdoption}
-        disabled={isStarting || !canAdopt}
-        aria-busy={isStarting}
-      >
-        {isStarting ? "처리 중..." : canAdopt ? "입양하기" : "입양 진행 중"}
-      </button>
+      {!isShelter && (
+        <button
+          type="button"
+          className="rounded-md bg-[#3182f6] px-5 py-2 text-sm font-semibold text-white disabled:opacity-60"
+          onClick={handleStartAdoption}
+          disabled={isStarting || !canAdopt}
+          aria-busy={isStarting}
+        >
+          {isStarting ? "처리 중.." : canAdopt ? "입양하기" : "입양 진행 중"}
+        </button>
+      )}
 
-      <Button
-        type="button"
-        variant="outline"
-        className="border-[#ddd] bg-white text-[#333] hover:bg-[#f8f8f8] active:scale-[0.98]"
-        onClick={handleToggleLike}
-        disabled={pending}
-        aria-pressed={liked}
-        aria-busy={pending}
-      >
-        {pending ? pendingLabel : label}
-      </Button>
+      {!isShelter && <FavoriteButton dogId={dogId} onAlert={openAlert} />}
 
       <AlertModal {...alertProps} />
     </div>

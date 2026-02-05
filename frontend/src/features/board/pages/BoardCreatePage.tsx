@@ -81,7 +81,7 @@ export default function BoardCreatePage() {
   );
 
   return (
-    <section className="bg-[#F7F8FA]">
+    <section className="bg-white">
       <div className="mx-auto max-w-[1440px] px-8 py-12">
         <div className="space-y-3">
           <p className="text-sm text-[#6B7280]">홈 &gt; 게시판 &gt; 글쓰기</p>

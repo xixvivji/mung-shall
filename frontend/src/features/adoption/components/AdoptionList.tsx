@@ -204,16 +204,21 @@ export default function AdoptionList() {
   }, []);
 
   return (
-    <section className="mx-auto max-w-[1200px] px-6 py-16">
-      <div className="space-y-4">
-        <h1 className="text-3xl font-semibold text-[#333]">Adoption</h1>
-        <Filters
-          breeds={breeds}
-          provinces={sidoOptions}
-          cities={sigunguOptions}
-          onChange={handleFilterChange}
-        />
-      </div>
+  <section className="mx-auto max-w-[1200px] px-6 py-20">
+    <p className="text-sm text-[#6B7280]">홈 &gt; 입양하기</p>
+    <div className="flex items-center justify-between gap-4">
+      <h1 className="text-[33px] font-bold tracking-tight text-[#333]">
+        입양하기
+      </h1>
+
+      <Filters
+        breeds={breeds}
+        provinces={sidoOptions}
+        cities={sigunguOptions}
+        onChange={handleFilterChange}
+      />
+    </div>
+
 
       <div className="mt-8">
         {loading ? (

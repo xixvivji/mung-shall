@@ -10,6 +10,7 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.multipart.MultipartFile;
 
+import java.io.IOException;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -27,7 +28,7 @@ public class ImageController {
                 return ResponseEntity.badRequest().body("파일이 비어있습니다.");
             }
 
-            String imageUrl = s3Service.uploadFile(file);
+            String imageUrl = s3Service.uploadFile(file, "general-images");
 
             Map<String, String> response = new HashMap<>();
             response.put("message", "업로드 성공!");
@@ -35,6 +36,8 @@ public class ImageController {
 
             return ResponseEntity.ok(response);
 
+        } catch (IOException e) {
+            return ResponseEntity.internalServerError().body("업로드 실패: " + e.getMessage());
         } catch (Exception e) {
             e.printStackTrace();
             return ResponseEntity.internalServerError().body("업로드 실패: " + e.getMessage());

@@ -9,4 +9,6 @@ import java.util.Optional;
 public interface PostAdoptionStepInstanceRepository extends JpaRepository<PostAdoptionStepInstance, Long> {
     List<PostAdoptionStepInstance> findByPostAdoptionIdOrderByStepOrderAsc(Long postAdoptionId);
     Optional<PostAdoptionStepInstance> findByPostAdoptionIdAndStepName(Long postAdoptionId, String stepName);
+
+    Optional<Object> findByPostAdoptionIdAndStepOrder(Long id, Integer stepOrder);
 }

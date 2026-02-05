@@ -8,6 +8,7 @@ import lombok.Setter;
 @Setter
 @Builder
 public class ChecklistItemResponse {
+    private Long id;
     private String itemText;
     private boolean checked;
     private boolean required; // From ChecklistItemDef

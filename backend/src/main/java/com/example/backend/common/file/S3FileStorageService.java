@@ -23,7 +23,8 @@ public class S3FileStorageService implements FileStorageService {
         // The subdirectory can be used by S3Service if it needs to prefix the filename
         // For now, S3Service directly uploads and returns URL, so subdirectory is not directly used here
         // but could be passed to S3Service if its uploadFile method was modified to accept it.
-        return s3Service.uploadFile(file);
+        // Modified to pass subdirectory to s3Service.uploadFile
+        return s3Service.uploadFile(file, subdirectory);
     }
 
     @Override

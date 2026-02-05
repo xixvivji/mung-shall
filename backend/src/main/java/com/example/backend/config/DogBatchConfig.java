@@ -169,7 +169,7 @@ public class DogBatchConfig {
             public BackfillTarget read() {
                 if (targets == null) {
                     if (!backfillEnabled) {
-                        log.info("[Backfill] disabled=true 이므로 Step 스킵 (enabled=false)");
+                        log.info("[Backfill] enabled=false 이므로 Step 스킵");
                         targets = Collections.emptyList();
                         return null;
                     }

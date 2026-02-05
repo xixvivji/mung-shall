@@ -21,10 +21,10 @@ public interface DogPersonalityRepository extends JpaRepository<DogPersonality, 
      * - 공백만 있는 값(whitespace-only)은 Processor에서 hasText로 처리
      */
     @Query("""
-        select p
-        from DogPersonality p
-        where p.augmentedText is null
-           or trim(p.augmentedText) = ''
+            select p
+            from DogPersonality p
+            where p.augmentedText is null
+               or p.augmentedText = ''
         """)
     List<DogPersonality> findNeedBackfill();
 

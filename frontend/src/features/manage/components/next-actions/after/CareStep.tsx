@@ -102,7 +102,12 @@ export function CareStep() {
             },
             {
                 title: "3일차 체크 (Day 1–3)",
-                adopterTodos: ["휴식 공간 유지(환경 크게 바꾸지 않기)", "식사·배변 기록 계속하기", "산책은 짧게, 스트레스 신호 보이면 중단", "배변 실수 줄어드는지 확인"],
+                adopterTodos: [
+                    "휴식 공간 유지(환경 크게 바꾸지 않기)",
+                    "식사·배변 기록 계속하기",
+                    "산책은 짧게, 스트레스 신호 보이면 중단",
+                    "배변 실수 줄어드는지 확인",
+                ],
                 medicalInfo: ["구토·설사·무기력 여부 관찰", "컨디션 변화 여부 관찰(식욕·활동량)"],
             },
             {
@@ -117,7 +122,7 @@ export function CareStep() {
             },
             {
                 title: "1개월 건강 체크 (Day 30)",
-                adopterTodos: ["루틴 안정화 및 생활 적응 확인", "사람/개 만남은 선택권 제공", "장난감·퍼즐로 에너지 해소", "건강 설문(식욕·배변·활동량)", "보호소와 사후관리 화상 상담 진행"],
+                adopterTodos: ["루틴 안정화 및 생활 적응 확인", "사람/개 만남은 선택권 제공", "장난감·퍼즐로 에너지 해소", "건강 설문(식욕·배변·활동량)"],
                 medicalInfo: [],
             },
             {
@@ -577,13 +582,11 @@ export function CareStep() {
                 </div>
             </div>
 
-            {/* 오른쪽 로드맵 상세 */}
             <div className="rounded-2xl border border-gray-200 bg-white p-6">
                 <div className="mb-4 flex items-start justify-between gap-3">
                     <div>
                         <p className="text-sm text-gray-500">선택한 단계</p>
                         <h3 className="mt-1 text-lg font-semibold text-gray-900">{selected.title}</h3>
-
                         {isCompleted ? <p className="mt-2 text-sm text-gray-500">이 단계는 이미 완료되었습니다. 다음 단계로 진행해 주세요.</p> : null}
                     </div>
 
@@ -619,7 +622,6 @@ export function CareStep() {
                 </div>
 
                 <div className="flex flex-col gap-4">
-                    {/* 입양자 체크리스트 */}
                     <section className="rounded-xl border border-gray-200 p-4">
                         <h4 className="text-sm font-semibold text-gray-900">입양자 체크리스트</h4>
 
@@ -668,11 +670,18 @@ export function CareStep() {
                         <p className="mt-4 text-xs text-gray-400">* 진행중인 단계에서 체크/완료가 가능합니다.</p>
                     </section>
 
-                    {/* 예방접종 · 의료 정보 */}
+                    {activeIndex === 4 ? (
+                        <section className="rounded-xl border border-gray-200 p-4">
+                            <h4 className="text-sm font-semibold text-gray-900">1차 화상 상담 진행</h4>
+                            <div className="mt-3 rounded-lg border border-dashed border-gray-200 bg-gray-50 p-4 text-sm text-gray-500">
+                                WebRTC(OpenVidu) 연결 영역 (추후 구현)
+                            </div>
+                        </section>
+                    ) : null}
+
                     <section className="rounded-xl border border-gray-200 p-4">
                         <h4 className="text-sm font-semibold text-gray-900">예방접종 · 의료 정보</h4>
 
-                        {/* 일반 체크항목 */}
                         {selected.medicalInfo.length > 0 ? (
                             <div className="mt-3 space-y-2">
                                 {selected.medicalInfo.map((t, i) => {
@@ -689,7 +698,6 @@ export function CareStep() {
                             </div>
                         ) : null}
 
-                        {/* Day4-7 업로드 블록 */}
                         {activeIndex === 2 ? (
                             <div className="mt-5 rounded-lg border border-gray-100 bg-gray-50 p-4">
                                 <div className="flex items-start justify-between gap-3">
@@ -740,7 +748,6 @@ export function CareStep() {
                             </div>
                         ) : null}
 
-                        {/* Day30: PDF 2개 */}
                         {activeIndex === 4 ? (
                             <div className="mt-5 space-y-4">
                                 {PdfEvidenceBlock({
@@ -760,7 +767,6 @@ export function CareStep() {
                             </div>
                         ) : null}
 
-                        {/* Day60: 맨 아래에 PDF 제출 블록 추가 */}
                         {activeIndex === 5 ? (
                             <div className="mt-5">
                                 {PdfEvidenceBlock({
@@ -773,7 +779,6 @@ export function CareStep() {
                             </div>
                         ) : null}
 
-                        {/* Day90: 맨 아래에 PDF 제출 블록 추가 */}
                         {activeIndex === 6 ? (
                             <div className="mt-5">
                                 {PdfEvidenceBlock({

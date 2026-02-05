@@ -65,4 +65,7 @@ public interface AbandonedDogRepository extends JpaRepository<AbandonedDog, Long
 
     @Query("SELECT ad.processState, COUNT(ad) FROM AbandonedDog ad GROUP BY ad.processState")
     List<Object[]> countDogsByProcessState();
+
+    @Query(value = "SELECT * FROM abandoned_dog ORDER BY RAND() LIMIT :limit", nativeQuery = true)
+    List<AbandonedDog> findRandomDogs(@Param("limit") int limit);
 }

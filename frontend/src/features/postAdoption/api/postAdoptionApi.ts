@@ -257,6 +257,7 @@ export async function uploadEducationCert(
   payload: EducationCertUploadPayload
 ): Promise<EducationCertResponse> {
   const formData = new FormData();
+  // 변경 이유: Swagger 기준 키 + multipart/form-data는 브라우저가 boundary를 설정하도록 유지
   formData.append("educationInstitution", payload.educationInstitution);
   formData.append("certificateNumber", payload.certificateNumber);
   formData.append("completionDate", payload.completionDate);

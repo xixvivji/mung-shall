@@ -28,8 +28,8 @@ export default function Header() {
 
   return (
     <header className="sticky top-0 z-50 w-full bg-white" data-name="Header">
-      <div className="border-b border-[#e5e5e5]">
-        <div className="mx-auto flex h-[80px] w-full max-w-[1440px] items-center justify-between px-6">
+      <div>
+        <div className="mx-auto flex h-[60px] w-full max-w-[1440px] items-center justify-between px-6">
           {/* Logo */}
           <Link to={ROUTES.home} className="flex items-center">
             <img

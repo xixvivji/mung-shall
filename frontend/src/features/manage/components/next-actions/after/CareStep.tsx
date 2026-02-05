@@ -127,27 +127,38 @@ export function CareStep() {
 
     const [day0Photo, setDay0Photo] = useState<{ file: File | null; previewUrl?: string; error?: string }>({ file: null });
 
+    // ✅ 언마운트 시 미리보기 URL 정리
     useEffect(() => {
         return () => {
             if (day0Photo.previewUrl) URL.revokeObjectURL(day0Photo.previewUrl);
         };
     }, [day0Photo.previewUrl]);
 
-    const [checklist, setChecklist] = useState<ChecklistState>(() => {
-        const init: ChecklistState = {};
-        roadmap.forEach((r, idx) => {
-            init[idx] = new Array(r.adopterTodos.length).fill(false);
-        });
-        return init;
-    });
+    const [checklist, setChecklist] = useState<ChecklistState>({});
+    const [medicalChecklist, setMedicalChecklist] = useState<MedicalChecklistState>({});
 
-    const [medicalChecklist, setMedicalChecklist] = useState<MedicalChecklistState>(() => {
-        const init: MedicalChecklistState = {};
-        roadmap.forEach((r, idx) => {
-            init[idx] = new Array(r.medicalInfo.length).fill(false);
+    // ✅ roadmap 길이/항목 수 변경에도 체크리스트 길이 동기화(안정화)
+    useEffect(() => {
+        setChecklist((prev) => {
+            const next: ChecklistState = { ...prev };
+            roadmap.forEach((r, idx) => {
+                if (!next[idx] || next[idx].length !== r.adopterTodos.length) {
+                    next[idx] = new Array(r.adopterTodos.length).fill(false);
+                }
+            });
+            return next;
         });
-        return init;
-    });
+
+        setMedicalChecklist((prev) => {
+            const next: MedicalChecklistState = { ...prev };
+            roadmap.forEach((r, idx) => {
+                if (!next[idx] || next[idx].length !== r.medicalInfo.length) {
+                    next[idx] = new Array(r.medicalInfo.length).fill(false);
+                }
+            });
+            return next;
+        });
+    }, [roadmap]);
 
     const activeStepIndex = useMemo(() => {
         for (let i = 0; i < BASE_STEPS.length; i++) {
@@ -197,23 +208,23 @@ export function CareStep() {
         });
     };
 
+    // ✅ 이전 previewUrl revoke를 setState 콜백 안에서 안전하게 처리
     const onDay0PhotoChange = (file: File | null) => {
-        // 기존 preview 제거
-        if (day0Photo.previewUrl) URL.revokeObjectURL(day0Photo.previewUrl);
+        setDay0Photo((prev) => {
+            if (prev.previewUrl) URL.revokeObjectURL(prev.previewUrl);
 
-        if (!file) {
-            setDay0Photo({ file: null, previewUrl: undefined, error: "파일을 선택하세요." });
-            return;
-        }
+            if (!file) {
+                return { file: null, previewUrl: undefined, error: "파일을 선택하세요." };
+            }
 
-        const error = validatePhoto(file);
-        if (error) {
-            setDay0Photo({ file: null, previewUrl: undefined, error });
-            return;
-        }
+            const error = validatePhoto(file);
+            if (error) {
+                return { file: null, previewUrl: undefined, error };
+            }
 
-        const previewUrl = URL.createObjectURL(file);
-        setDay0Photo({ file, previewUrl, error: undefined });
+            const previewUrl = URL.createObjectURL(file);
+            return { file, previewUrl, error: undefined };
+        });
     };
 
     const completeCurrentStep = () => {
@@ -302,7 +313,7 @@ export function CareStep() {
                 <div className="mb-4 flex items-start justify-between gap-3">
                     <div>
                         <p className="text-sm text-gray-500">선택한 단계</p>
-                        <h3 className="mt-1 text-lg font-semibold text-gray-900">{selected.title}</h3>
+                        <h3 className="mt-1 text-lg font-semibold text-gray-900">{selected?.title}</h3>
 
                         {isCompleted ? (
                             <p className="mt-2 text-sm text-gray-500">이 단계는 이미 완료되었습니다. 다음 단계로 진행해 주세요.</p>
@@ -373,7 +384,7 @@ export function CareStep() {
                         ) : null}
 
                         <div className="mt-3 space-y-2">
-                            {selected.adopterTodos.map((t, i) => {
+                            {selected?.adopterTodos?.map((t, i) => {
                                 const checked = selectedChecks[i] ?? false;
                                 const disabled = isCompleted || activeIndex !== activeStepIndex;
 
@@ -402,7 +413,7 @@ export function CareStep() {
                         <h4 className="text-sm font-semibold text-gray-900">예방접종 · 의료 정보</h4>
 
                         <div className="mt-3 space-y-2">
-                            {selected.medicalInfo.map((t, i) => {
+                            {selected?.medicalInfo?.map((t, i) => {
                                 const checked = selectedMedicalChecks[i] ?? false;
                                 const disabled = isCompleted || activeIndex !== activeStepIndex;
 

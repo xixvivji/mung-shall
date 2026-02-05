@@ -80,6 +80,8 @@ export function CareStep() {
     });
 
     const selected = roadmap[activeIndex];
+    const isCompleted = stepStates[activeIndex]?.status === "completed";
+
     const selectedChecks = checklist[activeIndex] ?? [];
 
     const allChecked = selectedChecks.length > 0 && selectedChecks.every(Boolean);
@@ -97,6 +99,7 @@ export function CareStep() {
     };
 
     const completeCurrentStep = () => {
+        if (isCompleted) return;
         if (!allChecked) return;
 
         setStepStates((prev) => {
@@ -105,7 +108,7 @@ export function CareStep() {
             next[activeIndex].status = "completed";
 
             const nextIdx = activeIndex + 1;
-            if (next[nextIdx] && next[nextIdx].status === "pending") {
+            if (next[nextIdx] && next[nextIdx].status !== "completed") {
                 next[nextIdx].status = "active";
             }
 
@@ -136,17 +139,28 @@ export function CareStep() {
                     <div>
                         <p className="text-sm text-gray-500">선택한 단계</p>
                         <h3 className="mt-1 text-lg font-semibold text-gray-900">{selected.title}</h3>
+                        {isCompleted ? (
+                            <p className="mt-2 text-sm text-gray-500">이 단계는 이미 완료되었습니다. 다음 단계로 진행해 주세요.</p>
+                        ) : null}
+
                     </div>
 
                     <button
                         type="button"
                         onClick={completeCurrentStep}
-                        disabled={!allChecked}
+                        disabled={isCompleted || !allChecked}
                         className="h-10 shrink-0 rounded-xl bg-[#0064FF] px-4 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:opacity-40"
-                        title={!allChecked ? "입양자 해야 할 것 항목을 모두 체크하세요." : "이 단계를 완료합니다."}
+                        title={
+                            isCompleted
+                                ? "이미 완료된 단계입니다."
+                                : !allChecked
+                                    ? "입양자 해야 할 것 항목을 모두 체크하세요."
+                                    : "이 단계를 완료합니다."
+                        }
                     >
-                        이 단계 완료
+                        {isCompleted ? "완료됨" : "이 단계 완료"}
                     </button>
+
                 </div>
 
                 <div className="grid gap-4 md:grid-cols-3">
@@ -156,11 +170,15 @@ export function CareStep() {
                             {selected.adopterTodos.map((t, i) => {
                                 const checked = selectedChecks[i] ?? false;
                                 return (
-                                    <label key={t} className="flex cursor-pointer items-start gap-2 text-sm text-gray-700">
+                                    <label
+                                        key={t}
+                                        className={`flex items-start gap-2 text-sm ${isCompleted ? "cursor-default text-gray-500" : "cursor-pointer text-gray-700"}`}
+                                    >
                                         <input
                                             type="checkbox"
                                             className="mt-1 h-4 w-4"
                                             checked={checked}
+                                            disabled={isCompleted}
                                             onChange={() => toggleTodo(i)}
                                         />
                                         <span className={checked ? "line-through text-gray-400" : ""}>{t}</span>

@@ -2,3 +2,6 @@
 @import './tailwind.css';
 @import './theme.css';
 @import '../shared/styles/globals.css';
+
+@config "../../tailwind.config.js";
+@import "tailwindcss";

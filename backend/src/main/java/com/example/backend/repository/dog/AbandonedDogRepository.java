@@ -1,6 +1,7 @@
 package com.example.backend.repository.dog;
 
 import com.example.backend.domain.dog.AbandonedDog;
+import com.example.backend.domain.dog.personality.DogPersonality;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -65,4 +66,20 @@ public interface AbandonedDogRepository extends JpaRepository<AbandonedDog, Long
 
     @Query("SELECT ad.processState, COUNT(ad) FROM AbandonedDog ad GROUP BY ad.processState")
     List<Object[]> countDogsByProcessState();
+
+    /**
+     * ✅ DogPersonality가 없는 유기견만 조회 (백필 생성 대상)
+     * - JPQL join on 대신 NOT EXISTS로 안정성 확보
+     */
+    @Query("""
+        select a
+        from AbandonedDog a
+        where not exists (
+            select 1
+            from DogPersonality p
+            where p.abandonedDog = a
+        )
+        """)
+    List<AbandonedDog> findWithoutPersonality();
+
 }

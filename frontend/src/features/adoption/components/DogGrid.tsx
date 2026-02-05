@@ -4,12 +4,13 @@ import { useAlertModal } from "@/shared/hooks/useAlertModal";
 import DogCard from "./DogCard";
 import type { AdoptionDog } from "../types";
 import useFavoriteDogs, { resolveFavoriteErrorMessage } from "../hooks/useFavoriteDogs";
+import useAuth from "@/features/auth/hooks/useAuth";
 
 type DogGridProps = {
   dogs: AdoptionDog[];
 };
 
-export default function DogGrid({ dogs }: DogGridProps) {
+function FavoriteDogGrid({ dogs }: DogGridProps) {
   const { openAlert, alertProps } = useAlertModal();
   const { isFavorite, pendingIds, toggleFavorite } = useFavoriteDogs();
 
@@ -46,4 +47,37 @@ export default function DogGrid({ dogs }: DogGridProps) {
       <AlertModal {...alertProps} />
     </>
   );
+}
+
+function ShelterDogGrid({ dogs }: DogGridProps) {
+  return (
+    <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+      {dogs.map((dog) => {
+        return (
+          <DogCard
+            key={dog.id}
+            dog={dog}
+            favoriteActive={false}
+            favoriteDisabled={true}
+            onToggleFavorite={() => {}}
+            showFavoriteButton={false}
+          />
+        );
+      })}
+    </div>
+  );
+}
+
+export default function DogGrid({ dogs }: DogGridProps) {
+  const { user } = useAuth();
+  const normalizedUserType = String(
+    user?.userType ?? (user as { type?: string } | null)?.type ?? ""
+  ).toLowerCase();
+  const isShelter = normalizedUserType === "shelter";
+
+  if (isShelter) {
+    return <ShelterDogGrid dogs={dogs} />;
+  }
+
+  return <FavoriteDogGrid dogs={dogs} />;
 }

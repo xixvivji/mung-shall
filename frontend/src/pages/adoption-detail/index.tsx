@@ -41,11 +41,11 @@ export default function AdoptionDetailPage() {
   const idLabel = detail.noticeNo ?? detail.desertionNo ?? detail.id;
 
   return (
-    <section className="mx-auto max-w-[1200px] px-6 py-16">
-      <header className="space-y-2">
-        <h1 className="text-2xl font-semibold text-[#333] md:text-3xl">{title}</h1>
-        <p className="text-sm font-medium text-[#777]">ID {idLabel}</p>
-      </header>
+    <section className="mx-auto max-w-[1200px] px-6 py-20">
+        <p className="text-sm text-[#6B7280]">홈 &gt; 입양하기 &gt; ID {idLabel}</p>
+        <h1 className="text-[33px] font-bold tracking-tight text-[#333]">
+          {title}
+        </h1>
 
       <div className="mt-8 grid gap-8 lg:grid-cols-[1.1fr_0.9fr]">
         <DogGallery images={detail.images} />

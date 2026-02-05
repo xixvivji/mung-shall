@@ -43,8 +43,8 @@ export function FaqList() {
 
   return (
     <section className="mx-auto max-w-[1200px] px-6 py-20">
+      <p className="text-sm text-[#6B7280]">홈 &gt; FAQ</p>
       <div className="grid grid-cols-[240px_1fr] gap-20">
-        {/* ✅ 왼쪽: FAQ 제목 + 이미지 */}
         <div className="flex flex-col gap-8">
           <h1 className="text-[48px] font-bold tracking-tight text-[#333]">
             FAQ

@@ -8,21 +8,20 @@ type RoadmapDetail = {
     platformFeatures: string[];
 };
 
+type ChecklistState = Record<number, boolean[]>; // stepIndex -> boolean[]
+
 export function CareStep() {
     const [activeIndex, setActiveIndex] = useState(0);
 
-    const steps = useMemo<StepperItem[]>(
-        () => [
-            { title: "입양 당일 체크", status: "active", time: "Day 0" },
-            { title: "3일차 체크", status: "pending", time: "Day 3" },
-            { title: "1주 적응", status: "pending", time: "Day 7" },
-            { title: "2주 점검", status: "pending", time: "Day 14" },
-            { title: "1개월 건강 체크", status: "pending", time: "Day 30" },
-            { title: "2개월 체크", status: "pending", time: "Day 60" },
-            { title: "3개월 마무리", status: "pending", time: "Day 90" },
-        ],
-        []
-    );
+    const [stepStates, setStepStates] = useState<StepperItem[]>([
+        { title: "입양 당일 체크", status: "active", time: "Day 0" },
+        { title: "3일차 체크", status: "pending", time: "Day 3" },
+        { title: "1주 적응", status: "pending", time: "Day 7" },
+        { title: "2주 점검", status: "pending", time: "Day 14" },
+        { title: "1개월 건강 체크", status: "pending", time: "Day 30" },
+        { title: "2개월 체크", status: "pending", time: "Day 60" },
+        { title: "3개월 마무리", status: "pending", time: "Day 90" },
+    ]);
 
     const roadmap = useMemo<RoadmapDetail[]>(
         () => [
@@ -72,17 +71,57 @@ export function CareStep() {
         []
     );
 
+    const [checklist, setChecklist] = useState<ChecklistState>(() => {
+        const init: ChecklistState = {};
+        roadmap.forEach((r, idx) => {
+            init[idx] = new Array(r.adopterTodos.length).fill(false);
+        });
+        return init;
+    });
+
     const selected = roadmap[activeIndex];
+    const selectedChecks = checklist[activeIndex] ?? [];
+
+    const allChecked = selectedChecks.length > 0 && selectedChecks.every(Boolean);
 
     const onPrev = () => setActiveIndex((v) => Math.max(0, v - 1));
-    const onNext = () => setActiveIndex((v) => Math.min(steps.length - 1, v + 1));
+    const onNext = () => setActiveIndex((v) => Math.min(stepStates.length - 1, v + 1));
+
+    const toggleTodo = (todoIndex: number) => {
+        setChecklist((prev) => {
+            const current = prev[activeIndex] ?? [];
+            const next = [...current];
+            next[todoIndex] = !next[todoIndex];
+            return { ...prev, [activeIndex]: next };
+        });
+    };
+
+    const completeCurrentStep = () => {
+        if (!allChecked) return;
+
+        setStepStates((prev) => {
+            const next = prev.map((s) => ({ ...s }));
+
+            next[activeIndex].status = "completed";
+
+            const nextIdx = activeIndex + 1;
+            if (next[nextIdx] && next[nextIdx].status === "pending") {
+                next[nextIdx].status = "active";
+            }
+
+            return next;
+        });
+
+        if (activeIndex < stepStates.length - 1) {
+            setActiveIndex((v) => Math.min(stepStates.length - 1, v + 1));
+        }
+    };
 
     return (
         <div className="grid gap-6 lg:grid-cols-[420px_1fr]">
-            {/* 좌측: 스텝퍼 */}
             <div>
                 <PostAdoptionStepper
-                    steps={steps}
+                    steps={stepStates}
                     activeIndex={activeIndex}
                     onSelect={setActiveIndex}
                     onPrev={onPrev}
@@ -92,25 +131,49 @@ export function CareStep() {
                 />
             </div>
 
-            {/* 우측: 선택 단계 상세 패널 */}
             <div className="rounded-2xl border border-gray-200 bg-white p-6">
-                <div className="mb-4">
-                    <p className="text-sm text-gray-500">선택한 단계</p>
-                    <h3 className="mt-1 text-lg font-semibold text-gray-900">{selected.title}</h3>
+                <div className="mb-4 flex items-start justify-between gap-3">
+                    <div>
+                        <p className="text-sm text-gray-500">선택한 단계</p>
+                        <h3 className="mt-1 text-lg font-semibold text-gray-900">{selected.title}</h3>
+                    </div>
+
+                    <button
+                        type="button"
+                        onClick={completeCurrentStep}
+                        disabled={!allChecked}
+                        className="h-10 shrink-0 rounded-xl bg-[#0064FF] px-4 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:opacity-40"
+                        title={!allChecked ? "입양자 해야 할 것 항목을 모두 체크하세요." : "이 단계를 완료합니다."}
+                    >
+                        이 단계 완료
+                    </button>
                 </div>
 
                 <div className="grid gap-4 md:grid-cols-3">
-                    {/* 입양자 해야 할 것 */}
                     <section className="rounded-xl border border-gray-200 p-4">
                         <h4 className="text-sm font-semibold text-gray-900">입양자 해야 할 것</h4>
-                        <ul className="mt-3 list-disc space-y-1 pl-5 text-sm text-gray-700">
-                            {selected.adopterTodos.map((t) => (
-                                <li key={t}>{t}</li>
-                            ))}
-                        </ul>
+                        <div className="mt-3 space-y-2">
+                            {selected.adopterTodos.map((t, i) => {
+                                const checked = selectedChecks[i] ?? false;
+                                return (
+                                    <label key={t} className="flex cursor-pointer items-start gap-2 text-sm text-gray-700">
+                                        <input
+                                            type="checkbox"
+                                            className="mt-1 h-4 w-4"
+                                            checked={checked}
+                                            onChange={() => toggleTodo(i)}
+                                        />
+                                        <span className={checked ? "line-through text-gray-400" : ""}>{t}</span>
+                                    </label>
+                                );
+                            })}
+                        </div>
+
+                        <p className="mt-4 text-xs text-gray-400">
+                            * 체크를 모두 완료하면 “이 단계 완료” 버튼이 활성화됩니다.
+                        </p>
                     </section>
 
-                    {/* 예방접종·의료 정보 */}
                     <section className="rounded-xl border border-gray-200 p-4">
                         <h4 className="text-sm font-semibold text-gray-900">예방접종 · 의료 정보</h4>
                         <ul className="mt-3 list-disc space-y-1 pl-5 text-sm text-gray-700">
@@ -120,7 +183,6 @@ export function CareStep() {
                         </ul>
                     </section>
 
-                    {/* 플랫폼 기능 */}
                     <section className="rounded-xl border border-gray-200 p-4">
                         <h4 className="text-sm font-semibold text-gray-900">플랫폼(시스템) 기능</h4>
                         <ul className="mt-3 list-disc space-y-1 pl-5 text-sm text-gray-700">

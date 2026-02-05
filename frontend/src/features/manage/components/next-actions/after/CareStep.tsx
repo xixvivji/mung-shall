@@ -55,38 +55,71 @@ export function CareStep() {
         () => [
             {
                 title: "입양 당일 (Day 0)",
-                adopterTodos: ["식사·배변 여부 체크", "이상 행동 체크"],
-                medicalInfo: ["기존 예방접종 내역 확인", "중성화 여부 확인", "건강기록 인수"],
+                adopterTodos: [
+                    "조용한 휴식 공간 마련(안전 구역 고정)",
+                    "만지기/사진/손님 최소화",
+                    "식사·배변 시간 간단 기록",
+                    "산책은 상황 봐서 짧게(무리 금지)",
+                    "식사·배변 여부 체크",
+                    "이상 행동 체크",
+                ],
+                medicalInfo: [
+                    "기존 예방접종 내역 확인",
+                    "중성화 여부 확인",
+                    "건강기록 인수",
+                    "접종 스케줄(2주 간격) 확인",
+                ],
             },
             {
-                title: "3일차 (Day 3)",
-                adopterTodos: ["스트레스/식욕 변화 체크", "근황 사진 또는 영상 업로드"],
-                medicalInfo: ["구토·설사·무기력 여부 관찰"],
+                title: "3일차 체크 (Day 1–3)",
+                adopterTodos: [
+                    "휴식 공간 유지(환경 크게 바꾸지 않기)",
+                    "식사·배변 기록 계속하기",
+                    "산책은 짧게, 스트레스 신호 보이면 중단",
+                    "배변 실수 줄어드는지 확인",
+                ],
+                medicalInfo: ["구토·설사·무기력 여부 관찰", "접종 후 이상 반응(무기력/식욕저하) 체크"],
             },
             {
-                title: "7일차 (1주)",
-                adopterTodos: ["생활 루틴 입력", "1주 후기 작성"],
-                medicalInfo: ["종합백신(DHPPL) 1차 여부 확인", "코로나 장염 접종 여부 확인"],
+                title: "1주 적응 (Day 4–7)",
+                adopterTodos: [
+                    "집 루틴 만들기(식사-휴식-짧은 산책)",
+                    "하네스 적응(간식으로 긍정 연결)",
+                    "‘이름-시선’ 5분씩 연습",
+                    "혼자 있는 연습 1–5분부터 시작",
+                ],
+                medicalInfo: ["종합백신 1차 + 코로나장염 1차 확인", "다음 접종(2주 후) 일정 인지"],
             },
             {
-                title: "2주차 (Day 14)",
-                adopterTodos: ["산책 가능 여부 체크", "문제 행동 설문"],
-                medicalInfo: ["켄넬코프 접종 권장", "외부 접촉 전 접종 여부 확인"],
+                title: "2주 점검 (Day 14)",
+                adopterTodos: [
+                    "배변 루틴 강화(성공 시 즉시 보상)",
+                    "‘앉아/기다려/이리와’ 짧게 연습",
+                    "손/발/귀 만지기 허용 훈련",
+                    "사회화는 ‘노출’만 진행",
+                ],
+                medicalInfo: ["종합백신 2차 + 코로나장염 2차 체크", "외부 활동 전 접종 여부 확인"],
             },
             {
-                title: "1개월 (30일)",
-                adopterTodos: ["건강 설문(식욕·배변·활동량)", "사진 2장 이상 업로드"],
-                medicalInfo: ["종합백신 2차 접종 시기", "심장사상충 예방 시작 권장"],
+                title: "1개월 건강 체크 (Day 30)",
+                adopterTodos: [
+                    "루틴 안정화 및 생활 적응 확인",
+                    "사람/개 만남은 선택권 제공",
+                    "장난감·퍼즐로 에너지 해소",
+                    "건강 설문(식욕·배변·활동량)",
+                    "보호소와 사후관리 화상 상담 진행",
+                ],
+                medicalInfo: ["종합백신 3차 접종 여부 확인", "심장사상충·외부기생충 예방 여부 체크"],
             },
             {
-                title: "2개월 (60일)",
-                adopterTodos: ["산책·훈련 유지 체크"],
-                medicalInfo: ["종합백신 3차 접종 시기", "외부 활동 안정 가능"],
+                title: "2개월 체크 (Day 60)",
+                adopterTodos: ["산책·훈련 루틴 유지 확인", "혼자 있는 시간 10–30분 유지", "문제 행동 발생 여부 점검", "사후관리 화상 채팅 참여"],
+                medicalInfo: ["종합백신 4차 + 켄넬코프 접종 여부 확인", "외부 활동 안정 여부 점검"],
             },
             {
-                title: "3개월 (90일)",
-                adopterTodos: ["최종 후기 작성", "입양 확정 동의"],
-                medicalInfo: ["광견병 예방접종 필수", "연간 접종 스케줄 안내"],
+                title: "3개월 마무리 (Day 90)",
+                adopterTodos: ["최종 후기 작성", "입양 확정 동의", "분리·자극 상황에서 안정 여부 확인", "최종 사후관리 화상 상담 진행"],
+                medicalInfo: ["광견병 예방접종 여부 확인", "연간 예방접종 스케줄 안내 확인"],
             },
         ],
         []
@@ -119,11 +152,7 @@ export function CareStep() {
 
     const stepStates = useMemo(() => {
         return BASE_STEPS.map((s, idx) => {
-            const status: CareUiStatus = completedSet.has(idx)
-                ? "completed"
-                : idx === activeStepIndex
-                    ? "active"
-                    : "pending";
+            const status: CareUiStatus = completedSet.has(idx) ? "completed" : idx === activeStepIndex ? "active" : "pending";
             return { ...s, status };
         });
     }, [completedSet, activeStepIndex]);
@@ -140,12 +169,7 @@ export function CareStep() {
     const needsDay0Photo = activeIndex === 0;
     const day0PhotoOk = !needsDay0Photo || !!day0Photo.file;
 
-    const canCompleteCurrent =
-        !isCompleted &&
-        activeIndex === activeStepIndex &&
-        allCheckedTodos &&
-        allCheckedMedical &&
-        day0PhotoOk;
+    const canCompleteCurrent = !isCompleted && activeIndex === activeStepIndex && allCheckedTodos && allCheckedMedical && day0PhotoOk;
 
     const toggleTodo = (todoIndex: number) => {
         if (isCompleted) return;
@@ -268,8 +292,7 @@ export function CareStep() {
                             <p className="mt-2 text-sm text-gray-500">이 단계는 이미 완료되었습니다. 다음 단계로 진행해 주세요.</p>
                         ) : activeIndex !== activeStepIndex ? (
                             <p className="mt-2 text-sm text-gray-500">
-                                현재 진행중인 단계는{" "}
-                                <span className="font-semibold text-gray-900">{BASE_STEPS[activeStepIndex]?.title}</span> 입니다.
+                                현재 진행중인 단계는 <span className="font-semibold text-gray-900">{BASE_STEPS[activeStepIndex]?.title}</span> 입니다.
                             </p>
                         ) : null}
                     </div>
@@ -311,9 +334,7 @@ export function CareStep() {
                                     className="block w-full text-sm text-gray-700 file:mr-4 file:rounded-md file:border-0 file:bg-gray-100 file:px-4 file:py-2 file:text-sm file:font-medium file:text-gray-700 hover:file:bg-gray-200"
                                     disabled={isCompleted || activeIndex !== activeStepIndex}
                                 />
-                                {day0Photo.file ? (
-                                    <p className="text-xs text-gray-500">선택된 파일: {day0Photo.file.name}</p>
-                                ) : null}
+                                {day0Photo.file ? <p className="text-xs text-gray-500">선택된 파일: {day0Photo.file.name}</p> : null}
                                 {day0Photo.error ? <p className="text-xs text-red-600">{day0Photo.error}</p> : null}
                             </div>
                         ) : null}
@@ -326,9 +347,7 @@ export function CareStep() {
                                 return (
                                     <label
                                         key={t}
-                                        className={`flex items-start gap-2 text-sm ${
-                                            disabled ? "cursor-default text-gray-500" : "cursor-pointer text-gray-700"
-                                        }`}
+                                        className={`flex items-start gap-2 text-sm ${disabled ? "cursor-default text-gray-500" : "cursor-pointer text-gray-700"}`}
                                     >
                                         <input
                                             type="checkbox"
@@ -357,9 +376,7 @@ export function CareStep() {
                                 return (
                                     <label
                                         key={t}
-                                        className={`flex items-start gap-2 text-sm ${
-                                            disabled ? "cursor-default text-gray-500" : "cursor-pointer text-gray-700"
-                                        }`}
+                                        className={`flex items-start gap-2 text-sm ${disabled ? "cursor-default text-gray-500" : "cursor-pointer text-gray-700"}`}
                                     >
                                         <input
                                             type="checkbox"

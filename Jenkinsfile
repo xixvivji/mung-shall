@@ -144,15 +144,15 @@ scrape_configs:
 EOF
                         '''
 
-                        // 3. 배포 실행 (⚡ 여기가 핵심 수정!)
+                        // 3. 배포 실행
 
                         // [수정 2] docker rm, docker-compose down 삭제 (충돌 방지)
 
-                        // [단계 1] 인프라: 꺼져있을 때만 켭니다 (재생성 X -> 속도 UP)
-                        sh 'docker-compose up -d --force-recreate mysql redis prometheus grafana node-exporter'
+                       // [단계 1] 인프라: --remove-orphans 추가 (설정 파일에 없는 옛날 컨테이너 자동 삭제)
+                        sh 'docker-compose up -d --force-recreate --remove-orphans mysql redis prometheus grafana node-exporter'
 
-                        // [단계 2] 앱: 코드가 바뀐 백엔드/프론트엔드만 강제로 새로 만듭니다
-                        sh 'docker-compose up -d --force-recreate --build backend frontend'
+                                               // [단계 2] 앱: 여기도 혹시 모르니 추가
+                        sh 'docker-compose up -d --force-recreate --build --remove-orphans backend frontend'
 
                         // 뒷정리
                         sh 'docker image prune -f'

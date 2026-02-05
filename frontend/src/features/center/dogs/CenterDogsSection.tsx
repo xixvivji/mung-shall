@@ -117,7 +117,7 @@ export function CenterDogsSection() {
       <CardHeader>
         <div>
           <CardTitle className="text-lg font-semibold text-slate-900">보호 중</CardTitle>
-          <CardDescription className="text-sm text-slate-600">
+          <CardDescription className="text-sm text-slate-600 mt-2">
             센터에서 현재 보호 중인 강아지 목록입니다.
           </CardDescription>
         </div>

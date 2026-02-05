@@ -32,6 +32,9 @@ type Props = {
   onStepReject: () => void;
 
   actionLoading: boolean;
+
+  /** ✅ 추가: StepList 카드 안(하단)에 최종 승인/반려 버튼을 넣기 위한 slot */
+  footer?: React.ReactNode;
 };
 
 function formatFileSize(bytes?: number) {
@@ -69,6 +72,7 @@ export function StepList({
   onStepApprove,
   onStepReject,
   actionLoading,
+  footer, // ✅ 추가
 }: Props) {
   return (
     <div className="rounded-2xl border border-slate-200 p-4">
@@ -270,7 +274,6 @@ export function StepList({
                               </div>
                             </div>
 
-                            {/* ✅ 1개라도 제출되면(=step SUBMITTED) 제출된 파일 "조회 가능" → 여기 리스트에 노출됨 */}
                             {submittedDocs.length === 0 ? (
                               <div className="text-xs text-slate-500">제출된 문서가 없습니다.</div>
                             ) : (
@@ -310,14 +313,12 @@ export function StepList({
                               </ul>
                             )}
 
-                            {/* ✅ 3개 미만이면 버튼 숨기고 안내 */}
                             {isActionable && !allSubmitted ? (
                               <div className="rounded-xl bg-slate-50 p-3 text-xs text-slate-600">
                                 문서 {total}개가 모두 제출되어야 승인/반려가 가능합니다.
                               </div>
                             ) : null}
 
-                            {/* ✅ 3개 모두 제출 시에만 승인/반려 버튼 */}
                             {canActionHere ? (
                               <div className="pt-2 flex flex-wrap gap-2">
                                 <button
@@ -414,6 +415,11 @@ export function StepList({
       ) : (
         <div className="mt-3 rounded-xl bg-slate-50 p-4 text-xs text-slate-500">단계 정보가 없습니다.</div>
       )}
+
+      {/* ✅ 여기: StepList "카드 안" 하단에 최종 승인/반려를 렌더 */}
+      {footer ? (
+        <div className="mt-4 border-t border-slate-200 pt-4">{footer}</div>
+      ) : null}
     </div>
   );
 }

@@ -130,3 +130,15 @@ export type AdoptionDocumentResponse = {
   filePath: string;
   fileSize: number;
 };
+
+export type AdoptionDocumentItem = {
+  id?: number | null;
+  documentType: string;
+  originalFileName: string;
+  filePath?: string | null;
+  fileSize?: number | null;
+};
+
+export type AdoptionDocumentUploadResponse = {
+  documentId: number;
+};

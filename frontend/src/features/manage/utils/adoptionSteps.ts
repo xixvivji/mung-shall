@@ -136,6 +136,19 @@ export function resolveServerStepKey(
   return null;
 }
 
+export function resolveServerStepKeyWithIndex(
+  step: ServerStepLike,
+  index: number
+): AdoptionStep | null {
+  const stepName = resolveRawStepName(step);
+  const stepOrder = resolveRawStepOrder(step);
+  let key = resolveServerStepKey(stepName, stepOrder);
+  if (!key && Number.isFinite(index)) {
+    key = STEP_ORDER_FALLBACK[index + 1] ?? null;
+  }
+  return key;
+}
+
 export function mapServerStatusToUiStatus(status?: string | null): UiStepStatus {
   const normalized = status?.trim().toUpperCase();
   switch (normalized as AdoptionStepStatus) {

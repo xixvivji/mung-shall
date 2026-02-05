@@ -123,10 +123,13 @@ export default function PostAdoptionStepper({
                         <div className="stepper-line" />
 
                         <div className="stepper-content">
-                            <div className="stepper-title">{s.title}</div>
-                            <div className="stepper-status">{statusLabel(s.state)}</div>
+                            <div className="stepper-header">
+                                <div className="stepper-title">{s.title}</div>
+                                <div className="stepper-status">{statusLabel(s.state)}</div>
+                            </div>
                             {s.time ? <div className="stepper-time">{s.time}</div> : null}
                         </div>
+
                     </button>
                 );
             })}

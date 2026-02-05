@@ -9,6 +9,7 @@ import lombok.Setter;
 @Setter
 @Builder
 public class SubmissionItemResponse {
+    private Long id;
     private String submissionName;
     private String description;
     private boolean submitted;
@@ -16,5 +17,5 @@ public class SubmissionItemResponse {
     private SubmissionType type;
     private String fileUrl;
     private String originalFileName;
-    private PostAdoptionStepCategory category; // To categorize
+    private PostAdoptionStepCategory category;
 }

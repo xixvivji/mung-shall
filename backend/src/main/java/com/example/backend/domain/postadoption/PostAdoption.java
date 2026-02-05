@@ -1,7 +1,6 @@
 package com.example.backend.domain.postadoption;
 
 import com.example.backend.domain.adoption.Adoption;
-import com.example.backend.domain.postadoption.enums.PostAdoptionProcessStatus;
 import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
@@ -30,7 +29,6 @@ public class PostAdoption {
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
-    private PostAdoptionProcessStatus processStatus;
 
     @OneToMany(mappedBy = "postAdoption", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<PostAdoptionStepInstance> stepInstances = new ArrayList<>();
@@ -43,7 +41,6 @@ public class PostAdoption {
 
     public PostAdoption(Adoption adoption) {
         this.adoption = adoption;
-        this.processStatus = PostAdoptionProcessStatus.IN_PROGRESS; // 초기 상태는 IN_PROGRESS
     }
 
     // Helper method to add steps

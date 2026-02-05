@@ -1,6 +1,15 @@
 import { useMemo } from "react";
 import "@/shared/styles/uiverse/PostAdoptionStepper.css";
 
+const STEP_LABELS = [
+    "입양 설문 작성",
+    "입양 교육",
+    "입양 상담",
+    "개인서류 제출",
+    "입양 신청서 작성",
+    "입양 신청서 제출",
+] as const;
+
 export type AdoptionStepStatus =
     | "NOT_STARTED"
     | "PENDING"
@@ -8,11 +17,10 @@ export type AdoptionStepStatus =
     | "APPROVED"
     | "REJECTED";
 
-export type StepperStatus = "completed" | "active" | "pending" | "rejected";
+type ResolvedStepState = "done" | "active" | "todo" | "rejected";
 
 export type StepperItem = {
-    title: string;
-    status: StepperStatus | AdoptionStepStatus;
+    status?: AdoptionStepStatus | null;
     time?: string;
 };
 
@@ -29,28 +37,17 @@ type Props = {
     className?: string;
 };
 
-function toUiStatus(status: StepperItem["status"]): StepperStatus {
-    // UI 상태면 그대로
-    if (
-        status === "completed" ||
-        status === "active" ||
-        status === "pending" ||
-        status === "rejected"
-    ) {
-        return status;
-    }
-
-    // backend -> UI
-    if (status === "APPROVED") return "completed";
+function resolveStepState(status?: AdoptionStepStatus | null): ResolvedStepState {
+    if (status === "APPROVED") return "done";
     if (status === "PENDING" || status === "SUBMITTED") return "active";
     if (status === "REJECTED") return "rejected";
-    return "pending"; // NOT_STARTED
+    return "todo"; // NOT_STARTED or undefined/null
 }
 
-function statusLabel(status: StepperStatus) {
-    if (status === "completed") return "Completed";
-    if (status === "active") return "In Progress";
-    if (status === "rejected") return "Rejected";
+function statusLabel(state: ResolvedStepState) {
+    if (state === "done") return "Completed";
+    if (state === "active") return "In Progress";
+    if (state === "rejected") return "Rejected";
     return "Pending";
 }
 
@@ -67,19 +64,33 @@ export default function PostAdoptionStepper({
     const canPrev = useMemo(() => Boolean(onPrev), [onPrev]);
     const canNext = useMemo(() => Boolean(onNext), [onNext]);
 
+    const uiSteps = useMemo(
+        () =>
+            STEP_LABELS.map((title, idx) => {
+                const backendStep = steps?.[idx];
+                return {
+                    title,
+                    state: resolveStepState(backendStep?.status ?? "NOT_STARTED"),
+                    time: backendStep?.time,
+                };
+            }),
+        [steps]
+    );
+
     return (
         <div className={`stepper-box ${className ?? ""}`}>
-            {steps.map((s, idx) => {
-                const ui = toUiStatus(s.status);
+            {uiSteps.map((s, idx) => {
+                const isDone = s.state === "done";
+                const isActive = s.state === "active";
+                const isRejected = s.state === "rejected";
 
-                const stepClass =
-                    ui === "completed"
-                        ? "stepper-step stepper-completed"
-                        : ui === "active"
-                            ? "stepper-step stepper-active"
-                            : ui === "rejected"
-                                ? "stepper-step stepper-pending stepper-rejected"
-                                : "stepper-step stepper-pending";
+                const stepClass = isDone
+                    ? "stepper-step stepper-completed"
+                    : isActive
+                        ? "stepper-step stepper-active"
+                        : isRejected
+                            ? "stepper-step stepper-pending stepper-rejected"
+                            : "stepper-step stepper-pending";
 
                 const isSelected = activeIndex === idx;
 
@@ -92,7 +103,7 @@ export default function PostAdoptionStepper({
                         style={{ textAlign: "left", width: "100%" }}
                     >
                         <div className="stepper-circle">
-                            {ui === "completed" ? (
+                            {isDone ? (
                                 <svg
                                     viewBox="0 0 16 16"
                                     className="bi bi-check-lg"
@@ -113,7 +124,7 @@ export default function PostAdoptionStepper({
 
                         <div className="stepper-content">
                             <div className="stepper-title">{s.title}</div>
-                            <div className="stepper-status">{statusLabel(ui)}</div>
+                            <div className="stepper-status">{statusLabel(s.state)}</div>
                             {s.time ? <div className="stepper-time">{s.time}</div> : null}
                         </div>
                     </button>

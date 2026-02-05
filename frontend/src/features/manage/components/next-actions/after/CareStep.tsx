@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import PostAdoptionStepper, { type StepperItem } from "@/shared/ui/uiverse/PostAdoptionStepper";
+import "@/shared/styles/uiverse/PostAdoptionStepper.css";
 
 type RoadmapDetail = {
     title: string;
@@ -10,7 +10,14 @@ type RoadmapDetail = {
 
 type ChecklistState = Record<number, boolean[]>;
 
-const BASE_STEPS: Omit<StepperItem, "status">[] = [
+type CareStepItem = {
+    title: string;
+    time?: string;
+};
+
+type CareUiStatus = "completed" | "active" | "pending";
+
+const BASE_STEPS: CareStepItem[] = [
     { title: "입양 당일 체크", time: "Day 0" },
     { title: "3일차 체크", time: "Day 3" },
     { title: "1주 적응", time: "Day 7" },
@@ -20,9 +27,14 @@ const BASE_STEPS: Omit<StepperItem, "status">[] = [
     { title: "3개월 마무리", time: "Day 90" },
 ];
 
+function statusLabel(status: CareUiStatus) {
+    if (status === "completed") return "Completed";
+    if (status === "active") return "In Progress";
+    return "Pending";
+}
+
 export function CareStep() {
     const [activeIndex, setActiveIndex] = useState(0);
-
     const [completedSet, setCompletedSet] = useState<Set<number>>(() => new Set());
 
     const roadmap = useMemo<RoadmapDetail[]>(
@@ -85,17 +97,16 @@ export function CareStep() {
         for (let i = 0; i < BASE_STEPS.length; i++) {
             if (!completedSet.has(i)) return i;
         }
-        return BASE_STEPS.length - 1; // 전부 완료면 마지막 유지
+        return BASE_STEPS.length - 1;
     }, [completedSet]);
 
-    const stepStates = useMemo<StepperItem[]>(() => {
+    const stepStates = useMemo(() => {
         return BASE_STEPS.map((s, idx) => {
-            const status: StepperItem["status"] = completedSet.has(idx)
+            const status: CareUiStatus = completedSet.has(idx)
                 ? "completed"
                 : idx === activeStepIndex
                     ? "active"
                     : "pending";
-
             return { ...s, status };
         });
     }, [completedSet, activeStepIndex]);
@@ -126,14 +137,7 @@ export function CareStep() {
             return next;
         });
 
-        const nextIdx = (() => {
-            for (let i = activeIndex + 1; i < BASE_STEPS.length; i++) {
-                if (!completedSet.has(i)) return i;
-            }
-            return Math.min(BASE_STEPS.length - 1, activeIndex + 1);
-        })();
-
-        setActiveIndex(nextIdx);
+        setActiveIndex((prevIdx) => Math.min(BASE_STEPS.length - 1, prevIdx + 1));
     };
 
     const onPrev = () => setActiveIndex((v) => Math.max(0, v - 1));
@@ -141,18 +145,70 @@ export function CareStep() {
 
     return (
         <div className="grid gap-6 lg:grid-cols-[420px_1fr]">
-            <div>
-                <PostAdoptionStepper
-                    steps={stepStates}
-                    activeIndex={activeIndex}
-                    onSelect={setActiveIndex}
-                    onPrev={onPrev}
-                    onNext={onNext}
-                    prevLabel="이전"
-                    nextLabel="다음"
-                />
+            <div className="stepper-box">
+                {stepStates.map((s, idx) => {
+                    const stepClass =
+                        s.status === "completed"
+                            ? "stepper-step stepper-completed"
+                            : s.status === "active"
+                                ? "stepper-step stepper-active"
+                                : "stepper-step stepper-pending";
+
+                    const isSelected = activeIndex === idx;
+
+                    return (
+                        <button
+                            key={`${s.title}-${idx}`}
+                            type="button"
+                            className={`${stepClass} ${isSelected ? "stepper-selected" : ""}`}
+                            onClick={() => setActiveIndex(idx)}
+                            style={{ textAlign: "left", width: "100%" }}
+                        >
+                            <div className="stepper-circle">
+                                {s.status === "completed" ? (
+                                    <svg
+                                        viewBox="0 0 16 16"
+                                        className="bi bi-check-lg"
+                                        fill="currentColor"
+                                        height="16"
+                                        width="16"
+                                        xmlns="http://www.w3.org/2000/svg"
+                                        aria-hidden="true"
+                                    >
+                                        <path d="M12.736 3.97a.733.733 0 0 1 1.047 0c.286.289.29.756.01 1.05L7.88 12.01a.733.733 0 0 1-1.065.02L3.217 8.384a.757.757 0 0 1 0-1.06.733.733 0 0 1 1.047 0l3.052 3.093 5.4-6.425z" />
+                                    </svg>
+                                ) : (
+                                    idx + 1
+                                )}
+                            </div>
+
+                            <div className="stepper-line" />
+
+                            <div className="stepper-content">
+                                <div className="stepper-title">{s.title}</div>
+                                <div className="stepper-status">{statusLabel(s.status)}</div>
+                                {s.time ? <div className="stepper-time">{s.time}</div> : null}
+                            </div>
+                        </button>
+                    );
+                })}
+
+                <div className="stepper-controls">
+                    <button type="button" className="stepper-button" onClick={onPrev} disabled={activeIndex === 0}>
+                        이전
+                    </button>
+                    <button
+                        type="button"
+                        className="stepper-button stepper-button-primary"
+                        onClick={onNext}
+                        disabled={activeIndex === stepStates.length - 1}
+                    >
+                        다음
+                    </button>
+                </div>
             </div>
 
+            {/* 오른쪽 로드맵 상세 */}
             <div className="rounded-2xl border border-gray-200 bg-white p-6">
                 <div className="mb-4 flex items-start justify-between gap-3">
                     <div>
@@ -160,16 +216,11 @@ export function CareStep() {
                         <h3 className="mt-1 text-lg font-semibold text-gray-900">{selected.title}</h3>
 
                         {isCompleted ? (
-                            <p className="mt-2 text-sm text-gray-500">
-                                이 단계는 이미 완료되었습니다. 다음 단계로 진행해 주세요.
-                            </p>
+                            <p className="mt-2 text-sm text-gray-500">이 단계는 이미 완료되었습니다. 다음 단계로 진행해 주세요.</p>
                         ) : activeIndex !== activeStepIndex ? (
                             <p className="mt-2 text-sm text-gray-500">
                                 현재 진행중인 단계는{" "}
-                                <span className="font-semibold text-gray-900">
-                  {BASE_STEPS[activeStepIndex]?.title}
-                </span>
-                                입니다.
+                                <span className="font-semibold text-gray-900">{BASE_STEPS[activeStepIndex]?.title}</span> 입니다.
                             </p>
                         ) : null}
                     </div>
@@ -221,9 +272,7 @@ export function CareStep() {
                             })}
                         </div>
 
-                        <p className="mt-4 text-xs text-gray-400">
-                            * 진행중인 단계에서 체크/완료가 가능합니다.
-                        </p>
+                        <p className="mt-4 text-xs text-gray-400">* 진행중인 단계에서 체크/완료가 가능합니다.</p>
                     </section>
 
                     <section className="rounded-xl border border-gray-200 p-4">

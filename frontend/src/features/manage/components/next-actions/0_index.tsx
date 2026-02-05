@@ -16,25 +16,13 @@ type Props = {
   currentStep: AdoptionStep;
   selectedStep: AdoptionStep;
 
-  // ✅ 선택 단계만 변경(타임라인 클릭 등)
   onSelectStep?: (step: AdoptionStep) => void;
-
-  // ✅ 진행 단계도 변경(제출 성공 시 자동 전진)
   onAdvanceStep?: (step: AdoptionStep) => void;
   onSubmitStep?: (step: AdoptionStep) => Promise<void> | void;
   adoptionId?: number;
 };
 
 type StepStatus = "completed" | "current" | "pending";
-
-/** =========================
- *  NEW REAL FLOW ORDER
- *  A(입양 전): PROFILE -> APPLICATION -> EDUCATION_CERT
- *  B(입양 중): CONSULT -> DOCUMENT -> CONTRACT -> APPROVAL
- *  C(입양 후): PICKUP -> CARE
- *
- *  SELECT/SURVEY 제거. 다만 들어올 수 있으니 normalize로 방어.
- *  ========================= */
 
 const FULL_ORDER: AdoptionStep[] = [
   "PROFILE",
@@ -48,7 +36,6 @@ const FULL_ORDER: AdoptionStep[] = [
   "CARE",
 ];
 
-/** ✅ SURVEY가 들어오면 APPLICATION로 치환 (이동/상태 계산 안정화) */
 function normalizeStep(step: AdoptionStep): AdoptionStep {
   if (step === "SELECT") return "APPLICATION";
   if (step === "SURVEY") return "APPLICATION";
@@ -56,8 +43,7 @@ function normalizeStep(step: AdoptionStep): AdoptionStep {
 }
 
 function stepIndex(step: AdoptionStep) {
-  const s = normalizeStep(step);
-  return FULL_ORDER.indexOf(s);
+  return FULL_ORDER.indexOf(normalizeStep(step));
 }
 
 function getStepStatus(step: AdoptionStep, currentStep: AdoptionStep): StepStatus {
@@ -75,12 +61,11 @@ function stepLabel(step: AdoptionStep) {
     case "PROFILE":
       return "프로필 등록";
 
-    // A(입양 전)
     case "APPLICATION":
       return "입양 설문 작성";
     case "EDUCATION_CERT":
       return "입양 교육";
-    // B(입양 중)
+
     case "CONSULT":
       return "[진행중] 3단계 · 입양 상담";
     case "DOCUMENT":
@@ -90,7 +75,6 @@ function stepLabel(step: AdoptionStep) {
     case "APPROVAL":
       return "[진행중] 6단계 · 입양 심사";
 
-    // C(입양 후)
     case "PICKUP":
       return "반려견 인수";
     case "CARE":
@@ -115,38 +99,32 @@ function prevOf(step: AdoptionStep): AdoptionStep | null {
 }
 
 export function NextActions({
-  currentStep,
-  selectedStep,
-  onSelectStep,
-  onAdvanceStep,
-  onSubmitStep,
-  adoptionId,
-}: Props) {
+                              currentStep,
+                              selectedStep,
+                              onSelectStep,
+                              onAdvanceStep,
+                              onSubmitStep,
+                              adoptionId,
+                            }: Props) {
   const currentStepN = useMemo(() => normalizeStep(currentStep), [currentStep]);
   const selectedStepN = useMemo(() => normalizeStep(selectedStep), [selectedStep]);
 
-  // 잠금 트리거(프론트-only): 상담완료 → 1~2 잠금, 심사시작 → 4~5 잠금
   const [consultationConfirmed, setConsultationConfirmed] = useState(false);
   const [reviewStarted, setReviewStarted] = useState(false);
 
-  // 심사 진입 전 확인 모달 (문서/계약서 잠금 안내)
   const [isPreApprovalModalOpen, setIsPreApprovalModalOpen] = useState(false);
   const [pendingNextStep, setPendingNextStep] = useState<AdoptionStep | null>(null);
 
   const selectedStatus = useMemo(
-    () => getStepStatus(selectedStepN, currentStepN),
-    [selectedStepN, currentStepN]
+      () => getStepStatus(selectedStepN, currentStepN),
+      [selectedStepN, currentStepN]
   );
 
   const isEditableForStep = useMemo(() => {
     return (step: AdoptionStep) => {
       const s = normalizeStep(step);
 
-      // ✅ B단계 잠금 규칙만 적용 (A/C는 기본 편집 가능)
-      if (
-        consultationConfirmed &&
-        (s === "APPLICATION" || s === "EDUCATION_CERT")
-      ) {
+      if (consultationConfirmed && (s === "APPLICATION" || s === "EDUCATION_CERT")) {
         return false;
       }
 
@@ -158,7 +136,10 @@ export function NextActions({
     };
   }, [consultationConfirmed, reviewStarted]);
 
-  const isEditable = useMemo(() => isEditableForStep(selectedStepN), [isEditableForStep, selectedStepN]);
+  const isEditable = useMemo(
+      () => isEditableForStep(selectedStepN),
+      [isEditableForStep, selectedStepN]
+  );
 
   const lockReason = useMemo(() => {
     const s = normalizeStep(selectedStepN);
@@ -183,7 +164,6 @@ export function NextActions({
   const goNext = (next: AdoptionStep, completedStep?: AdoptionStep) => {
     const nn = normalizeStep(next);
 
-    // ✅ "APPROVAL"로 넘어갈 때만 확인 모달 (문서/계약서 잠금)
     if (nn === "APPROVAL") {
       setPendingNextStep(nn);
       setIsPreApprovalModalOpen(true);
@@ -207,184 +187,154 @@ export function NextActions({
     if (next) goNext(next, "CONSULT");
   };
 
-  const onStartReview = () => {
-    setReviewStarted(true);
-  };
-
   return (
-    <div className="bg-white rounded-2xl p-8 shadow-sm border border-gray-100">
-      <div className="flex items-start justify-between gap-4 mb-6">
-        <div>
-          <h2 className="text-xl text-gray-400">해야 할 일</h2>
-          <p className="mt-1 text-sm text-gray-500">
-            선택 단계:{" "}
-            <span className="font-semibold text-gray-800">
-              {stepLabel(selectedStepN)}
-            </span>
-            <span className="ml-2 text-xs text-gray-400">
+      <div className="bg-white rounded-2xl p-8 shadow-sm border border-gray-100">
+        <div className="flex items-start justify-between gap-4 mb-6">
+          <div>
+            <h2 className="text-xl text-gray-400">해야 할 일</h2>
+            <p className="mt-1 text-sm text-gray-500">
+              선택 단계:{" "}
+              <span className="font-semibold text-gray-800">{stepLabel(selectedStepN)}</span>
+              <span className="ml-2 text-xs text-gray-400">
               (
-              {selectedStatus === "current"
-                ? "진행중"
-                : selectedStatus === "completed"
-                  ? "완료"
-                  : "대기"}
-              )
+                {selectedStatus === "current"
+                    ? "진행중"
+                    : selectedStatus === "completed"
+                        ? "완료"
+                        : "대기"}
+                )
             </span>
-          </p>
-        </div>
-
-        <div className="text-sm text-gray-500">
-          {isEditable ? (
-            <span className="font-semibold text-[#3182F6]">편집 가능</span>
-          ) : (
-            <span>조회 전용</span>
-          )}
-        </div>
-      </div>
-
-      {!isEditable && lockReason && (
-        <div className="mb-6 rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 text-sm text-gray-600">
-          {lockReason}
-        </div>
-      )}
-
-      {/* =======================
-          A단계 (입양 전)
-         ======================= */}
-
-      {/* PROFILE 단계용 컴포넌트가 따로 있으면 여기 추가 */}
-      {selectedStepN === "PROFILE" && (
-        <div className="rounded-2xl border border-gray-200 p-6">
-          <p className="text-sm text-gray-600">프로필 등록 단계 UI가 아직 연결되지 않았습니다.</p>
-        </div>
-      )}
-
-      {selectedStepN === "APPLICATION" && (
-        <ApplicationStep
-          adoptionId={adoptionId}
-          isEditable={isEditable}
-          onSubmitSuccess={safeGoNextFromSelected}
-        />
-      )}
-
-      {selectedStepN === "EDUCATION_CERT" && (
-        <EducationCertStep
-          adoptionId={adoptionId}
-          isEditable={isEditable}
-          onSubmitSuccess={safeGoNextFromSelected}
-        />
-      )}
-
-      {/* =======================
-          B단계 (입양 중)
-         ======================= */}
-      {selectedStep === "CONSULT" && (
-        <ConsultStep
-          isEditable={isEditable}
-          adoptionId={adoptionId}
-          onConsultComplete={onConsultComplete}
-        />
-      )}
-
-      {selectedStepN === "DOCUMENT" && (
-        <DocumentStep
-          adoptionId={adoptionId}
-          isEditable={isEditable}
-          onSubmitSuccess={safeGoNextFromSelected}
-        />
-      )}
-
-      {selectedStepN === "CONTRACT" && (
-        <ContractStep
-          adoptionId={adoptionId}
-          isEditable={isEditable}
-          onSubmitSuccess={safeGoNextFromSelected}
-        />
-      )}
-
-      {selectedStepN === "APPROVAL" && (
-          <ApprovalStep
-              canReview={reviewStarted}
-          />
-      )}
-
-      {/* =======================
-          C단계 (입양 후)
-         ======================= */}
-      {selectedStepN === "PICKUP" && (
-        <PickupStep
-          // @ts-ignore
-          isEditable={isEditable}
-          // @ts-ignore
-          onSubmitSuccess={safeGoNextFromSelected}
-        />
-      )}
-
-      {selectedStepN === "CARE" && (
-        <CareStep
-          // @ts-ignore
-          isEditable={isEditable}
-          // @ts-ignore
-          onSubmitSuccess={safeGoNextFromSelected}
-        />
-      )}
-
-      <div className="mt-8 flex items-center justify-between gap-3">
-        <button
-          className="rounded-md border border-gray-200 px-4 py-2 text-sm text-gray-700 disabled:opacity-40"
-          disabled={!prevOf(selectedStepN)}
-          onClick={() => {
-            const prev = prevOf(selectedStepN);
-            if (prev) onSelectStep?.(prev);
-          }}
-        >
-          이전 단계로
-        </button>
-
-        <button
-          className="rounded-md bg-[#0064FF] hover:bg-[#0056E6] px-4 py-2 text-sm text-white disabled:opacity-40"
-          disabled={!nextOf(selectedStepN)}
-          onClick={safeGoNextFromSelected}
-        >
-          다음 단계로
-        </button>
-      </div>
-
-      {/* 심사 진입 확인 모달 */}
-      {isPreApprovalModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-          <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-lg">
-            <h3 className="text-lg font-semibold">심사 단계로 넘어갈까요?</h3>
-            <p className="mt-2 text-sm text-gray-600">
-              심사 단계로 넘어가면{" "}
-              <span className="font-semibold">입양 문서/계약서(4~5단계)</span>는 더 이상 수정할 수 없습니다.
             </p>
+          </div>
 
-            <div className="mt-6 flex justify-end gap-2">
-              <button
-                className="rounded-xl border border-gray-200 px-4 py-2 text-sm"
-                onClick={() => {
-                  setIsPreApprovalModalOpen(false);
-                  setPendingNextStep(null);
-                }}
-              >
-                취소
-              </button>
-
-              <button
-                className="rounded-xl bg-[#3182F6] px-4 py-2 text-sm text-white"
-                onClick={() => {
-                  setIsPreApprovalModalOpen(false);
-                  if (pendingNextStep) void advanceTo(pendingNextStep, selectedStepN);
-                  setPendingNextStep(null);
-                }}
-              >
-                확인
-              </button>
-            </div>
+          <div className="text-sm text-gray-500">
+            {isEditable ? (
+                <span className="font-semibold text-[#3182F6]">편집 가능</span>
+            ) : (
+                <span>조회 전용</span>
+            )}
           </div>
         </div>
-      )}
-    </div>
+
+        {!isEditable && lockReason && (
+            <div className="mb-6 rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 text-sm text-gray-600">
+              {lockReason}
+            </div>
+        )}
+
+        {/* A단계 */}
+        {selectedStepN === "PROFILE" && (
+            <div className="rounded-2xl border border-gray-200 p-6">
+              <p className="text-sm text-gray-600">프로필 등록 단계 UI가 아직 연결되지 않았습니다.</p>
+            </div>
+        )}
+
+        {selectedStepN === "APPLICATION" && (
+            <ApplicationStep
+                adoptionId={adoptionId}
+                isEditable={isEditable}
+                onSubmitSuccess={safeGoNextFromSelected}
+            />
+        )}
+
+        {selectedStepN === "EDUCATION_CERT" && (
+            <EducationCertStep
+                adoptionId={adoptionId}
+                isEditable={isEditable}
+                onSubmitSuccess={safeGoNextFromSelected}
+            />
+        )}
+
+        {/* B단계 */}
+        {selectedStepN === "CONSULT" && (
+            <ConsultStep
+                isEditable={isEditable}
+                adoptionId={adoptionId}
+                onConsultComplete={onConsultComplete}
+            />
+        )}
+
+        {selectedStepN === "DOCUMENT" && (
+            <DocumentStep
+                adoptionId={adoptionId}
+                isEditable={isEditable}
+                onSubmitSuccess={safeGoNextFromSelected}
+            />
+        )}
+
+        {selectedStepN === "CONTRACT" && (
+            <ContractStep
+                adoptionId={adoptionId}
+                isEditable={isEditable}
+                onSubmitSuccess={safeGoNextFromSelected}
+            />
+        )}
+
+        {selectedStepN === "APPROVAL" && <ApprovalStep canReview={reviewStarted} />}
+
+        {selectedStepN === "PICKUP" && (
+            <PickupStep onSubmitSuccess={safeGoNextFromSelected} />
+        )}
+
+        {/* CareStep이 props 안 받는 버전이면 그냥 이렇게 */}
+        {selectedStepN === "CARE" && <CareStep />}
+
+        <div className="mt-8 flex items-center justify-between gap-3">
+          <button
+              className="rounded-md border border-gray-200 px-4 py-2 text-sm text-gray-700 disabled:opacity-40"
+              disabled={!prevOf(selectedStepN)}
+              onClick={() => {
+                const prev = prevOf(selectedStepN);
+                if (prev) onSelectStep?.(prev);
+              }}
+          >
+            이전 단계로
+          </button>
+
+          <button
+              className="rounded-md bg-[#0064FF] hover:bg-[#0056E6] px-4 py-2 text-sm text-white disabled:opacity-40"
+              disabled={!nextOf(selectedStepN)}
+              onClick={safeGoNextFromSelected}
+          >
+            다음 단계로
+          </button>
+        </div>
+
+        {/* 심사 진입 확인 모달 */}
+        {isPreApprovalModalOpen && (
+            <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+              <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-lg">
+                <h3 className="text-lg font-semibold">심사 단계로 넘어갈까요?</h3>
+                <p className="mt-2 text-sm text-gray-600">
+                  심사 단계로 넘어가면{" "}
+                  <span className="font-semibold">입양 문서/계약서(4~5단계)</span>는 더 이상 수정할 수 없습니다.
+                </p>
+
+                <div className="mt-6 flex justify-end gap-2">
+                  <button
+                      className="rounded-xl border border-gray-200 px-4 py-2 text-sm"
+                      onClick={() => {
+                        setIsPreApprovalModalOpen(false);
+                        setPendingNextStep(null);
+                      }}
+                  >
+                    취소
+                  </button>
+
+                  <button
+                      className="rounded-xl bg-[#3182F6] px-4 py-2 text-sm text-white"
+                      onClick={() => {
+                        setIsPreApprovalModalOpen(false);
+                        if (pendingNextStep) void advanceTo(pendingNextStep, selectedStepN);
+                        setPendingNextStep(null);
+                      }}
+                  >
+                    확인
+                  </button>
+                </div>
+              </div>
+            </div>
+        )}
+      </div>
   );
 }

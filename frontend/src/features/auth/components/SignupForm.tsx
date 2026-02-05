@@ -63,11 +63,12 @@ function resolveErrorMessage(err: unknown) {
 function Back() {
   return (
     <div
-      className="absolute left-[678px] top-[142px] h-[800px] w-[720px] bg-white"
+      className="fixed inset-0 bg-white"
       data-name="back"
     />
   );
 }
+
 
 function Label({
   text,
@@ -190,7 +191,7 @@ function Field({
 function TermsText() {
   return (
     <div
-      className="absolute left-[863px] top-[945px] flex w-[350px] items-center justify-center"
+      className="absolute left-[650px] top-[905px] flex w-[350px] items-center justify-center"
       data-name="text"
     >
       <p className="text-center font-['Inter:Regular',sans-serif] text-[14px] text-[#737373]">
@@ -394,20 +395,20 @@ function Form() {
   const successStatusClass = "text-[#2f9e44]";
 
   return (
-    <form className="absolute left-0 top-0" data-name="input" onSubmit={handleSubmit}>
+    <form className="absolute left-0 top-[-150px]" data-name="input" onSubmit={handleSubmit}>
       <Back />
 
       <p
-        className="absolute left-[863px] top-[200px] text-[40px] font-medium leading-[64px] text-[#3182f6]
+        className="absolute left-[650px] top-[200px] text-[40px] font-medium leading-[64px] text-[#3182f6]
                    font-['Noto Sans KR',sans-serif] whitespace-nowrap break-keep"
       >
-        회원가입
+        Signup
       </p>
 
-      <Label text="아이디" required top={274} left={LEFT} />
+      <Label text="아이디" required top={274} left={650} />
       <Box
         top={297}
-        left={LEFT}
+        left={650}
         width={250}
         placeholder="아이디 입력(6~20자)"
         value={username}
@@ -416,7 +417,7 @@ function Form() {
       <PrimaryButton
         text={checkingUsername ? "확인중..." : "중복확인"}
         top={297}
-        left={1126}
+        left={910}
         width={87}
         onClick={handleCheckUsername}
         disabled={checkingUsername}
@@ -424,7 +425,7 @@ function Form() {
       />
       {usernameStatus?.type === "success" ? (
         <p
-          className={`absolute left-[863px] top-[333px] w-[350px] text-[12px] whitespace-nowrap ${successStatusClass}`}
+          className={`absolute left-[650px] top-[333px] w-[350px] text-[12px] whitespace-nowrap ${successStatusClass}`}
         >
           {usernameStatus.text}
         </p>
@@ -434,6 +435,7 @@ function Form() {
         label="비밀번호"
         required
         topLabel={345}
+        left={650}
         topBox={368}
         placeholder="비밀번호 입력 (문자, 숫자, 특수문자 포함 8~20자)"
         type="password"
@@ -444,6 +446,7 @@ function Form() {
       <Field
         label="비밀번호 확인"
         required
+        left={650}
         topLabel={416}
         topBox={439}
         placeholder="비밀번호 재입력"
@@ -455,6 +458,7 @@ function Form() {
       <Field
         label="이름"
         required
+        left={650}
         topLabel={487}
         topBox={510}
         placeholder="이름을 입력해주세요"
@@ -462,10 +466,10 @@ function Form() {
         onChange={setName}
       />
 
-      <Label text="이메일 주소" required top={558} left={LEFT} />
+      <Label text="이메일 주소" required top={558} left={650} />
       <Box
         top={581}
-        left={LEFT}
+        left={650}
         width={234}
         placeholder="이메일 주소"
         value={email}
@@ -474,7 +478,7 @@ function Form() {
       <PrimaryButton
         text={sendingCode ? "발송중..." : "인증번호 발송"}
         top={581}
-        left={1093}
+        left={890}
         width={120}
         onClick={handleSendEmail}
         disabled={sendingCode}
@@ -483,7 +487,7 @@ function Form() {
 
       <Box
         top={622}
-        left={LEFT}
+        left={650}
         width={256}
         placeholder="인증번호 (6자리 입력)"
         value={emailCode}
@@ -495,7 +499,7 @@ function Form() {
       <PrimaryButton
         text={verifyingCode ? "인증중..." : "인증하기"}
         top={622}
-        left={1126}
+        left={915}
         width={87}
         onClick={handleVerifyEmail}
         disabled={!emailSent || verifyingCode}
@@ -503,7 +507,7 @@ function Form() {
       />
       {emailStatus?.type === "success" ? (
         <p
-          className={`absolute left-[863px] top-[658px] w-[350px] text-[12px] whitespace-nowrap ${successStatusClass}`}
+          className={`absolute left-[650px] top-[658px] w-[350px] text-[12px] whitespace-nowrap ${successStatusClass}`}
         >
           {emailStatus.text}
         </p>
@@ -512,16 +516,17 @@ function Form() {
       <Field
         label="전화번호"
         topLabel={678}
+        left={650}
         topBox={701}
         placeholder="휴대폰 번호 입력 ('-' 제외 11자리 입력)"
         value={phone}
         onChange={setPhone}
       />
 
-      <Label text="주소" top={749} left={LEFT} />
+      <Label text="주소" top={749} left={650} />
       <Box
         top={772}
-        left={LEFT}
+        left={650}
         width={BOX_W}
         placeholder="주소를 입력해주세요"
         value={address}
@@ -529,7 +534,7 @@ function Form() {
       />
       <Box
         top={813}
-        left={LEFT}
+        left={650}
         width={BOX_W}
         placeholder="상세주소"
         value={addressDetail}
@@ -538,8 +543,8 @@ function Form() {
 
       <PrimaryButton
         text={signingUp ? "가입중..." : "회원가입"}
-        top={899}
-        left={LEFT}
+        top={860}
+        left={650}
         width={350}
         type="submit"
         disabled={!canSignup || signingUp}
@@ -547,7 +552,7 @@ function Form() {
       />
       {signupStatus?.type === "success" ? (
         <p
-          className={`absolute left-[863px] top-[935px] w-[350px] text-[12px] whitespace-nowrap ${successStatusClass}`}
+          className={`absolute left-[650px] top-[935px] w-[350px] text-[12px] whitespace-nowrap ${successStatusClass}`}
         >
           {signupStatus.text}
         </p>
@@ -566,7 +571,7 @@ export default function Component052Signup() {
       <div className="relative mx-auto h-[1024px] w-[1440px]" data-name="05-2_Signup">
         <Form />
 
-        <div className="absolute left-[96.5px] top-[142px] h-[720px] w-[527px]" data-name="mungshall 2">
+        <div className="absolute left-[96.5px] top-[10px] h-[720px] w-[527px]" data-name="mungshall 2">
           <div className="absolute inset-0 overflow-hidden pointer-events-none">
             <img
               alt=""

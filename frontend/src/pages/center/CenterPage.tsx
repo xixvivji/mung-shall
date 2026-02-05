@@ -14,7 +14,7 @@ export default function CenterPage() {
   const tabs = useMemo(
     () => [
       { key: "dogs" as const, label: "보호 중인 강아지" },
-      { key: "applications" as const, label: "신청 서류" },
+      { key: "applications" as const, label: "입양 신청" },
       { key: "consult" as const, label: "화상 상담 예약" },
     ],
     []
@@ -25,13 +25,16 @@ export default function CenterPage() {
   const tabIdle = "bg-white text-slate-700 border-slate-200 hover:bg-slate-50";
 
   return (
-    <div className="min-h-screen bg-slate-50">
+    <div className="min-h-screen bg-white-50">
+      <h1 className="text-[33px] font-bold tracking-tight text-[#333] mt-10">
+        센터 페이지
+      </h1>
       <div className="mx-auto w-full max-w-6xl px-4 py-8">
         {/* 0. 센터 프로필(표시/수정) */}
         <CenterProfileSection />
 
         {/* 탭 버튼 */}
-        <div className="sticky top-0 z-30 -mx-4 mt-6 border-b border-slate-200 bg-slate-50/90 px-4 py-3 backdrop-blur">
+        <div className="sticky top-0 z-30 -mx-4 mt-6 border-b border-slate-200 bg-50/90 px-4 py-3 backdrop-blur">
           <div className="flex gap-2">
             {tabs.map((t) => (
               <button

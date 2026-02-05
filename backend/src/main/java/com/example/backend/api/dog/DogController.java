@@ -1,6 +1,7 @@
 package com.example.backend.api.dog;
 
 import com.example.backend.api.dog.dto.DogDetailResponse;
+import com.example.backend.api.dog.dto.DogImageResponse;
 import com.example.backend.api.dog.dto.DogStatusCountResponse;
 import com.example.backend.api.dog.dto.DogSummaryResponse;
 import com.example.backend.security.principal.CustomUserPrincipal;
@@ -88,5 +89,18 @@ public class DogController {
     public ResponseEntity<List<DogStatusCountResponse>> getDogStatusCounts() {
         List<DogStatusCountResponse> statusCounts = dogService.getDogStatusCounts();
         return ResponseEntity.ok(statusCounts);
+    }
+
+    @Operation(summary = "랜덤 강아지 이미지 반환", description = "요청된 개수만큼 랜덤 강아지의 이미지 URL을 반환합니다. 기본값은 20장입니다.")
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "조회 성공"),
+    })
+    @GetMapping("/images/random")
+    public ResponseEntity<List<DogImageResponse>> getRandomDogImages(
+            @Parameter(description = "반환할 이미지의 개수 (기본값: 20)", example = "20")
+            @RequestParam(defaultValue = "20") int limit
+    ) {
+        List<DogImageResponse> dogImages = dogService.getDogImages(limit);
+        return ResponseEntity.ok(dogImages);
     }
 }

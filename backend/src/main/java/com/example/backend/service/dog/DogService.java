@@ -1,6 +1,7 @@
 package com.example.backend.service.dog;
 
 import com.example.backend.api.dog.dto.DogDetailResponse;
+import com.example.backend.api.dog.dto.DogImageResponse;
 import com.example.backend.api.dog.dto.DogStatusCountResponse;
 import com.example.backend.api.dog.dto.DogSummaryResponse;
 import com.example.backend.domain.adoption.enums.AdoptionProcessStatus;
@@ -111,6 +112,19 @@ public class DogService {
                         .status((String) result[0])
                         .count((Long) result[1])
                         .build())
+                .collect(Collectors.toList());
+    }
+
+    /**
+     * 랜덤한 강아지 이미지 URL을 반환합니다.
+     * @param limit 반환할 이미지의 개수
+     * @return List<DogImageResponse> 강아지 이미지 목록
+     */
+    public List<DogImageResponse> getDogImages(int limit) {
+        List<AbandonedDog> randomDogs = abandonedDogRepository.findRandomDogs(limit);
+
+        return randomDogs.stream()
+                .map(DogImageResponse::fromEntity)
                 .collect(Collectors.toList());
     }
 }

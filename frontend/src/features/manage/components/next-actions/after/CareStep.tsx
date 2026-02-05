@@ -47,10 +47,19 @@ function validatePhoto(file: File): string | null {
     return null;
 }
 
-const EVIDENCE_ACCEPT_TYPES = ".pdf,.jpg,.jpeg,.png";
+type SubmitStatus = "NOT_SUBMITTED" | "PENDING" | "APPROVED";
+
+type EvidenceState = {
+    file: File | null;
+    previewUrl?: string;
+    error?: string;
+    status: SubmitStatus;
+};
+
 const MAX_EVIDENCE_MB = 10;
 
-function validateEvidence(file: File): string | null {
+const WEEK1_EVIDENCE_ACCEPT_TYPES = ".pdf,.jpg,.jpeg,.png";
+function validateWeek1Evidence(file: File): string | null {
     const maxBytes = MAX_EVIDENCE_MB * 1024 * 1024;
     if (file.size > maxBytes) return `파일 용량은 ${MAX_EVIDENCE_MB}MB 이하여야 합니다.`;
 
@@ -61,7 +70,17 @@ function validateEvidence(file: File): string | null {
     return null;
 }
 
-type SubmitStatus = "NOT_SUBMITTED" | "PENDING" | "APPROVED";
+const PDF_ONLY_ACCEPT_TYPES = ".pdf";
+function validatePdfOnlyEvidence(file: File): string | null {
+    const maxBytes = MAX_EVIDENCE_MB * 1024 * 1024;
+    if (file.size > maxBytes) return `파일 용량은 ${MAX_EVIDENCE_MB}MB 이하여야 합니다.`;
+
+    const lower = file.name.toLowerCase();
+    const okExt = [".pdf"].some((ext) => lower.endsWith(ext));
+    if (!okExt) return "PDF 파일만 업로드 가능합니다.";
+
+    return null;
+}
 
 export function CareStep() {
     const [activeIndex, setActiveIndex] = useState(0);
@@ -94,28 +113,27 @@ export function CareStep() {
             {
                 title: "2주 점검 (Day 14)",
                 adopterTodos: ["배변 루틴 강화(성공 시 즉시 보상)", "‘앉아/기다려/이리와’ 짧게 연습", "손/발/귀 만지기 허용 훈련", "사회화는 ‘노출’만 진행"],
-                medicalInfo: ["외부 활동 전 접종 여부 확인"],
+                medicalInfo: ["종합백신 2차 + 코로나장염 2차 체크", "외부 활동 전 접종 여부 확인"],
             },
             {
                 title: "1개월 건강 체크 (Day 30)",
                 adopterTodos: ["루틴 안정화 및 생활 적응 확인", "사람/개 만남은 선택권 제공", "장난감·퍼즐로 에너지 해소", "건강 설문(식욕·배변·활동량)", "보호소와 사후관리 화상 상담 진행"],
-                medicalInfo: ["종합백신 3차 접종 여부 확인", "심장사상충·외부기생충 예방 여부 체크"],
+                medicalInfo: [],
             },
             {
                 title: "2개월 체크 (Day 60)",
                 adopterTodos: ["산책·훈련 루틴 유지 확인", "혼자 있는 시간 10–30분 유지", "문제 행동 발생 여부 점검", "사후관리 화상 채팅 참여"],
-                medicalInfo: ["종합백신 4차 + 켄넬코프 접종 여부 확인", "외부 활동 안정 여부 점검"],
+                medicalInfo: ["외부 활동 안정 여부 점검"],
             },
             {
                 title: "3개월 마무리 (Day 90)",
                 adopterTodos: ["최종 후기 작성", "입양 확정 동의", "분리·자극 상황에서 안정 여부 확인", "최종 사후관리 화상 상담 진행"],
-                medicalInfo: ["광견병 예방접종 여부 확인", "연간 예방접종 스케줄 안내 확인"],
+                medicalInfo: ["연간 예방접종 스케줄 안내 확인"],
             },
         ],
         []
     );
 
-    /** Day0 사진 */
     const [day0Photo, setDay0Photo] = useState<{ file: File | null; previewUrl?: string; error?: string }>({ file: null });
 
     useEffect(() => {
@@ -124,13 +142,12 @@ export function CareStep() {
         };
     }, [day0Photo.previewUrl]);
 
-    /** Day4-7(인덱스2) 접종 증빙 */
-    const [week1Evidence, setWeek1Evidence] = useState<{
-        file: File | null;
-        previewUrl?: string;
-        error?: string;
-        status: SubmitStatus;
-    }>({ file: null, previewUrl: undefined, error: undefined, status: "NOT_SUBMITTED" });
+    const [week1Evidence, setWeek1Evidence] = useState<EvidenceState>({
+        file: null,
+        previewUrl: undefined,
+        error: undefined,
+        status: "NOT_SUBMITTED",
+    });
 
     useEffect(() => {
         return () => {
@@ -138,19 +155,57 @@ export function CareStep() {
         };
     }, [week1Evidence.previewUrl]);
 
-    /** Day14(인덱스3) 접종 증빙 */
-    const [week2Evidence, setWeek2Evidence] = useState<{
-        file: File | null;
-        previewUrl?: string;
-        error?: string;
-        status: SubmitStatus;
-    }>({ file: null, previewUrl: undefined, error: undefined, status: "NOT_SUBMITTED" });
+    const [day30Vaccine3Evidence, setDay30Vaccine3Evidence] = useState<EvidenceState>({
+        file: null,
+        previewUrl: undefined,
+        error: undefined,
+        status: "NOT_SUBMITTED",
+    });
 
     useEffect(() => {
         return () => {
-            if (week2Evidence.previewUrl) URL.revokeObjectURL(week2Evidence.previewUrl);
+            if (day30Vaccine3Evidence.previewUrl) URL.revokeObjectURL(day30Vaccine3Evidence.previewUrl);
         };
-    }, [week2Evidence.previewUrl]);
+    }, [day30Vaccine3Evidence.previewUrl]);
+
+    const [day30ParasiteEvidence, setDay30ParasiteEvidence] = useState<EvidenceState>({
+        file: null,
+        previewUrl: undefined,
+        error: undefined,
+        status: "NOT_SUBMITTED",
+    });
+
+    useEffect(() => {
+        return () => {
+            if (day30ParasiteEvidence.previewUrl) URL.revokeObjectURL(day30ParasiteEvidence.previewUrl);
+        };
+    }, [day30ParasiteEvidence.previewUrl]);
+
+    const [day60Vaccine4KennelEvidence, setDay60Vaccine4KennelEvidence] = useState<EvidenceState>({
+        file: null,
+        previewUrl: undefined,
+        error: undefined,
+        status: "NOT_SUBMITTED",
+    });
+
+    useEffect(() => {
+        return () => {
+            if (day60Vaccine4KennelEvidence.previewUrl) URL.revokeObjectURL(day60Vaccine4KennelEvidence.previewUrl);
+        };
+    }, [day60Vaccine4KennelEvidence.previewUrl]);
+
+    const [day90RabiesEvidence, setDay90RabiesEvidence] = useState<EvidenceState>({
+        file: null,
+        previewUrl: undefined,
+        error: undefined,
+        status: "NOT_SUBMITTED",
+    });
+
+    useEffect(() => {
+        return () => {
+            if (day90RabiesEvidence.previewUrl) URL.revokeObjectURL(day90RabiesEvidence.previewUrl);
+        };
+    }, [day90RabiesEvidence.previewUrl]);
 
     const [checklist, setChecklist] = useState<ChecklistState>(() => {
         const init: ChecklistState = {};
@@ -189,7 +244,7 @@ export function CareStep() {
     const selectedMedicalChecks = medicalChecklist[activeIndex] ?? [];
 
     const allCheckedTodos = selectedChecks.length > 0 && selectedChecks.every(Boolean);
-    const allCheckedMedical = selectedMedicalChecks.length > 0 && selectedMedicalChecks.every(Boolean);
+    const allCheckedMedical = selectedMedicalChecks.length === 0 || selectedMedicalChecks.every(Boolean);
 
     const needsDay0Photo = activeIndex === 0;
     const day0PhotoOk = !needsDay0Photo || !!day0Photo.file;
@@ -197,8 +252,18 @@ export function CareStep() {
     const needsWeek1Evidence = activeIndex === 2;
     const week1EvidenceOk = !needsWeek1Evidence || week1Evidence.status === "PENDING" || week1Evidence.status === "APPROVED";
 
-    const needsWeek2Evidence = activeIndex === 3;
-    const week2EvidenceOk = !needsWeek2Evidence || week2Evidence.status === "PENDING" || week2Evidence.status === "APPROVED";
+    const needsDay30Evidence = activeIndex === 4;
+    const day30VaccineOk = day30Vaccine3Evidence.status === "PENDING" || day30Vaccine3Evidence.status === "APPROVED";
+    const day30ParasiteOk = day30ParasiteEvidence.status === "PENDING" || day30ParasiteEvidence.status === "APPROVED";
+    const day30EvidenceOk = !needsDay30Evidence || (day30VaccineOk && day30ParasiteOk);
+
+    const needsDay60Evidence = activeIndex === 5;
+    const day60Ok = day60Vaccine4KennelEvidence.status === "PENDING" || day60Vaccine4KennelEvidence.status === "APPROVED";
+    const day60EvidenceOk = !needsDay60Evidence || day60Ok;
+
+    const needsDay90Evidence = activeIndex === 6;
+    const day90Ok = day90RabiesEvidence.status === "PENDING" || day90RabiesEvidence.status === "APPROVED";
+    const day90EvidenceOk = !needsDay90Evidence || day90Ok;
 
     const canCompleteCurrent =
         !isCompleted &&
@@ -207,7 +272,9 @@ export function CareStep() {
         allCheckedMedical &&
         day0PhotoOk &&
         week1EvidenceOk &&
-        week2EvidenceOk;
+        day30EvidenceOk &&
+        day60EvidenceOk &&
+        day90EvidenceOk;
 
     const toggleTodo = (todoIndex: number) => {
         if (isCompleted) return;
@@ -255,7 +322,7 @@ export function CareStep() {
             return;
         }
 
-        const error = validateEvidence(file);
+        const error = validateWeek1Evidence(file);
         if (error) {
             setWeek1Evidence((prev) => ({ ...prev, file: null, previewUrl: undefined, error, status: "NOT_SUBMITTED" }));
             return;
@@ -273,30 +340,108 @@ export function CareStep() {
         setWeek1Evidence((prev) => ({ ...prev, status: "PENDING", error: undefined }));
     };
 
-    const onWeek2EvidenceChange = (file: File | null) => {
-        if (week2Evidence.previewUrl) URL.revokeObjectURL(week2Evidence.previewUrl);
+    const onDay30VaccineChange = (file: File | null) => {
+        if (day30Vaccine3Evidence.previewUrl) URL.revokeObjectURL(day30Vaccine3Evidence.previewUrl);
 
         if (!file) {
-            setWeek2Evidence((prev) => ({ ...prev, file: null, previewUrl: undefined, error: "파일을 선택하세요." }));
+            setDay30Vaccine3Evidence((prev) => ({ ...prev, file: null, previewUrl: undefined, error: "파일을 선택하세요." }));
             return;
         }
 
-        const error = validateEvidence(file);
+        const error = validatePdfOnlyEvidence(file);
         if (error) {
-            setWeek2Evidence((prev) => ({ ...prev, file: null, previewUrl: undefined, error, status: "NOT_SUBMITTED" }));
+            setDay30Vaccine3Evidence((prev) => ({ ...prev, file: null, previewUrl: undefined, error, status: "NOT_SUBMITTED" }));
             return;
         }
 
         const previewUrl = URL.createObjectURL(file);
-        setWeek2Evidence((prev) => ({ ...prev, file, previewUrl, error: undefined, status: "NOT_SUBMITTED" }));
+        setDay30Vaccine3Evidence((prev) => ({ ...prev, file, previewUrl, error: undefined, status: "NOT_SUBMITTED" }));
     };
 
-    const submitWeek2Evidence = () => {
-        if (!week2Evidence.file) {
-            setWeek2Evidence((prev) => ({ ...prev, error: "파일을 첨부한 뒤 제출해 주세요." }));
+    const submitDay30Vaccine = () => {
+        if (!day30Vaccine3Evidence.file) {
+            setDay30Vaccine3Evidence((prev) => ({ ...prev, error: "파일을 첨부한 뒤 제출해 주세요." }));
             return;
         }
-        setWeek2Evidence((prev) => ({ ...prev, status: "PENDING", error: undefined }));
+        setDay30Vaccine3Evidence((prev) => ({ ...prev, status: "PENDING", error: undefined }));
+    };
+
+    const onDay30ParasiteChange = (file: File | null) => {
+        if (day30ParasiteEvidence.previewUrl) URL.revokeObjectURL(day30ParasiteEvidence.previewUrl);
+
+        if (!file) {
+            setDay30ParasiteEvidence((prev) => ({ ...prev, file: null, previewUrl: undefined, error: "파일을 선택하세요." }));
+            return;
+        }
+
+        const error = validatePdfOnlyEvidence(file);
+        if (error) {
+            setDay30ParasiteEvidence((prev) => ({ ...prev, file: null, previewUrl: undefined, error, status: "NOT_SUBMITTED" }));
+            return;
+        }
+
+        const previewUrl = URL.createObjectURL(file);
+        setDay30ParasiteEvidence((prev) => ({ ...prev, file, previewUrl, error: undefined, status: "NOT_SUBMITTED" }));
+    };
+
+    const submitDay30Parasite = () => {
+        if (!day30ParasiteEvidence.file) {
+            setDay30ParasiteEvidence((prev) => ({ ...prev, error: "파일을 첨부한 뒤 제출해 주세요." }));
+            return;
+        }
+        setDay30ParasiteEvidence((prev) => ({ ...prev, status: "PENDING", error: undefined }));
+    };
+
+    const onDay60EvidenceChange = (file: File | null) => {
+        if (day60Vaccine4KennelEvidence.previewUrl) URL.revokeObjectURL(day60Vaccine4KennelEvidence.previewUrl);
+
+        if (!file) {
+            setDay60Vaccine4KennelEvidence((prev) => ({ ...prev, file: null, previewUrl: undefined, error: "파일을 선택하세요." }));
+            return;
+        }
+
+        const error = validatePdfOnlyEvidence(file);
+        if (error) {
+            setDay60Vaccine4KennelEvidence((prev) => ({ ...prev, file: null, previewUrl: undefined, error, status: "NOT_SUBMITTED" }));
+            return;
+        }
+
+        const previewUrl = URL.createObjectURL(file);
+        setDay60Vaccine4KennelEvidence((prev) => ({ ...prev, file, previewUrl, error: undefined, status: "NOT_SUBMITTED" }));
+    };
+
+    const submitDay60Evidence = () => {
+        if (!day60Vaccine4KennelEvidence.file) {
+            setDay60Vaccine4KennelEvidence((prev) => ({ ...prev, error: "파일을 첨부한 뒤 제출해 주세요." }));
+            return;
+        }
+        setDay60Vaccine4KennelEvidence((prev) => ({ ...prev, status: "PENDING", error: undefined }));
+    };
+
+    const onDay90EvidenceChange = (file: File | null) => {
+        if (day90RabiesEvidence.previewUrl) URL.revokeObjectURL(day90RabiesEvidence.previewUrl);
+
+        if (!file) {
+            setDay90RabiesEvidence((prev) => ({ ...prev, file: null, previewUrl: undefined, error: "파일을 선택하세요." }));
+            return;
+        }
+
+        const error = validatePdfOnlyEvidence(file);
+        if (error) {
+            setDay90RabiesEvidence((prev) => ({ ...prev, file: null, previewUrl: undefined, error, status: "NOT_SUBMITTED" }));
+            return;
+        }
+
+        const previewUrl = URL.createObjectURL(file);
+        setDay90RabiesEvidence((prev) => ({ ...prev, file, previewUrl, error: undefined, status: "NOT_SUBMITTED" }));
+    };
+
+    const submitDay90Evidence = () => {
+        if (!day90RabiesEvidence.file) {
+            setDay90RabiesEvidence((prev) => ({ ...prev, error: "파일을 첨부한 뒤 제출해 주세요." }));
+            return;
+        }
+        setDay90RabiesEvidence((prev) => ({ ...prev, status: "PENDING", error: undefined }));
     };
 
     const completeCurrentStep = () => {
@@ -317,12 +462,79 @@ export function CareStep() {
 
     const isActiveStep = activeIndex === activeStepIndex;
 
+    const evidenceBadge = (status: SubmitStatus) => {
+        if (status === "PENDING") return <span className="rounded-full bg-blue-100 px-3 py-1 text-blue-700 whitespace-nowrap">기관 확인중</span>;
+        if (status === "APPROVED") return <span className="rounded-full bg-emerald-100 px-3 py-1 text-emerald-700 whitespace-nowrap">승인 완료</span>;
+        return <span className="rounded-full bg-gray-100 px-3 py-1 text-gray-600 whitespace-nowrap">미제출</span>;
+    };
+
+    const PdfEvidenceBlock = (props: {
+        title: string;
+        desc: string;
+        state: EvidenceState;
+        onChange: (file: File | null) => void;
+        onSubmit: () => void;
+    }) => {
+        const disabledUpload = isCompleted || !isActiveStep || props.state.status === "PENDING";
+        const disabledSubmit = isCompleted || !isActiveStep || props.state.status === "PENDING";
+
+        return (
+            <div className="rounded-lg border border-gray-100 bg-gray-50 p-4">
+                <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0">
+                        <p className="text-sm font-semibold text-gray-900">{props.title}</p>
+                        <p className="mt-1 text-xs text-gray-500">{props.desc}</p>
+                    </div>
+                    <div className="text-xs font-semibold">{evidenceBadge(props.state.status)}</div>
+                </div>
+
+                <div className="mt-3">
+                    <input
+                        type="file"
+                        accept={PDF_ONLY_ACCEPT_TYPES}
+                        onChange={(e) => props.onChange(e.target.files?.[0] ?? null)}
+                        className="block w-full max-w-[420px] text-sm text-gray-700 file:mr-4 file:rounded-md file:border-0 file:bg-white file:px-4 file:py-2 file:text-sm file:font-medium file:text-gray-700 hover:file:bg-gray-100"
+                        disabled={disabledUpload}
+                    />
+
+                    {props.state.file ? (
+                        <div className="mt-3 flex items-center gap-3">
+                            <div className="flex h-16 w-16 items-center justify-center rounded-lg border border-gray-200 bg-white text-xs text-gray-500">PDF</div>
+                            <div className="min-w-0">
+                                <div className="text-xs text-gray-600">선택: {props.state.file.name}</div>
+                                <div className="text-xs text-gray-400">* 제출 시 “기관 확인중”으로 표시됩니다.</div>
+                            </div>
+                        </div>
+                    ) : null}
+
+                    {props.state.error ? <p className="mt-2 text-xs text-red-600">{props.state.error}</p> : null}
+
+                    <div className="mt-3">
+                        <button
+                            type="button"
+                            onClick={props.onSubmit}
+                            disabled={disabledSubmit}
+                            className="rounded-lg border border-gray-200 bg-white px-4 py-2 text-sm font-semibold text-gray-800 hover:bg-gray-100 disabled:cursor-not-allowed disabled:opacity-40"
+                            title={props.state.status === "PENDING" ? "기관 확인중입니다." : "PDF 증빙을 제출합니다."}
+                        >
+                            {props.state.status === "PENDING" ? "기관 확인중" : "제출하기"}
+                        </button>
+                    </div>
+                </div>
+            </div>
+        );
+    };
+
     return (
         <div className="grid gap-6 lg:grid-cols-[520px_1fr]">
             <div className="stepper-box">
                 {stepStates.map((s, idx) => {
                     const stepClass =
-                        s.status === "completed" ? "stepper-step stepper-completed" : s.status === "active" ? "stepper-step stepper-active" : "stepper-step stepper-pending";
+                        s.status === "completed"
+                            ? "stepper-step stepper-completed"
+                            : s.status === "active"
+                                ? "stepper-step stepper-active"
+                                : "stepper-step stepper-pending";
 
                     const isSelected = activeIndex === idx;
 
@@ -372,13 +584,7 @@ export function CareStep() {
                         <p className="text-sm text-gray-500">선택한 단계</p>
                         <h3 className="mt-1 text-lg font-semibold text-gray-900">{selected.title}</h3>
 
-                        {isCompleted ? (
-                            <p className="mt-2 text-sm text-gray-500">이 단계는 이미 완료되었습니다. 다음 단계로 진행해 주세요.</p>
-                        ) : activeIndex !== activeStepIndex ? (
-                            <p className="mt-2 text-sm text-gray-500">
-                                현재 진행중인 단계는 <span className="font-semibold text-gray-900">{BASE_STEPS[activeStepIndex]?.title}</span> 입니다.
-                            </p>
-                        ) : null}
+                        {isCompleted ? <p className="mt-2 text-sm text-gray-500">이 단계는 이미 완료되었습니다. 다음 단계로 진행해 주세요.</p> : null}
                     </div>
 
                     <button
@@ -398,10 +604,14 @@ export function CareStep() {
                                             : needsDay0Photo && !day0PhotoOk
                                                 ? "집 도착 사진을 업로드하세요."
                                                 : needsWeek1Evidence && !week1EvidenceOk
-                                                    ? "1차 접종 증빙 서류를 제출해 주세요."
-                                                    : needsWeek2Evidence && !week2EvidenceOk
-                                                        ? "2차 접종 증빙 서류를 제출해 주세요."
-                                                        : "이 단계를 완료합니다."
+                                                    ? "접종 증빙 서류를 제출해 주세요."
+                                                    : needsDay30Evidence && !day30EvidenceOk
+                                                        ? "Day 30 증빙(PDF) 2개를 제출해 주세요."
+                                                        : needsDay60Evidence && !day60EvidenceOk
+                                                            ? "Day 60 증빙(PDF)을 제출해 주세요."
+                                                            : needsDay90Evidence && !day90EvidenceOk
+                                                                ? "Day 90 증빙(PDF)을 제출해 주세요."
+                                                                : "이 단계를 완료합니다."
                         }
                     >
                         {isCompleted ? "완료됨" : "이 단계 완료"}
@@ -463,21 +673,23 @@ export function CareStep() {
                         <h4 className="text-sm font-semibold text-gray-900">예방접종 · 의료 정보</h4>
 
                         {/* 일반 체크항목 */}
-                        <div className="mt-3 space-y-2">
-                            {selected.medicalInfo.map((t, i) => {
-                                const checked = selectedMedicalChecks[i] ?? false;
-                                const disabled = isCompleted || !isActiveStep;
+                        {selected.medicalInfo.length > 0 ? (
+                            <div className="mt-3 space-y-2">
+                                {selected.medicalInfo.map((t, i) => {
+                                    const checked = selectedMedicalChecks[i] ?? false;
+                                    const disabled = isCompleted || !isActiveStep;
 
-                                return (
-                                    <label key={t} className={`flex items-start gap-2 text-sm ${disabled ? "cursor-default text-gray-500" : "cursor-pointer text-gray-700"}`}>
-                                        <input type="checkbox" className="mt-1 h-4 w-4" checked={checked} disabled={disabled} onChange={() => toggleMedical(i)} />
-                                        <span className={checked ? "line-through text-gray-400" : ""}>{t}</span>
-                                    </label>
-                                );
-                            })}
-                        </div>
+                                    return (
+                                        <label key={t} className={`flex items-start gap-2 text-sm ${disabled ? "cursor-default text-gray-500" : "cursor-pointer text-gray-700"}`}>
+                                            <input type="checkbox" className="mt-1 h-4 w-4" checked={checked} disabled={disabled} onChange={() => toggleMedical(i)} />
+                                            <span className={checked ? "line-through text-gray-400" : ""}>{t}</span>
+                                        </label>
+                                    );
+                                })}
+                            </div>
+                        ) : null}
 
-                        {/* Day4-7(인덱스2) 접종 증빙 업로드 + 제출 */}
+                        {/* Day4-7 업로드 블록 */}
                         {activeIndex === 2 ? (
                             <div className="mt-5 rounded-lg border border-gray-100 bg-gray-50 p-4">
                                 <div className="flex items-start justify-between gap-3">
@@ -485,22 +697,13 @@ export function CareStep() {
                                         <p className="text-sm font-semibold text-gray-900">종합백신 1차 / 코로나장염 1차 증빙</p>
                                         <p className="mt-1 text-xs text-gray-500">접종 확인서(병원 발급) 또는 접종 스티커 사진을 업로드해 주세요.</p>
                                     </div>
-
-                                    <div className="text-xs font-semibold whitespace-nowrap">
-                                        {week1Evidence.status === "PENDING" ? (
-                                            <span className="rounded-full bg-blue-100 px-3 py-1 text-blue-700">기관 확인중</span>
-                                        ) : week1Evidence.status === "APPROVED" ? (
-                                            <span className="rounded-full bg-emerald-100 px-3 py-1 text-emerald-700">승인 완료</span>
-                                        ) : (
-                                            <span className="rounded-full bg-gray-100 px-3 py-1 text-gray-600">미제출</span>
-                                        )}
-                                    </div>
+                                    <div className="text-xs font-semibold">{evidenceBadge(week1Evidence.status)}</div>
                                 </div>
 
                                 <div className="mt-3">
                                     <input
                                         type="file"
-                                        accept={EVIDENCE_ACCEPT_TYPES}
+                                        accept={WEEK1_EVIDENCE_ACCEPT_TYPES}
                                         onChange={(e) => onWeek1EvidenceChange(e.target.files?.[0] ?? null)}
                                         className="block w-full max-w-[420px] text-sm text-gray-700 file:mr-4 file:rounded-md file:border-0 file:bg-white file:px-4 file:py-2 file:text-sm file:font-medium file:text-gray-700 hover:file:bg-gray-100"
                                         disabled={isCompleted || !isActiveStep || week1Evidence.status === "PENDING"}
@@ -514,9 +717,9 @@ export function CareStep() {
                                                 <div className="flex h-16 w-16 items-center justify-center rounded-lg border border-gray-200 bg-white text-xs text-gray-500">PDF</div>
                                             )}
 
-                                            <div className="min-w-0 text-xs text-gray-500">
-                                                <div className="truncate">선택: {week1Evidence.file.name}</div>
-                                                <div className="text-gray-400">* 제출 시 “기관 확인중”으로 표시됩니다.</div>
+                                            <div className="min-w-0">
+                                                <div className="text-xs text-gray-600">선택: {week1Evidence.file.name}</div>
+                                                <div className="text-xs text-gray-400">* 제출 시 “기관 확인중”으로 표시됩니다.</div>
                                             </div>
                                         </div>
                                     ) : null}
@@ -537,63 +740,49 @@ export function CareStep() {
                             </div>
                         ) : null}
 
-                        {/* Day14(인덱스3) 2차 접종 증빙 업로드 + 제출 */}
-                        {activeIndex === 3 ? (
-                            <div className="mt-5 rounded-lg border border-gray-100 bg-gray-50 p-4">
-                                <div className="flex items-start justify-between gap-3">
-                                    <div className="min-w-0">
-                                        <p className="text-sm font-semibold text-gray-900">종합백신 2차 / 코로나장염 2차 증빙</p>
-                                        <p className="mt-1 text-xs text-gray-500">접종 확인서(병원 발급) 또는 접종 스티커 사진을 업로드해 주세요.</p>
-                                    </div>
+                        {/* Day30: PDF 2개 */}
+                        {activeIndex === 4 ? (
+                            <div className="mt-5 space-y-4">
+                                {PdfEvidenceBlock({
+                                    title: "종합백신 3차 접종 여부 확인 (PDF 증빙)",
+                                    desc: "접종 확인서(PDF)를 업로드 후 제출해 주세요.",
+                                    state: day30Vaccine3Evidence,
+                                    onChange: onDay30VaccineChange,
+                                    onSubmit: submitDay30Vaccine,
+                                })}
+                                {PdfEvidenceBlock({
+                                    title: "심장사상충 · 외부기생충 예방 여부 체크 (PDF 증빙)",
+                                    desc: "예방 내역 확인서(PDF)를 업로드 후 제출해 주세요.",
+                                    state: day30ParasiteEvidence,
+                                    onChange: onDay30ParasiteChange,
+                                    onSubmit: submitDay30Parasite,
+                                })}
+                            </div>
+                        ) : null}
 
-                                    <div className="text-xs font-semibold whitespace-nowrap">
-                                        {week2Evidence.status === "PENDING" ? (
-                                            <span className="rounded-full bg-blue-100 px-3 py-1 text-blue-700">기관 확인중</span>
-                                        ) : week2Evidence.status === "APPROVED" ? (
-                                            <span className="rounded-full bg-emerald-100 px-3 py-1 text-emerald-700">승인 완료</span>
-                                        ) : (
-                                            <span className="rounded-full bg-gray-100 px-3 py-1 text-gray-600">미제출</span>
-                                        )}
-                                    </div>
-                                </div>
+                        {/* Day60: 맨 아래에 PDF 제출 블록 추가 */}
+                        {activeIndex === 5 ? (
+                            <div className="mt-5">
+                                {PdfEvidenceBlock({
+                                    title: "종합백신 4차 + 켄넬코프 접종 여부 확인 (PDF 증빙)",
+                                    desc: "접종 확인서(PDF)를 업로드 후 제출해 주세요.",
+                                    state: day60Vaccine4KennelEvidence,
+                                    onChange: onDay60EvidenceChange,
+                                    onSubmit: submitDay60Evidence,
+                                })}
+                            </div>
+                        ) : null}
 
-                                <div className="mt-3">
-                                    <input
-                                        type="file"
-                                        accept={EVIDENCE_ACCEPT_TYPES}
-                                        onChange={(e) => onWeek2EvidenceChange(e.target.files?.[0] ?? null)}
-                                        className="block w-full max-w-[420px] text-sm text-gray-700 file:mr-4 file:rounded-md file:border-0 file:bg-white file:px-4 file:py-2 file:text-sm file:font-medium file:text-gray-700 hover:file:bg-gray-100"
-                                        disabled={isCompleted || !isActiveStep || week2Evidence.status === "PENDING"}
-                                    />
-
-                                    {week2Evidence.file ? (
-                                        <div className="mt-3 flex items-center gap-3">
-                                            {week2Evidence.previewUrl && week2Evidence.file.type !== "application/pdf" ? (
-                                                <img src={week2Evidence.previewUrl} alt="접종 증빙 미리보기" className="h-16 w-16 rounded-lg border border-gray-200 object-cover" />
-                                            ) : (
-                                                <div className="flex h-16 w-16 items-center justify-center rounded-lg border border-gray-200 bg-white text-xs text-gray-500">PDF</div>
-                                            )}
-
-                                            <div className="min-w-0 text-xs text-gray-500">
-                                                <div className="truncate">선택: {week2Evidence.file.name}</div>
-                                                <div className="text-gray-400">* 제출 시 “기관 확인중”으로 표시됩니다.</div>
-                                            </div>
-                                        </div>
-                                    ) : null}
-
-                                    {week2Evidence.error ? <p className="mt-2 text-xs text-red-600">{week2Evidence.error}</p> : null}
-
-                                    <div className="mt-3">
-                                        <button
-                                            type="button"
-                                            onClick={submitWeek2Evidence}
-                                            disabled={isCompleted || !isActiveStep || week2Evidence.status === "PENDING"}
-                                            className="rounded-lg border border-gray-200 bg-white px-4 py-2 text-sm font-semibold text-gray-800 hover:bg-gray-100 disabled:cursor-not-allowed disabled:opacity-40"
-                                        >
-                                            {week2Evidence.status === "PENDING" ? "기관 확인중" : "제출하기"}
-                                        </button>
-                                    </div>
-                                </div>
+                        {/* Day90: 맨 아래에 PDF 제출 블록 추가 */}
+                        {activeIndex === 6 ? (
+                            <div className="mt-5">
+                                {PdfEvidenceBlock({
+                                    title: "광견병 예방접종 여부 확인 (PDF 증빙)",
+                                    desc: "접종 확인서(PDF)를 업로드 후 제출해 주세요.",
+                                    state: day90RabiesEvidence,
+                                    onChange: onDay90EvidenceChange,
+                                    onSubmit: submitDay90Evidence,
+                                })}
                             </div>
                         ) : null}
                     </section>

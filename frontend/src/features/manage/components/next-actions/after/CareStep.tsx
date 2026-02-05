@@ -132,7 +132,7 @@ export function CareStep() {
             },
             {
                 title: "3개월 마무리 (Day 90)",
-                adopterTodos: ["최종 후기 작성", "입양 확정 동의", "분리·자극 상황에서 안정 여부 확인", "최종 사후관리 화상 상담 진행"],
+                adopterTodos: ["최종 후기 작성", "입양 확정 동의", "분리·자극 상황에서 안정 여부 확인"],
                 medicalInfo: ["연간 예방접종 스케줄 안내 확인"],
             },
         ],
@@ -682,6 +682,15 @@ export function CareStep() {
                     {activeIndex === 5 ? (
                         <section className="rounded-xl border border-gray-200 p-4">
                             <h4 className="text-sm font-semibold text-gray-900">2차 화상 상담 진행</h4>
+                            <div className="mt-3 rounded-lg border border-dashed border-gray-200 bg-gray-50 p-4 text-sm text-gray-500">
+                                WebRTC(OpenVidu) 연결 영역 (추후 구현)
+                            </div>
+                        </section>
+                    ) : null}
+
+                    {activeIndex === 6 ? (
+                        <section className="rounded-xl border border-gray-200 p-4">
+                            <h4 className="text-sm font-semibold text-gray-900">최종 화상 상담 진행</h4>
                             <div className="mt-3 rounded-lg border border-dashed border-gray-200 bg-gray-50 p-4 text-sm text-gray-500">
                                 WebRTC(OpenVidu) 연결 영역 (추후 구현)
                             </div>

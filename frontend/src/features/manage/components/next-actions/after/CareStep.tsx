@@ -1,10 +1,10 @@
 import { useMemo, useState } from "react";
-import PostAdoptionStepper from "@/shared/ui/uiverse/PostAdoptionStepper";
+import PostAdoptionStepper, { type StepperItem } from "@/shared/ui/uiverse/PostAdoptionStepper";
 
 export function CareStep() {
     const [activeIndex, setActiveIndex] = useState(0);
 
-    const steps = useMemo(
+    const steps = useMemo<StepperItem[]>(
         () => [
             { title: "입양 당일 체크", status: "active", time: "Day 0" },
             { title: "3일차 체크", status: "pending", time: "Day 3" },

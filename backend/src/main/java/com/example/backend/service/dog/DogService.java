@@ -6,6 +6,7 @@ import com.example.backend.api.dog.dto.DogSummaryResponse;
 import com.example.backend.domain.adoption.enums.AdoptionProcessStatus;
 import com.example.backend.domain.dog.AbandonedDog;
 import com.example.backend.domain.dog.DogKind;
+import com.example.backend.domain.user.User;
 import com.example.backend.repository.adoption.AdoptionRepository;
 import com.example.backend.repository.dog.AbandonedDogRepository;
 import com.example.backend.repository.dog.AbandonedDogSpecification;
@@ -44,16 +45,27 @@ public class DogService {
     public Page<DogSummaryResponse> getDogs(String region, String kindNm, String sexCd, String processState, Pageable pageable, Long userId) {
         // Specification으로 동적 쿼리 생성
         Specification<AbandonedDog> spec = AbandonedDogSpecification.createSpecification(region, kindNm, sexCd, processState);
+
         Page<AbandonedDog> dogPage = abandonedDogRepository.findAll(spec, pageable);
+
+        // 🔹 비로그인
+        if (userId == null) {
+            return dogPage.map(DogSummaryResponse::fromEntity);
+        }
+
+        // 🔹 로그인
+        User user = userRepository.findById(userId).orElseThrow(() -> new IllegalStateException("유효하지 않은 사용자"));
 
         return dogPage.map(dog -> {
             DogSummaryResponse dto = DogSummaryResponse.fromEntity(dog);
-            if (userId != null) {
-                userRepository.findById(userId).ifPresent(user -> {
-                    dto.setLiked(userDogInterestRepository.existsByUserAndAbandonedDog(user, dog));
-                    dto.setAdopting(adoptionRepository.existsByUserAndAbandonedDogAndProcessStatus(user, dog, AdoptionProcessStatus.IN_PROGRESS));
-                });
-            }
+            dto.setLiked(
+                    userDogInterestRepository.existsByUserAndAbandonedDog(user, dog)
+            );
+            dto.setAdopting(
+                    adoptionRepository.existsByUserAndAbandonedDogAndProcessStatus(
+                            user, dog, AdoptionProcessStatus.IN_PROGRESS
+                    )
+            );
             return dto;
         });
     }

@@ -1,20 +1,13 @@
 import * as React from "react";
 import { Badge } from "@/shared/ui/badge";
-import type { 
-  AdoptionProcessStatus, 
-  ShelterDogWithAdoptionItem, 
-  ShelterAdoptionDetail, 
-  AdoptionFinalStatus, 
-  AdoptionSurveyResponse,
-  AdoptionEducationCertResponse
+import type {
+  AdoptionProcessStatus,
+  ShelterDogWithAdoptionItem,
+  ShelterAdoptionDetail,
+  AdoptionFinalStatus,
 } from "../api/centerApplicationsApi";
 import { PROCESS_STATUS_LABELS, processBadgeVariant, finalStatusLabel } from "./utils/labels";
-import { StepList } from "./steps";
-
-export type StepDetailData =
-  | { kind: "survey"; data: AdoptionSurveyResponse }
-  | { kind: "educationCert"; data: AdoptionEducationCertResponse }
-  | null;
+import { StepList, type StepDetailData } from "./steps";
 
 type Props = {
   // list
@@ -116,7 +109,12 @@ export function ApplicationsLayout(props: Props) {
                     <div className="flex items-center gap-3">
                       <div className="flex h-14 w-14 items-center justify-center overflow-hidden rounded-xl bg-slate-100 text-xs text-slate-500">
                         {item.dogImageUrl ? (
-                          <img src={item.dogImageUrl} alt="dog" className="h-full w-full object-cover" draggable={false} />
+                          <img
+                            src={item.dogImageUrl}
+                            alt="dog"
+                            className="h-full w-full object-cover"
+                            draggable={false}
+                          />
                         ) : (
                           "No Image"
                         )}
@@ -124,7 +122,9 @@ export function ApplicationsLayout(props: Props) {
 
                       <div className="min-w-0 flex-1">
                         <div className="flex items-center gap-2">
-                          <div className="truncate text-sm font-semibold text-slate-900">{item.applicantUsername}</div>
+                          <div className="truncate text-sm font-semibold text-slate-900">
+                            {item.applicantUsername}
+                          </div>
                           <Badge variant={processBadgeVariant(item.adoptionProcessStatus) as any}>
                             {PROCESS_STATUS_LABELS[item.adoptionProcessStatus]}
                           </Badge>
@@ -139,7 +139,9 @@ export function ApplicationsLayout(props: Props) {
                           {item.currentStepOrder ?? "-"}
                         </div>
 
-                        <div className="mt-0.5 text-[11px] text-slate-500">전화 {item.applicantUserPhone}</div>
+                        <div className="mt-0.5 text-[11px] text-slate-500">
+                          전화 {item.applicantUserPhone}
+                        </div>
                       </div>
                     </div>
                   </button>
@@ -153,7 +155,9 @@ export function ApplicationsLayout(props: Props) {
       {/* 우측 상세 */}
       <div className="rounded-2xl border border-slate-200 bg-white p-4">
         {!selected ? (
-          <div className="flex h-[520px] items-center justify-center text-sm text-slate-500">항목을 선택해주세요.</div>
+          <div className="flex h-[520px] items-center justify-center text-sm text-slate-500">
+            항목을 선택해주세요.
+          </div>
         ) : (
           <div className="flex flex-col gap-4">
             {detailLoading ? (
@@ -162,14 +166,21 @@ export function ApplicationsLayout(props: Props) {
               </div>
             ) : null}
             {detailError ? (
-              <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-xs text-red-600">{detailError}</div>
+              <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-xs text-red-600">
+                {detailError}
+              </div>
             ) : null}
 
             {/* 상단 헤더 */}
             <div className="flex items-start gap-4">
               <div className="flex h-20 w-20 items-center justify-center overflow-hidden rounded-2xl bg-slate-100 text-xs text-slate-500">
                 {selected.dogImageUrl ? (
-                  <img src={selected.dogImageUrl} alt="dog" className="h-full w-full object-cover" draggable={false} />
+                  <img
+                    src={selected.dogImageUrl}
+                    alt="dog"
+                    className="h-full w-full object-cover"
+                    draggable={false}
+                  />
                 ) : (
                   "No Image"
                 )}
@@ -177,14 +188,20 @@ export function ApplicationsLayout(props: Props) {
 
               <div className="flex-1">
                 <div className="flex flex-wrap items-center gap-2">
-                  <div className="text-base font-semibold text-slate-900">{(detail?.userName ?? selected.applicantUsername) + " 신청"}</div>
+                  <div className="text-base font-semibold text-slate-900">
+                    {(detail?.userName ?? selected.applicantUsername) + " 신청"}
+                  </div>
 
                   <Badge variant={processBadgeVariant(currentProcessStatus) as any}>
                     {PROCESS_STATUS_LABELS[currentProcessStatus]}
                   </Badge>
 
                   <Badge
-                    variant={finalStatusLabel(currentFinalStatus).includes("반려") ? ("destructive" as any) : ("secondary" as any)}
+                    variant={
+                      finalStatusLabel(currentFinalStatus).includes("반려")
+                        ? ("destructive" as any)
+                        : ("secondary" as any)
+                    }
                   >
                     {finalStatusLabel(currentFinalStatus)}
                   </Badge>
@@ -195,8 +212,8 @@ export function ApplicationsLayout(props: Props) {
                 </div>
 
                 <div className="mt-1 text-xs text-slate-500">
-                  신청자ID {detail?.userId ?? selected.applicantUserId} · 이메일 {selected.applicantUserEmail || "-"} · 전화{" "}
-                  {selected.applicantUserPhone}
+                  신청자ID {detail?.userId ?? selected.applicantUserId} · 이메일{" "}
+                  {selected.applicantUserEmail || "-"} · 전화 {selected.applicantUserPhone}
                 </div>
 
                 {detail?.rejectionReason ? (
@@ -209,7 +226,6 @@ export function ApplicationsLayout(props: Props) {
 
             {/* 단계 */}
             <StepList
-              selected={selected}
               detail={detail}
               selectedStepOrder={selectedStepOrder}
               stepDetail={stepDetail}
@@ -229,7 +245,9 @@ export function ApplicationsLayout(props: Props) {
               </div>
 
               {!canVerify && (
-                <p className="mt-2 text-xs text-slate-500">진행중 상태에서만 최종 승인/반려를 처리할 수 있습니다.</p>
+                <p className="mt-2 text-xs text-slate-500">
+                  진행중 상태에서만 최종 승인/반려를 처리할 수 있습니다.
+                </p>
               )}
 
               <div className="mt-3 flex flex-wrap gap-2">
@@ -239,7 +257,9 @@ export function ApplicationsLayout(props: Props) {
                   disabled={actionDisabled}
                   className={[
                     "rounded-xl px-3 py-2 text-sm font-medium transition",
-                    actionDisabled ? "cursor-not-allowed bg-slate-200 text-slate-500" : "bg-slate-900 text-white hover:bg-slate-800",
+                    actionDisabled
+                      ? "cursor-not-allowed bg-slate-200 text-slate-500"
+                      : "bg-slate-900 text-white hover:bg-slate-800",
                   ].join(" ")}
                 >
                   {actionLoading ? "승인 중..." : "최종 승인"}
@@ -251,7 +271,9 @@ export function ApplicationsLayout(props: Props) {
                   disabled={actionDisabled}
                   className={[
                     "rounded-xl px-3 py-2 text-sm font-medium transition",
-                    actionDisabled ? "cursor-not-allowed bg-slate-200 text-slate-500" : "bg-red-600 text-white hover:bg-red-500",
+                    actionDisabled
+                      ? "cursor-not-allowed bg-slate-200 text-slate-500"
+                      : "bg-red-600 text-white hover:bg-red-500",
                   ].join(" ")}
                 >
                   {actionLoading ? "반려 중..." : "최종 반려"}

@@ -1,7 +1,6 @@
 package com.example.backend.api.postadoption.dto;
 
 import com.example.backend.domain.postadoption.PostAdoptionStepInstance;
-import com.example.backend.domain.postadoption.enums.PostAdoptionStepStatus;
 import com.example.backend.domain.postadoption.enums.PostAdoptionStepTimeStatus;
 import lombok.Builder;
 import lombok.Getter;
@@ -21,9 +20,9 @@ public class PostAdoptionStepDetailResponse {
     private String stepName;
     private String description;
     private Integer stepOrder;
-    private PostAdoptionStepStatus status;
     private LocalDate dueDate;
-    private PostAdoptionStepTimeStatus timeStatus; // Calculated based on dueDate and current date
+    private PostAdoptionStepTimeStatus timeStatus;
+    private LocalDateTime adoptionCompletedAt;
 
     private List<ChecklistItemResponse> checklistItems;
     private List<SubmissionItemResponse> submissionItems;
@@ -39,9 +38,9 @@ public class PostAdoptionStepDetailResponse {
                 .stepName(stepInstance.getStepName())
                 .description(stepInstance.getDescription())
                 .stepOrder(stepInstance.getStepOrder())
-                .status(stepInstance.getStatus())
                 .dueDate(stepInstance.getDueDate())
                 .timeStatus(timeStatus)
+                .adoptionCompletedAt(stepInstance.getPostAdoption().getAdoption().getCompletedAt()) // Populated
                 .checklistItems(stepInstance.getChecklistItems().stream()
                         .map(item -> ChecklistItemResponse.builder()
                                 .itemText(item.getItemText())

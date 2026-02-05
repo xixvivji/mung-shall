@@ -190,8 +190,8 @@ export function CenterConsultSection() {
         <div className="flex items-start justify-between gap-4">
           <div>
             <CardTitle className="text-lg font-semibold text-slate-900">화상 상담</CardTitle>
-            <CardDescription className="text-sm text-slate-600">
-              입양 완료자(기존 입양자)와의 전화상담 예약을 관리하고 통화를 진행합니다.
+            <CardDescription className="text-sm text-slate-600 mt-2">
+              입양자와의 전화상담 예약을 관리하고 통화를 진행합니다.
             </CardDescription>
           </div>
 

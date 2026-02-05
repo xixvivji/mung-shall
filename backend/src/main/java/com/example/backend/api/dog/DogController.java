@@ -17,6 +17,7 @@ import org.springframework.data.domain.Sort;
 import org.springframework.data.web.PageableDefault;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -45,9 +46,9 @@ public class DogController {
             @RequestParam(required = false) String processState,
             @Parameter(description = "페이지 요청 정보 (0-based page, size, sort)")
             @PageableDefault(size = 12, sort = "happenDt", direction = Sort.Direction.DESC) Pageable pageable,
-            @Parameter(hidden = true) Authentication authentication
+            @AuthenticationPrincipal CustomUserPrincipal principal
     ) {
-        Long currentUserId = ((CustomUserPrincipal) authentication.getPrincipal()).getUserId();
+        Long currentUserId = principal != null ? principal.getUserId() : null;
         Page<DogSummaryResponse> dogs = dogService.getDogs(region, kindNm, sexCd, processState, pageable, currentUserId);
         return ResponseEntity.ok(dogs);
     }

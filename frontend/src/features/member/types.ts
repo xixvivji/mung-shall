@@ -8,3 +8,9 @@ export interface MemberMeResponse {
   loginType: string;
   userType: "shelter" | "adopter" | "admin" | "center";
 }
+
+export interface MemberUpdateRequest {
+  name?: string;
+  phone?: string | null;
+  address?: string | null;
+}

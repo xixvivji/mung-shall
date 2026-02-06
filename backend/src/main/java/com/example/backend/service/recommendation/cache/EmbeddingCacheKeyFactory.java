@@ -62,4 +62,15 @@ public class EmbeddingCacheKeyFactory {
         for (byte b : bytes) sb.append(String.format("%02x", b));
         return sb.toString();
     }
+
+    /** vec 저장 키 (Value: byte[]) */
+    public String dogEmbeddingVecKey(long dogId, String modelKey, String textHash) {
+        return dogEmbeddingKey(dogId, modelKey, textHash) + ":vec";
+    }
+
+    /** meta 저장 키 (Hash: dim/model/th/ts 등 String) */
+    public String dogEmbeddingMetaKey(long dogId, String modelKey, String textHash) {
+        return dogEmbeddingKey(dogId, modelKey, textHash) + ":meta";
+    }
+
 }

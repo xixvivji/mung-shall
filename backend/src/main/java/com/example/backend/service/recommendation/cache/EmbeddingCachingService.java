@@ -39,29 +39,33 @@ public class EmbeddingCachingService {
 
         String latestKey = keyFactory.dogEmbeddingLatestKey(dogId, modelKey);
 
-        // 1) latest 포인터가 있으면 먼저 시도
-        String actualKey = cacheRepository.getLatestPointer(latestKey);
-        if (StringUtils.hasText(actualKey)) {
-            byte[] vecBlob = cacheRepository.getVector(actualKey);
+        // ✅ vec/meta 키를 분리
+        String vecKey = keyFactory.dogEmbeddingVecKey(dogId, modelKey, th);
+        String metaKey = keyFactory.dogEmbeddingMetaKey(dogId, modelKey, th);
+
+        // 1) latest 포인터가 있으면 vec 바로 시도
+        String latestVecKey = cacheRepository.getLatestPointer(latestKey);
+        if (StringUtils.hasText(latestVecKey)) {
+            byte[] vecBlob = cacheRepository.getVector(latestVecKey);
             if (vecBlob != null) {
                 return FloatVectorCodecConfig.bytesToFloats(vecBlob);
             }
         }
 
-        // 2) 없으면 th 키로 직접 조회
-        String embKey = keyFactory.dogEmbeddingKey(dogId, modelKey, th);
-        byte[] hit = cacheRepository.getVector(embKey);
+        // 2) 없으면 현재 vecKey로 조회
+        byte[] hit = cacheRepository.getVector(vecKey);
         if (hit != null) {
-            cacheRepository.putLatestPointer(latestKey, embKey);
+            cacheRepository.putLatestPointer(latestKey, vecKey);
             return FloatVectorCodecConfig.bytesToFloats(hit);
         }
 
-        // 3) 캐시 미스면 생성 → 저장 → latest 갱신
+        // 3) 캐시 미스면 생성 → vec 저장 → meta 저장 → latest 갱신
         float[] vector = embeddingModel.embed(text);
         byte[] blob = FloatVectorCodecConfig.floatsToBytes(vector);
 
-        cacheRepository.putEmbeddingHash(embKey, blob, embeddingDim, modelKey, th);
-        cacheRepository.putLatestPointer(latestKey, embKey);
+        cacheRepository.putVector(vecKey, blob);
+        cacheRepository.putMetaHash(metaKey, embeddingDim, modelKey, th);
+        cacheRepository.putLatestPointer(latestKey, vecKey);
 
         return vector;
     }

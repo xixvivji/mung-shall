@@ -1,8 +1,7 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/shared/ui/button";
-import { Badge } from "@/shared/ui/badge";
-import { CheckCircle2, User } from "lucide-react";
+import { User } from "lucide-react";
 import type { MemberMeResponse } from "@/features/member/types";
 
 type Props = {

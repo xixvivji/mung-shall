@@ -15,13 +15,12 @@ import Filters, {
     DEFAULT_STATUS,
 } from "./Filters";
 import Pagination from "./Pagination";
-
 import adoptionImg from "@/assets/images/adoption.png";
 
 function parsePage1(params: URLSearchParams) {
     const raw = params.get("page");
     const value = Number(raw);
-    if (!raw || Number.isNaN(value) || value < 1) return 1; // URL은 1-based
+    if (!raw || Number.isNaN(value) || value < 1) return 1;
     return Math.floor(value);
 }
 
@@ -230,7 +229,7 @@ export default function AdoptionList() {
                     className="
             pointer-events-none
             absolute
-            left-[-133px]
+            left-[-40px]
             top-[-183px]
             z-10
             hidden md:block

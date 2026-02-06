@@ -800,7 +800,28 @@ export function CareStep() {
 
                     {activeIndex === 4 ? (
                         <section className="rounded-xl border border-gray-200 p-4">
-                            <h4 className="text-sm font-semibold text-gray-900">1차 화상 상담 진행</h4>
+                            <div className="flex items-center justify-between">
+                                <h4 className="text-sm font-semibold text-gray-900">1차 화상 상담 진행</h4>
+
+                                <div className="flex gap-2">
+                                    <button
+                                        type="button"
+                                        onClick={() => alert("화상 상담 예약 기능은 추후 연결됩니다.")}
+                                        className="rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-100"
+                                    >
+                                        예약하기
+                                    </button>
+
+                                    <button
+                                        type="button"
+                                        onClick={() => alert("화상 상담 입장 기능은 추후 연결됩니다.")}
+                                        className="rounded-lg bg-[#0064FF] px-3 py-1.5 text-sm font-semibold text-white hover:bg-[#0052cc]"
+                                    >
+                                        입장하기
+                                    </button>
+                                </div>
+                            </div>
+
                             <div className="mt-3 rounded-lg border border-dashed border-gray-200 bg-gray-50 p-4 text-sm text-gray-500">
                                 WebRTC(OpenVidu) 연결 영역 (추후 구현)
                             </div>
@@ -809,7 +830,28 @@ export function CareStep() {
 
                     {activeIndex === 5 ? (
                         <section className="rounded-xl border border-gray-200 p-4">
-                            <h4 className="text-sm font-semibold text-gray-900">2차 화상 상담 진행</h4>
+                            <div className="flex items-center justify-between">
+                                <h4 className="text-sm font-semibold text-gray-900">2차 화상 상담 진행</h4>
+
+                                <div className="flex gap-2">
+                                    <button
+                                        type="button"
+                                        onClick={() => alert("화상 상담 예약 기능은 추후 연결됩니다.")}
+                                        className="rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-100"
+                                    >
+                                        예약하기
+                                    </button>
+
+                                    <button
+                                        type="button"
+                                        onClick={() => alert("화상 상담 입장 기능은 추후 연결됩니다.")}
+                                        className="rounded-lg bg-[#0064FF] px-3 py-1.5 text-sm font-semibold text-white hover:bg-[#0052cc]"
+                                    >
+                                        입장하기
+                                    </button>
+                                </div>
+                            </div>
+
                             <div className="mt-3 rounded-lg border border-dashed border-gray-200 bg-gray-50 p-4 text-sm text-gray-500">
                                 WebRTC(OpenVidu) 연결 영역 (추후 구현)
                             </div>
@@ -818,7 +860,28 @@ export function CareStep() {
 
                     {activeIndex === 6 ? (
                         <section className="rounded-xl border border-gray-200 p-4">
-                            <h4 className="text-sm font-semibold text-gray-900">최종 화상 상담 진행</h4>
+                            <div className="flex items-center justify-between">
+                                <h4 className="text-sm font-semibold text-gray-900">최종 화상 상담 진행</h4>
+
+                                <div className="flex gap-2">
+                                    <button
+                                        type="button"
+                                        onClick={() => alert("화상 상담 예약 기능은 추후 연결됩니다.")}
+                                        className="rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-100"
+                                    >
+                                        예약하기
+                                    </button>
+
+                                    <button
+                                        type="button"
+                                        onClick={() => alert("화상 상담 입장 기능은 추후 연결됩니다.")}
+                                        className="rounded-lg bg-[#0064FF] px-3 py-1.5 text-sm font-semibold text-white hover:bg-[#0052cc]"
+                                    >
+                                        입장하기
+                                    </button>
+                                </div>
+                            </div>
+
                             <div className="mt-3 rounded-lg border border-dashed border-gray-200 bg-gray-50 p-4 text-sm text-gray-500">
                                 WebRTC(OpenVidu) 연결 영역 (추후 구현)
                             </div>

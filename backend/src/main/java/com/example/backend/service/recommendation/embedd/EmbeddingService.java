@@ -1,6 +1,7 @@
-package com.example.backend.service.recommendation;
+package com.example.backend.service.recommendation.embedd;
 
 import com.example.backend.api.recommendation.dto.DogRecommendationSurveyResponse;
+import com.example.backend.service.recommendation.SurveyTextSerializeService;
 import org.springframework.ai.embedding.EmbeddingModel;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
@@ -28,8 +29,7 @@ public class EmbeddingService {
 
     /** 유기견 정규화 텍스트(키=값 문장)를 임베딩 */
     public float[] embedDogNormalizedText(String dogNormalizedText) {
-        String text = sanitize(dogNormalizedText);
-        return embeddingModel.embed(text);
+        return embedDogAugmentedText(dogNormalizedText);
     }
 
     /** 배치 임베딩: 여러 텍스트를 한 번에 임베딩 */
@@ -48,4 +48,16 @@ public class EmbeddingService {
         }
         return text.trim().replaceAll("\\s+", " ");
     }
+
+    // DogPersonality augmentedText용: 공백 정규화만 수행
+    public String normalizeDogText(String augmentedText) {
+        return sanitize(augmentedText);
+    }
+
+    // 캐시 미스 시: DogPersonality 텍스트 → 임베딩
+    public float[] embedDogAugmentedText(String augmentedText) {
+        String text = sanitize(augmentedText);
+        return embeddingModel.embed(text);
+    }
+
 }

@@ -6,8 +6,21 @@ type ViewState = "LOCKED" | "ACTIVE";
 type Props = {
   /** ✅ 5단계(입양 계약서) 제출 완료 여부 */
   canReview: boolean;
+
+  /** ✅ 서버에서 받은 심사 상태(권장). 없으면 기존 더미 상태 사용 */
+  approvalStatus?: ApprovalStatus;
+
+  /** ✅ 서버 processStatus 기준 승인 완료 처리 */
+  processStatus?: string | null;
+
   /** (선택) 잠김 상태에서 안내할 이전 단계명 */
   requiredStepLabel?: string; // 예: "5단계 · 입양 계약서"
+
+  /** ✅ 승인 완료 화면: 입양 후 단계로 이동 버튼 */
+  onGoAfterStage?: () => void;
+
+  /** ✅ 하단 이전 단계로 버튼 */
+  onGoPrev?: () => void;
 };
 
 function badge(status: ApprovalStatus) {
@@ -26,12 +39,52 @@ function lockedBadge() {
   return "bg-amber-50 text-amber-800 border-amber-200";
 }
 
-export function ApprovalStep({ canReview, requiredStepLabel = "5단계 · 입양 계약서" }: Props) {
-  // 프론트-only 더미 상태 (심사 가능한 상태에서만 의미 있음)
-  const [status] = useState<ApprovalStatus>("PENDING");
+/** ✅ 업로드된 이미지(승인 완료) UI를 컴포넌트로 분리 */
+function ApprovedSuccessView() {
+  return (
+    <div className="rounded-2xl border border-gray-200 overflow-hidden">
+      {/* 본문(중앙 정렬) */}
+      <div className="px-6 py-14 sm:px-10">
+        <div className="flex flex-col items-center text-center">
+          {/* 타이틀 */}
+          <h3 className="text-3xl sm:text-4xl font-extrabold text-emerald-900">
+            심사 신청이 승인되었습니다
+          </h3>
 
+          {/* 설명 */}
+          <p className="mt-4 text-base sm:text-lg text-gray-500">
+            축하합니다! 보호소의 입양 심사가 승인되어 입양 후 단계로 이동합니다.
+          </p>
+
+        </div>
+      </div>
+    </div>
+  );
+}
+
+export function ApprovalStep({
+  canReview,
+  approvalStatus,
+  processStatus,
+  requiredStepLabel = "5단계 · 입양 계약서",
+}: Props) {
   const viewState: ViewState = useMemo(() => (canReview ? "ACTIVE" : "LOCKED"), [canReview]);
 
+  const isApprovedByProcess = processStatus === "COMPLETED";
+  const isApprovedByStatus = approvalStatus === "APPROVED";
+  const isApproved = isApprovedByProcess || isApprovedByStatus;
+
+  // ✅ 승인 완료면: 업로드 이미지 UI로 교체 렌더링
+  if (viewState === "ACTIVE" && isApproved) {
+    return <ApprovedSuccessView />;
+  }
+
+  // ✅ 서버 값이 없으면 기존 더미를 사용(개발 편의)
+  const [dummyStatus] = useState<ApprovalStatus>("PENDING");
+  const status: ApprovalStatus =
+    approvalStatus ?? (isApprovedByProcess ? "APPROVED" : dummyStatus);
+
+  // 기존 화면(심사중/반려/잠김)
   return (
     <div className="space-y-6">
       <div className="rounded-2xl border border-gray-200 p-6">
@@ -81,7 +134,6 @@ export function ApprovalStep({ canReview, requiredStepLabel = "5단계 · 입양
 
           {viewState === "ACTIVE" && (
             <>
-              {status === "APPROVED" && <p>✅ 승인되었습니다. 이제 “입양 후” 단계로 진행합니다.</p>}
               {status === "REJECTED" && (
                 <p>❌ 반려되었습니다. 상세 사유는 보호소 안내를 확인하세요. (현재는 조회만)</p>
               )}

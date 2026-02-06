@@ -273,7 +273,19 @@ export function NextActions({
             />
         )}
 
-        {selectedStepN === "APPROVAL" && <ApprovalStep canReview={isReviewPhase} />}
+        {selectedStepN === "APPROVAL" && (
+            <ApprovalStep
+              canReview={isReviewPhase}
+              processStatus={processStatus}
+              onGoPrev={() => {
+                onSelectStep?.("CONTRACT");
+              }}
+              onGoAfterStage={() => {
+                onSelectStep?.("PICKUP");
+                onAdvanceStep?.("PICKUP");
+              }}
+            />
+        )}
 
         {selectedStepN === "PICKUP" && (
             <PickupStep onSubmitSuccess={safeGoNextFromSelected} />

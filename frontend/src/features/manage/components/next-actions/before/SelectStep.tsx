@@ -134,7 +134,7 @@ export function SelectStep({ onSubmitSuccess, onAdopt }: Props) {
         const userId = resolveUserId();
         try {
           if (typeof userId === "number") {
-            const existing = await fetchAdoptionsByStatus(userId, "IN_PROGRESS");
+            const existing = await fetchAdoptionsByStatus(userId, ["IN_PROGRESS"]);
 
             // ⭐ 핵심: 클릭한 강아지(dogId/abandonedDogId)로 매칭해야 함
             const matched = existing.find((a) => a.dogId === abandonedDogId);

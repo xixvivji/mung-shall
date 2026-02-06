@@ -66,11 +66,11 @@ export async function fetchLikedDogs(): Promise<FetchLikedDogsResult> {
 
 export async function fetchAdoptionsByStatus(
   userId: number,
-  status: AdoptionProcessStatus
+  status: AdoptionProcessStatus[]
 ): Promise<AdoptionStatusSummary[]> {
   const params = new URLSearchParams({
     userId: String(userId),
-    status,
+    statuses: status.join(","),
   });
   const data = await api<unknown>(`/adoptions?${params.toString()}`);
   const rawItems = Array.isArray(data) ? data : data ? [data] : [];

@@ -70,17 +70,23 @@ function validateWeek1Evidence(file: File): string | null {
     return null;
 }
 
-const PDF_ONLY_ACCEPT_TYPES = ".pdf";
-function validatePdfOnlyEvidence(file: File): string | null {
+const EVIDENCE_ACCEPT_TYPES = ".pdf,.jpg,.jpeg,.png";
+function validateEvidenceFile(file: File): string | null {
     const maxBytes = MAX_EVIDENCE_MB * 1024 * 1024;
     if (file.size > maxBytes) return `파일 용량은 ${MAX_EVIDENCE_MB}MB 이하여야 합니다.`;
 
     const lower = file.name.toLowerCase();
-    const okExt = [".pdf"].some((ext) => lower.endsWith(ext));
-    if (!okExt) return "PDF 파일만 업로드 가능합니다.";
+    const okExt = [".pdf", ".jpg", ".jpeg", ".png"].some((ext) => lower.endsWith(ext));
+    if (!okExt) return "PDF/JPG/PNG 파일만 업로드 가능합니다.";
 
     return null;
 }
+
+/** 화상상담 예약 키 */
+type ConsultKey = "first" | "second" | "final";
+type ConsultReservation = {
+    datetimeLocal: string; // input datetime-local 값 그대로 (YYYY-MM-DDTHH:mm)
+};
 
 export function CareStep() {
     const [activeIndex, setActiveIndex] = useState(0);
@@ -102,42 +108,22 @@ export function CareStep() {
             },
             {
                 title: "3일차 체크 (Day 1–3)",
-                adopterTodos: [
-                    "휴식 공간 유지(환경 크게 바꾸지 않기)",
-                    "식사·배변 기록 계속하기",
-                    "산책은 짧게, 스트레스 신호 보이면 중단",
-                    "배변 실수 줄어드는지 확인",
-                ],
+                adopterTodos: ["휴식 공간 유지(환경 크게 바꾸지 않기)", "식사·배변 기록 계속하기", "산책은 짧게, 스트레스 신호 보이면 중단", "배변 실수 줄어드는지 확인"],
                 medicalInfo: ["구토·설사·무기력 여부 관찰", "컨디션 변화 여부 관찰(식욕·활동량)"],
             },
             {
                 title: "1주 적응 (Day 4–7)",
-                adopterTodos: [
-                    "집 루틴 만들기(식사-휴식-짧은 산책)",
-                    "하네스 적응(간식으로 긍정 연결)",
-                    "‘이름-시선’ 5분씩 연습",
-                    "혼자 있는 연습 1–5분부터 시작",
-                ],
+                adopterTodos: ["집 루틴 만들기(식사-휴식-짧은 산책)", "하네스 적응(간식으로 긍정 연결)", "‘이름-시선’ 5분씩 연습", "혼자 있는 연습 1–5분부터 시작"],
                 medicalInfo: ["다음 접종(2주 후) 일정 인지"],
             },
             {
                 title: "2주 점검 (Day 14)",
-                adopterTodos: [
-                    "배변 루틴 강화(성공 시 즉시 보상)",
-                    "‘앉아/기다려/이리와’ 짧게 연습",
-                    "손/발/귀 만지기 허용 훈련",
-                    "사회화는 ‘노출’만 진행",
-                ],
+                adopterTodos: ["배변 루틴 강화(성공 시 즉시 보상)", "‘앉아/기다려/이리와’ 짧게 연습", "손/발/귀 만지기 허용 훈련", "사회화는 ‘노출’만 진행"],
                 medicalInfo: ["종합백신 2차 + 코로나장염 2차 체크", "외부 활동 전 접종 여부 확인"],
             },
             {
                 title: "1개월 건강 체크 (Day 30)",
-                adopterTodos: [
-                    "루틴 안정화 및 생활 적응 확인",
-                    "사람/개 만남은 선택권 제공",
-                    "장난감·퍼즐로 에너지 해소",
-                    "건강 설문(식욕·배변·활동량)",
-                ],
+                adopterTodos: ["루틴 안정화 및 생활 적응 확인", "사람/개 만남은 선택권 제공", "장난감·퍼즐로 에너지 해소", "건강 설문(식욕·배변·활동량)"],
                 medicalInfo: [],
             },
             {
@@ -348,7 +334,8 @@ export function CareStep() {
             return;
         }
 
-        const previewUrl = URL.createObjectURL(file);
+        const isImage = file.type.startsWith("image/");
+        const previewUrl = isImage ? URL.createObjectURL(file) : undefined;
         setWeek1Evidence((prev) => ({ ...prev, file, previewUrl, error: undefined, status: "NOT_SUBMITTED" }));
     };
 
@@ -357,25 +344,36 @@ export function CareStep() {
             setWeek1Evidence((prev) => ({ ...prev, error: "파일을 첨부한 뒤 제출해 주세요." }));
             return;
         }
-        setWeek1Evidence((prev) => ({ ...prev, status: "PENDING", error: undefined }));
+        setWeek1Evidence((prev) => ({ ...prev, status: "APPROVED", error: undefined }));
+    };
+
+    const setEvidenceFileWithPreview = (
+        setter: React.Dispatch<React.SetStateAction<EvidenceState>>,
+        currentPreviewUrl: string | undefined,
+        file: File | null,
+        validateFn: (f: File) => string | null
+    ) => {
+        if (currentPreviewUrl) URL.revokeObjectURL(currentPreviewUrl);
+
+        if (!file) {
+            setter((prev) => ({ ...prev, file: null, previewUrl: undefined, error: "파일을 선택하세요." }));
+            return;
+        }
+
+        const error = validateFn(file);
+        if (error) {
+            setter((prev) => ({ ...prev, file: null, previewUrl: undefined, error, status: "NOT_SUBMITTED" }));
+            return;
+        }
+
+        const isImage = file.type.startsWith("image/");
+        const previewUrl = isImage ? URL.createObjectURL(file) : undefined;
+
+        setter((prev) => ({ ...prev, file, previewUrl, error: undefined, status: "NOT_SUBMITTED" }));
     };
 
     const onDay30VaccineChange = (file: File | null) => {
-        if (day30Vaccine3Evidence.previewUrl) URL.revokeObjectURL(day30Vaccine3Evidence.previewUrl);
-
-        if (!file) {
-            setDay30Vaccine3Evidence((prev) => ({ ...prev, file: null, previewUrl: undefined, error: "파일을 선택하세요." }));
-            return;
-        }
-
-        const error = validatePdfOnlyEvidence(file);
-        if (error) {
-            setDay30Vaccine3Evidence((prev) => ({ ...prev, file: null, previewUrl: undefined, error, status: "NOT_SUBMITTED" }));
-            return;
-        }
-
-        const previewUrl = URL.createObjectURL(file);
-        setDay30Vaccine3Evidence((prev) => ({ ...prev, file, previewUrl, error: undefined, status: "NOT_SUBMITTED" }));
+        setEvidenceFileWithPreview(setDay30Vaccine3Evidence, day30Vaccine3Evidence.previewUrl, file, validateEvidenceFile);
     };
 
     const submitDay30Vaccine = () => {
@@ -383,25 +381,11 @@ export function CareStep() {
             setDay30Vaccine3Evidence((prev) => ({ ...prev, error: "파일을 첨부한 뒤 제출해 주세요." }));
             return;
         }
-        setDay30Vaccine3Evidence((prev) => ({ ...prev, status: "PENDING", error: undefined }));
+        setDay30Vaccine3Evidence((prev) => ({ ...prev, status: "APPROVED", error: undefined }));
     };
 
     const onDay30ParasiteChange = (file: File | null) => {
-        if (day30ParasiteEvidence.previewUrl) URL.revokeObjectURL(day30ParasiteEvidence.previewUrl);
-
-        if (!file) {
-            setDay30ParasiteEvidence((prev) => ({ ...prev, file: null, previewUrl: undefined, error: "파일을 선택하세요." }));
-            return;
-        }
-
-        const error = validatePdfOnlyEvidence(file);
-        if (error) {
-            setDay30ParasiteEvidence((prev) => ({ ...prev, file: null, previewUrl: undefined, error, status: "NOT_SUBMITTED" }));
-            return;
-        }
-
-        const previewUrl = URL.createObjectURL(file);
-        setDay30ParasiteEvidence((prev) => ({ ...prev, file, previewUrl, error: undefined, status: "NOT_SUBMITTED" }));
+        setEvidenceFileWithPreview(setDay30ParasiteEvidence, day30ParasiteEvidence.previewUrl, file, validateEvidenceFile);
     };
 
     const submitDay30Parasite = () => {
@@ -409,25 +393,11 @@ export function CareStep() {
             setDay30ParasiteEvidence((prev) => ({ ...prev, error: "파일을 첨부한 뒤 제출해 주세요." }));
             return;
         }
-        setDay30ParasiteEvidence((prev) => ({ ...prev, status: "PENDING", error: undefined }));
+        setDay30ParasiteEvidence((prev) => ({ ...prev, status: "APPROVED", error: undefined }));
     };
 
     const onDay60EvidenceChange = (file: File | null) => {
-        if (day60Vaccine4KennelEvidence.previewUrl) URL.revokeObjectURL(day60Vaccine4KennelEvidence.previewUrl);
-
-        if (!file) {
-            setDay60Vaccine4KennelEvidence((prev) => ({ ...prev, file: null, previewUrl: undefined, error: "파일을 선택하세요." }));
-            return;
-        }
-
-        const error = validatePdfOnlyEvidence(file);
-        if (error) {
-            setDay60Vaccine4KennelEvidence((prev) => ({ ...prev, file: null, previewUrl: undefined, error, status: "NOT_SUBMITTED" }));
-            return;
-        }
-
-        const previewUrl = URL.createObjectURL(file);
-        setDay60Vaccine4KennelEvidence((prev) => ({ ...prev, file, previewUrl, error: undefined, status: "NOT_SUBMITTED" }));
+        setEvidenceFileWithPreview(setDay60Vaccine4KennelEvidence, day60Vaccine4KennelEvidence.previewUrl, file, validateEvidenceFile);
     };
 
     const submitDay60Evidence = () => {
@@ -435,25 +405,11 @@ export function CareStep() {
             setDay60Vaccine4KennelEvidence((prev) => ({ ...prev, error: "파일을 첨부한 뒤 제출해 주세요." }));
             return;
         }
-        setDay60Vaccine4KennelEvidence((prev) => ({ ...prev, status: "PENDING", error: undefined }));
+        setDay60Vaccine4KennelEvidence((prev) => ({ ...prev, status: "APPROVED", error: undefined }));
     };
 
     const onDay90EvidenceChange = (file: File | null) => {
-        if (day90RabiesEvidence.previewUrl) URL.revokeObjectURL(day90RabiesEvidence.previewUrl);
-
-        if (!file) {
-            setDay90RabiesEvidence((prev) => ({ ...prev, file: null, previewUrl: undefined, error: "파일을 선택하세요." }));
-            return;
-        }
-
-        const error = validatePdfOnlyEvidence(file);
-        if (error) {
-            setDay90RabiesEvidence((prev) => ({ ...prev, file: null, previewUrl: undefined, error, status: "NOT_SUBMITTED" }));
-            return;
-        }
-
-        const previewUrl = URL.createObjectURL(file);
-        setDay90RabiesEvidence((prev) => ({ ...prev, file, previewUrl, error: undefined, status: "NOT_SUBMITTED" }));
+        setEvidenceFileWithPreview(setDay90RabiesEvidence, day90RabiesEvidence.previewUrl, file, validateEvidenceFile);
     };
 
     const submitDay90Evidence = () => {
@@ -461,7 +417,7 @@ export function CareStep() {
             setDay90RabiesEvidence((prev) => ({ ...prev, error: "파일을 첨부한 뒤 제출해 주세요." }));
             return;
         }
-        setDay90RabiesEvidence((prev) => ({ ...prev, status: "PENDING", error: undefined }));
+        setDay90RabiesEvidence((prev) => ({ ...prev, status: "APPROVED", error: undefined }));
     };
 
     const completeCurrentStep = () => {
@@ -488,15 +444,18 @@ export function CareStep() {
         return <span className="rounded-full bg-gray-100 px-3 py-1 text-gray-600 whitespace-nowrap">미제출</span>;
     };
 
-    const PdfEvidenceBlock = (props: {
+    const EvidenceBlock = (props: {
         title: string;
         desc: string;
         state: EvidenceState;
         onChange: (file: File | null) => void;
         onSubmit: () => void;
     }) => {
-        const disabledUpload = isCompleted || !isActiveStep || props.state.status === "PENDING";
-        const disabledSubmit = isCompleted || !isActiveStep || props.state.status === "PENDING";
+        const locked = props.state.status === "PENDING" || props.state.status === "APPROVED";
+        const disabledUpload = isCompleted || !isActiveStep || locked;
+        const disabledSubmit = isCompleted || !isActiveStep || locked;
+
+        const isPdf = props.state.file?.type === "application/pdf" || props.state.file?.name?.toLowerCase().endsWith(".pdf");
 
         return (
             <div className="rounded-lg border border-gray-100 bg-gray-50 p-4">
@@ -511,7 +470,7 @@ export function CareStep() {
                 <div className="mt-3">
                     <input
                         type="file"
-                        accept={PDF_ONLY_ACCEPT_TYPES}
+                        accept={EVIDENCE_ACCEPT_TYPES}
                         onChange={(e) => props.onChange(e.target.files?.[0] ?? null)}
                         className="block w-full max-w-[420px] text-sm text-gray-700 file:mr-4 file:rounded-md file:border-0 file:bg-white file:px-4 file:py-2 file:text-sm file:font-medium file:text-gray-700 hover:file:bg-gray-100"
                         disabled={disabledUpload}
@@ -519,10 +478,15 @@ export function CareStep() {
 
                     {props.state.file ? (
                         <div className="mt-3 flex items-center gap-3">
-                            <div className="flex h-16 w-16 items-center justify-center rounded-lg border border-gray-200 bg-white text-xs text-gray-500">PDF</div>
+                            {props.state.previewUrl && !isPdf ? (
+                                <img src={props.state.previewUrl} alt="증빙 이미지 미리보기" className="h-16 w-16 rounded-lg border border-gray-200 object-cover" />
+                            ) : (
+                                <div className="flex h-16 w-16 items-center justify-center rounded-lg border border-gray-200 bg-white text-xs text-gray-500">PDF</div>
+                            )}
+
                             <div className="min-w-0">
                                 <div className="text-xs text-gray-600">선택: {props.state.file.name}</div>
-                                <div className="text-xs text-gray-400">* 제출 시 “기관 확인중”으로 표시됩니다.</div>
+                                <div className="text-xs text-gray-400">* 제출 시 “승인 완료”로 바로 표시됩니다.</div>
                             </div>
                         </div>
                     ) : null}
@@ -535,14 +499,141 @@ export function CareStep() {
                             onClick={props.onSubmit}
                             disabled={disabledSubmit}
                             className="rounded-lg border border-gray-200 bg-white px-4 py-2 text-sm font-semibold text-gray-800 hover:bg-gray-100 disabled:cursor-not-allowed disabled:opacity-40"
-                            title={props.state.status === "PENDING" ? "기관 확인중입니다." : "PDF 증빙을 제출합니다."}
+                            title={locked ? "이미 제출 완료되었습니다." : "증빙을 제출합니다."}
                         >
-                            {props.state.status === "PENDING" ? "기관 확인중" : "제출하기"}
+                            {props.state.status === "APPROVED" ? "제출 완료" : "제출하기"}
                         </button>
                     </div>
                 </div>
             </div>
         );
+    };
+
+    const [reservations, setReservations] = useState<Record<ConsultKey, ConsultReservation | null>>({
+        first: null,
+        second: null,
+        final: null,
+    });
+
+    const [reserveModal, setReserveModal] = useState<{
+        open: boolean;
+        key: ConsultKey | null;
+        title: string;
+    }>({ open: false, key: null, title: "" });
+
+    const [reserveDraft, setReserveDraft] = useState<string>("");
+
+    const CONSULT_LABEL: Record<ConsultKey, string> = {
+        first: "1차 화상 상담",
+        second: "2차 화상 상담",
+        final: "최종 화상 상담",
+    };
+
+    const JOIN_EARLY_MIN = 10;
+    const JOIN_LATE_MIN = 10;
+
+    function formatKoreanDateTime(dt: Date) {
+        const yyyy = dt.getFullYear();
+        const mm = String(dt.getMonth() + 1).padStart(2, "0");
+        const dd = String(dt.getDate()).padStart(2, "0");
+        const hh = String(dt.getHours()).padStart(2, "0");
+        const mi = String(dt.getMinutes()).padStart(2, "0");
+        return `${yyyy}.${mm}.${dd} ${hh}:${mi}`;
+    }
+
+    function parseLocalDatetime(datetimeLocal: string): Date | null {
+        // datetime-local은 로컬 기준으로 해석됨
+        const d = new Date(datetimeLocal);
+        if (Number.isNaN(d.getTime())) return null;
+        return d;
+    }
+
+    function canJoinNow(datetimeLocal: string) {
+        const reserved = parseLocalDatetime(datetimeLocal);
+        if (!reserved) {
+            return { ok: false, message: "예약 시간이 올바르지 않습니다." };
+        }
+
+        const now = new Date();
+        const start = new Date(reserved.getTime() - JOIN_EARLY_MIN * 60 * 1000);
+        const end = new Date(reserved.getTime() + JOIN_LATE_MIN * 60 * 1000);
+
+        if (now < start) {
+            return {
+                ok: false,
+                message: `예약 시간이 아닙니다.\n입장 가능 시간: ${formatKoreanDateTime(start)} ~ ${formatKoreanDateTime(end)}`,
+            };
+        }
+
+        if (now > end) {
+            return {
+                ok: false,
+                message: `예약 시간이 지났습니다.\n입장 가능 시간: ${formatKoreanDateTime(start)} ~ ${formatKoreanDateTime(end)}`,
+            };
+        }
+
+        return { ok: true, message: "" };
+    }
+
+    const openReserveModal = (key: ConsultKey) => {
+        const existing = reservations[key]?.datetimeLocal ?? "";
+        setReserveDraft(existing);
+        setReserveModal({ open: true, key, title: `${CONSULT_LABEL[key]} 예약` });
+    };
+
+    const closeReserveModal = () => {
+        setReserveModal({ open: false, key: null, title: "" });
+        setReserveDraft("");
+    };
+
+    const saveReservation = () => {
+        if (!reserveModal.key) return;
+        if (!reserveDraft) {
+            alert("예약 날짜/시간을 선택해 주세요.");
+            return;
+        }
+
+        const d = parseLocalDatetime(reserveDraft);
+        if (!d) {
+            alert("예약 날짜/시간 형식이 올바르지 않습니다.");
+            return;
+        }
+        if (d.getTime() < Date.now()) {
+            alert("지난 시간은 예약할 수 없습니다.");
+            return;
+        }
+
+        setReservations((prev) => ({
+            ...prev,
+            [reserveModal.key as ConsultKey]: { datetimeLocal: reserveDraft },
+        }));
+
+        alert(`${CONSULT_LABEL[reserveModal.key]} 예약이 완료되었습니다.\n예약시간: ${formatKoreanDateTime(d)}`);
+        closeReserveModal();
+    };
+
+    const handleJoinClick = (key: ConsultKey) => {
+        const r = reservations[key];
+        if (!r) {
+            alert("예약된 시간이 없습니다.\n먼저 예약을 진행해 주세요.");
+            return;
+        }
+
+        const check = canJoinNow(r.datetimeLocal);
+        if (!check.ok) {
+            alert(check.message);
+            return;
+        }
+
+        alert("입장합니다. (OpenVidu 연결은 추후 구현)");
+    };
+
+    const ReservationInfo = ({ k }: { k: ConsultKey }) => {
+        const r = reservations[k];
+        if (!r) return <span className="text-xs text-gray-400">예약 없음</span>;
+        const d = parseLocalDatetime(r.datetimeLocal);
+        if (!d) return <span className="text-xs text-gray-400">예약 시간 오류</span>;
+        return <span className="text-xs text-gray-500">예약: {formatKoreanDateTime(d)}</span>;
     };
 
     return (
@@ -624,11 +715,11 @@ export function CareStep() {
                                                 : needsWeek1Evidence && !week1EvidenceOk
                                                     ? "접종 증빙 서류를 제출해 주세요."
                                                     : needsDay30Evidence && !day30EvidenceOk
-                                                        ? "Day 30 증빙(PDF) 2개를 제출해 주세요."
+                                                        ? "Day 30 증빙 파일 2개를 제출해 주세요."
                                                         : needsDay60Evidence && !day60EvidenceOk
-                                                            ? "Day 60 증빙(PDF)을 제출해 주세요."
+                                                            ? "Day 60 증빙 파일을 제출해 주세요."
                                                             : needsDay90Evidence && !day90EvidenceOk
-                                                                ? "Day 90 증빙(PDF)을 제출해 주세요."
+                                                                ? "Day 90 증빙 파일을 제출해 주세요."
                                                                 : "이 단계를 완료합니다."
                         }
                     >
@@ -709,7 +800,7 @@ export function CareStep() {
                                 <div className="flex items-start justify-between gap-3">
                                     <div className="min-w-0">
                                         <p className="text-sm font-semibold text-gray-900">종합백신 1차 / 코로나장염 1차 증빙</p>
-                                        <p className="mt-1 text-xs text-gray-500">접종 확인서(병원 발급) 또는 접종 스티커 사진을 업로드해 주세요.</p>
+                                        <p className="mt-1 text-xs text-gray-500">접종 확인서(PDF) 또는 접종 스티커 사진을 업로드해 주세요.</p>
                                     </div>
                                     <div className="text-xs font-semibold">{evidenceBadge(week1Evidence.status)}</div>
                                 </div>
@@ -720,12 +811,12 @@ export function CareStep() {
                                         accept={WEEK1_EVIDENCE_ACCEPT_TYPES}
                                         onChange={(e) => onWeek1EvidenceChange(e.target.files?.[0] ?? null)}
                                         className="block w-full max-w-[420px] text-sm text-gray-700 file:mr-4 file:rounded-md file:border-0 file:bg-white file:px-4 file:py-2 file:text-sm file:font-medium file:text-gray-700 hover:file:bg-gray-100"
-                                        disabled={isCompleted || !isActiveStep || week1Evidence.status === "PENDING"}
+                                        disabled={isCompleted || !isActiveStep || week1Evidence.status === "PENDING" || week1Evidence.status === "APPROVED"}
                                     />
 
                                     {week1Evidence.file ? (
                                         <div className="mt-3 flex items-center gap-3">
-                                            {week1Evidence.previewUrl && week1Evidence.file.type !== "application/pdf" ? (
+                                            {week1Evidence.previewUrl ? (
                                                 <img src={week1Evidence.previewUrl} alt="접종 증빙 미리보기" className="h-16 w-16 rounded-lg border border-gray-200 object-cover" />
                                             ) : (
                                                 <div className="flex h-16 w-16 items-center justify-center rounded-lg border border-gray-200 bg-white text-xs text-gray-500">PDF</div>
@@ -733,7 +824,7 @@ export function CareStep() {
 
                                             <div className="min-w-0">
                                                 <div className="text-xs text-gray-600">선택: {week1Evidence.file.name}</div>
-                                                <div className="text-xs text-gray-400">* 제출 시 “기관 확인중”으로 표시됩니다.</div>
+                                                <div className="text-xs text-gray-400">* 제출 시 “승인 완료”로 바로 표시됩니다.</div>
                                             </div>
                                         </div>
                                     ) : null}
@@ -744,10 +835,10 @@ export function CareStep() {
                                         <button
                                             type="button"
                                             onClick={submitWeek1Evidence}
-                                            disabled={isCompleted || !isActiveStep || week1Evidence.status === "PENDING"}
+                                            disabled={isCompleted || !isActiveStep || week1Evidence.status === "PENDING" || week1Evidence.status === "APPROVED"}
                                             className="rounded-lg border border-gray-200 bg-white px-4 py-2 text-sm font-semibold text-gray-800 hover:bg-gray-100 disabled:cursor-not-allowed disabled:opacity-40"
                                         >
-                                            {week1Evidence.status === "PENDING" ? "기관 확인중" : "제출하기"}
+                                            {week1Evidence.status === "APPROVED" ? "제출 완료" : "제출하기"}
                                         </button>
                                     </div>
                                 </div>
@@ -756,57 +847,61 @@ export function CareStep() {
 
                         {activeIndex === 4 ? (
                             <div className="mt-5 space-y-4">
-                                {PdfEvidenceBlock({
-                                    title: "종합백신 3차 접종 여부 확인 (PDF 증빙)",
-                                    desc: "접종 확인서(PDF)를 업로드 후 제출해 주세요.",
-                                    state: day30Vaccine3Evidence,
-                                    onChange: onDay30VaccineChange,
-                                    onSubmit: submitDay30Vaccine,
-                                })}
-                                {PdfEvidenceBlock({
-                                    title: "심장사상충 · 외부기생충 예방 여부 체크 (PDF 증빙)",
-                                    desc: "예방 내역 확인서(PDF)를 업로드 후 제출해 주세요.",
-                                    state: day30ParasiteEvidence,
-                                    onChange: onDay30ParasiteChange,
-                                    onSubmit: submitDay30Parasite,
-                                })}
+                                <EvidenceBlock
+                                    title="종합백신 3차 접종 여부 확인 (파일 증빙)"
+                                    desc="접종 확인서(PDF) 또는 사진을 업로드 후 제출해 주세요."
+                                    state={day30Vaccine3Evidence}
+                                    onChange={onDay30VaccineChange}
+                                    onSubmit={submitDay30Vaccine}
+                                />
+                                <EvidenceBlock
+                                    title="심장사상충 · 외부기생충 예방 여부 체크 (파일 증빙)"
+                                    desc="예방 내역 확인서(PDF) 또는 사진을 업로드 후 제출해 주세요."
+                                    state={day30ParasiteEvidence}
+                                    onChange={onDay30ParasiteChange}
+                                    onSubmit={submitDay30Parasite}
+                                />
                             </div>
                         ) : null}
 
                         {activeIndex === 5 ? (
                             <div className="mt-5">
-                                {PdfEvidenceBlock({
-                                    title: "종합백신 4차 + 켄넬코프 접종 여부 확인 (PDF 증빙)",
-                                    desc: "접종 확인서(PDF)를 업로드 후 제출해 주세요.",
-                                    state: day60Vaccine4KennelEvidence,
-                                    onChange: onDay60EvidenceChange,
-                                    onSubmit: submitDay60Evidence,
-                                })}
+                                <EvidenceBlock
+                                    title="종합백신 4차 + 켄넬코프 접종 여부 확인 (파일 증빙)"
+                                    desc="접종 확인서(PDF) 또는 사진을 업로드 후 제출해 주세요."
+                                    state={day60Vaccine4KennelEvidence}
+                                    onChange={onDay60EvidenceChange}
+                                    onSubmit={submitDay60Evidence}
+                                />
                             </div>
                         ) : null}
 
                         {activeIndex === 6 ? (
                             <div className="mt-5">
-                                {PdfEvidenceBlock({
-                                    title: "광견병 예방접종 여부 확인 (PDF 증빙)",
-                                    desc: "접종 확인서(PDF)를 업로드 후 제출해 주세요.",
-                                    state: day90RabiesEvidence,
-                                    onChange: onDay90EvidenceChange,
-                                    onSubmit: submitDay90Evidence,
-                                })}
+                                <EvidenceBlock
+                                    title="광견병 예방접종 여부 확인 (파일 증빙)"
+                                    desc="접종 확인서(PDF) 또는 사진을 업로드 후 제출해 주세요."
+                                    state={day90RabiesEvidence}
+                                    onChange={onDay90EvidenceChange}
+                                    onSubmit={submitDay90Evidence}
+                                />
                             </div>
                         ) : null}
                     </section>
 
+                    {/* 1차 화상 상담 */}
                     {activeIndex === 4 ? (
                         <section className="rounded-xl border border-gray-200 p-4">
-                            <div className="flex items-center justify-between">
-                                <h4 className="text-sm font-semibold text-gray-900">1차 화상 상담 진행</h4>
+                            <div className="flex items-center justify-between gap-3">
+                                <div className="min-w-0">
+                                    <h4 className="text-sm font-semibold text-gray-900">1차 화상 상담 진행</h4>
+                                    <ReservationInfo k="first" />
+                                </div>
 
                                 <div className="flex gap-2">
                                     <button
                                         type="button"
-                                        onClick={() => alert("화상 상담 예약 기능은 추후 연결됩니다.")}
+                                        onClick={() => openReserveModal("first")}
                                         className="rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-100"
                                     >
                                         예약하기
@@ -814,7 +909,7 @@ export function CareStep() {
 
                                     <button
                                         type="button"
-                                        onClick={() => alert("화상 상담 입장 기능은 추후 연결됩니다.")}
+                                        onClick={() => handleJoinClick("first")}
                                         className="rounded-lg bg-[#0064FF] px-3 py-1.5 text-sm font-semibold text-white hover:bg-[#0052cc]"
                                     >
                                         입장하기
@@ -828,15 +923,19 @@ export function CareStep() {
                         </section>
                     ) : null}
 
+                    {/* 2차 화상 상담 */}
                     {activeIndex === 5 ? (
                         <section className="rounded-xl border border-gray-200 p-4">
-                            <div className="flex items-center justify-between">
-                                <h4 className="text-sm font-semibold text-gray-900">2차 화상 상담 진행</h4>
+                            <div className="flex items-center justify-between gap-3">
+                                <div className="min-w-0">
+                                    <h4 className="text-sm font-semibold text-gray-900">2차 화상 상담 진행</h4>
+                                    <ReservationInfo k="second" />
+                                </div>
 
                                 <div className="flex gap-2">
                                     <button
                                         type="button"
-                                        onClick={() => alert("화상 상담 예약 기능은 추후 연결됩니다.")}
+                                        onClick={() => openReserveModal("second")}
                                         className="rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-100"
                                     >
                                         예약하기
@@ -844,7 +943,7 @@ export function CareStep() {
 
                                     <button
                                         type="button"
-                                        onClick={() => alert("화상 상담 입장 기능은 추후 연결됩니다.")}
+                                        onClick={() => handleJoinClick("second")}
                                         className="rounded-lg bg-[#0064FF] px-3 py-1.5 text-sm font-semibold text-white hover:bg-[#0052cc]"
                                     >
                                         입장하기
@@ -858,15 +957,19 @@ export function CareStep() {
                         </section>
                     ) : null}
 
+                    {/* 최종 화상 상담 */}
                     {activeIndex === 6 ? (
                         <section className="rounded-xl border border-gray-200 p-4">
-                            <div className="flex items-center justify-between">
-                                <h4 className="text-sm font-semibold text-gray-900">최종 화상 상담 진행</h4>
+                            <div className="flex items-center justify-between gap-3">
+                                <div className="min-w-0">
+                                    <h4 className="text-sm font-semibold text-gray-900">최종 화상 상담 진행</h4>
+                                    <ReservationInfo k="final" />
+                                </div>
 
                                 <div className="flex gap-2">
                                     <button
                                         type="button"
-                                        onClick={() => alert("화상 상담 예약 기능은 추후 연결됩니다.")}
+                                        onClick={() => openReserveModal("final")}
                                         className="rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-100"
                                     >
                                         예약하기
@@ -874,7 +977,7 @@ export function CareStep() {
 
                                     <button
                                         type="button"
-                                        onClick={() => alert("화상 상담 입장 기능은 추후 연결됩니다.")}
+                                        onClick={() => handleJoinClick("final")}
                                         className="rounded-lg bg-[#0064FF] px-3 py-1.5 text-sm font-semibold text-white hover:bg-[#0052cc]"
                                     >
                                         입장하기
@@ -889,6 +992,43 @@ export function CareStep() {
                     ) : null}
                 </div>
             </div>
+
+            {reserveModal.open ? (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+                    <div className="w-full max-w-[520px] rounded-2xl bg-white p-6 shadow-xl">
+                        <div className="flex items-start justify-between gap-3">
+                            <div>
+                                <h3 className="text-lg font-semibold text-gray-900">{reserveModal.title}</h3>
+                                <p className="mt-1 text-sm text-gray-500">원하는 날짜/시간을 선택해 주세요.</p>
+                            </div>
+                            <button type="button" onClick={closeReserveModal} className="rounded-lg px-2 py-1 text-sm text-gray-500 hover:bg-gray-100">
+                                닫기
+                            </button>
+                        </div>
+
+                        <div className="mt-4">
+                            <input
+                                type="datetime-local"
+                                value={reserveDraft}
+                                onChange={(e) => setReserveDraft(e.target.value)}
+                                className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm"
+                            />
+                            <p className="mt-2 text-xs text-gray-400">
+                                * 입장 가능 시간: 예약시간 {JOIN_EARLY_MIN}분 전 ~ {JOIN_LATE_MIN}분 후
+                            </p>
+                        </div>
+
+                        <div className="mt-6 flex justify-end gap-2">
+                            <button type="button" onClick={closeReserveModal} className="rounded-lg border border-gray-200 bg-white px-4 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-50">
+                                취소
+                            </button>
+                            <button type="button" onClick={saveReservation} className="rounded-lg bg-[#0064FF] px-4 py-2 text-sm font-semibold text-white hover:bg-[#0052cc]">
+                                예약 저장
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            ) : null}
         </div>
     );
 }

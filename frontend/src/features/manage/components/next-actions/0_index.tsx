@@ -276,8 +276,7 @@ export function NextActions({
             <PickupStep onSubmitSuccess={safeGoNextFromSelected} />
         )}
 
-        {/* CareStep이 props 안 받는 버전이면 그냥 이렇게 */}
-        {selectedStepN === "CARE" && <CareStep />}
+        {selectedStepN === "CARE" && adoptionId != null && <CareStep adoptionId={adoptionId} />}
 
         <div className="mt-8 flex items-center justify-between gap-3">
           <button

@@ -1,4 +1,5 @@
 ﻿import { api } from "@/shared/api/client";
+
 import type {
   AdoptionDetail,
   AdoptionContractResponse,
@@ -8,13 +9,17 @@ import type {
   AdoptionStepStatus,
   EducationCertResponse,
 } from "@/features/manage/types";
+
 import type { AdoptionStepsStatusResponse } from "@/features/adoption/api/adoptionApi";
+
 import type {
   PostAdoptionProcess,
   PostAdoptionStep,
   PostAdoptionStepStatus,
 } from "@/features/mypage/types";
+
 import type { DocumentType } from "@/features/adoptionApplication/types";
+
 
 type RawPostAdoptionStep = {
   id?: number;
@@ -371,5 +376,127 @@ export async function deleteAdoptionDocument(
   });
 }
 
+// =======================
+// Post-Adoption (Swagger)
+// =======================
 
+export type PostAdoptionChecklistItem = {
+  id: number;
+  itemText: string;
+  checked: boolean;
+  required: boolean;
+  category: string; // e.g. "ADOPTER_CHECKLIST"
+};
 
+export type PostAdoptionSubmissionItem = {
+  id: number;
+  submissionName: string;
+  description?: string | null;
+  submitted: boolean;
+  required: boolean;
+  type: string; // e.g. "IMAGE"
+  fileUrl?: string | null;
+  originalFileName?: string | null;
+  category?: string | null;
+};
+
+export type PostAdoptionStepDetailResponse = {
+  id: number;
+  postAdoptionId: number;
+  stepName: string;
+  description?: string | null;
+  stepOrder: number;
+  dueDate?: string | null;
+  timeStatus?: string | null;
+  adoptionCompletedAt?: string | null;
+
+  checklistItems: PostAdoptionChecklistItem[];
+  submissionItems: PostAdoptionSubmissionItem[];
+
+  submittedAt?: string | null;
+  completedAt?: string | null;
+  rejectionReason?: string | null;
+};
+
+export type PostAdoptionProcessStepSummary = {
+  id: number;
+  stepName: string;
+  description?: string | null;
+  stepOrder: number;
+  submittedAt?: string | null;
+  completedAt?: string | null;
+  rejectionReason?: string | null;
+};
+
+export type PostAdoptionProcessResponse = {
+  id: number;
+  adoptionId: number;
+  createdAt?: string | null;
+  updatedAt?: string | null;
+  steps?: PostAdoptionProcessStepSummary[];
+};
+
+// 1) adoptionId로 프로세스 조회 (GET /api/post-adoptions/adoption/{adoptionId})
+export function fetchPostAdoptionProcessByAdoptionId(
+  adoptionId: number,
+  options: RequestInit = {}
+): Promise<PostAdoptionProcessResponse> {
+  return api<PostAdoptionProcessResponse>(`/post-adoptions/adoption/${adoptionId}`, options);
+}
+
+// 2) step 상세 (GET /api/post-adoptions/{postAdoptionId}/steps/{stepOrder})
+export function fetchPostAdoptionStepDetail(
+  postAdoptionId: number,
+  stepOrder: number,
+  options: RequestInit = {}
+): Promise<PostAdoptionStepDetailResponse> {
+  return api<PostAdoptionStepDetailResponse>(
+    `/post-adoptions/${postAdoptionId}/steps/${stepOrder}`,
+    options
+  );
+}
+
+// 3) 체크리스트 토글 (PATCH /api/post-adoptions/{postAdoptionId}/steps/{stepOrder}/checklist/{checklistItemId})
+export function updatePostAdoptionChecklistItem(
+  postAdoptionId: number,
+  stepOrder: number,
+  checklistItemId: number,
+  checked: boolean
+): Promise<PostAdoptionStepDetailResponse> {
+  return api<PostAdoptionStepDetailResponse>(
+    `/post-adoptions/${postAdoptionId}/steps/${stepOrder}/checklist/${checklistItemId}`,
+    {
+      method: "PATCH",
+      body: JSON.stringify({ checklistItemId, checked }),
+    }
+  );
+}
+
+// 4) 제출 파일 업로드 (POST /api/post-adoptions/{postAdoptionId}/steps/{stepOrder}/submissions/{submissionId})
+export function uploadPostAdoptionSubmissionFile(
+  postAdoptionId: number,
+  stepOrder: number,
+  submissionId: number,
+  file: File
+): Promise<PostAdoptionStepDetailResponse> {
+  const formData = new FormData();
+  // Swagger 기준 key = "file"
+  formData.append("file", file);
+
+  return api<PostAdoptionStepDetailResponse>(
+    `/post-adoptions/${postAdoptionId}/steps/${stepOrder}/submissions/${submissionId}`,
+    { method: "POST", body: formData }
+  );
+}
+
+// 5) 제출 파일 삭제 (DELETE /api/post-adoptions/{postAdoptionId}/steps/{stepOrder}/submissions/{submissionId})
+export function deletePostAdoptionSubmissionFile(
+  postAdoptionId: number,
+  stepOrder: number,
+  submissionId: number
+): Promise<PostAdoptionStepDetailResponse> {
+  return api<PostAdoptionStepDetailResponse>(
+    `/post-adoptions/${postAdoptionId}/steps/${stepOrder}/submissions/${submissionId}`,
+    { method: "DELETE" }
+  );
+}

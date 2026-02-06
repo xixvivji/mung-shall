@@ -13,7 +13,7 @@ export default function IntroSection3() {
             <img
               src={videoCallImg}
               alt="화상 통화 화면"
-              className="w-full rounded-2xl object-cover shadow-sm"
+              className="w-full rounded-2xl object-cover"
             />
           </div>
 
@@ -47,7 +47,7 @@ export default function IntroSection3() {
             <img
               src={documentImg}
               alt="입양 서류 조회 화면"
-              className="w-full rounded-2xl object-cover shadow-sm"
+              className="w-full rounded-2xl object-cover"
             />
           </div>
         </div>

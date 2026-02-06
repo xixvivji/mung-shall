@@ -1,4 +1,4 @@
-import { Dispatch, SetStateAction, useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import "@/shared/styles/uiverse/PostAdoptionStepper.css";
 
 type RoadmapDetail = {
@@ -82,22 +82,11 @@ function validateEvidenceFile(file: File): string | null {
     return null;
 }
 
-/** ====== (3단계) 화상상담 예약 UI 타입/유틸 ====== */
+/** 화상상담 예약 키 */
 type ConsultKey = "first" | "second" | "final";
-type Reservations = Record<ConsultKey, string | null>;
-
-function consultLabel(key: ConsultKey) {
-    if (key === "first") return "1차";
-    if (key === "second") return "2차";
-    return "최종";
-}
-
-function formatReservation(iso: string) {
-    // iso: "YYYY-MM-DDTHH:mm"
-    const [date, time] = iso.split("T");
-    if (!date || !time) return iso;
-    return `${date} ${time}`;
-}
+type ConsultReservation = {
+    datetimeLocal: string; // input datetime-local 값 그대로 (YYYY-MM-DDTHH:mm)
+};
 
 export function CareStep() {
     const [activeIndex, setActiveIndex] = useState(0);
@@ -119,12 +108,7 @@ export function CareStep() {
             },
             {
                 title: "3일차 체크 (Day 1–3)",
-                adopterTodos: [
-                    "휴식 공간 유지(환경 크게 바꾸지 않기)",
-                    "식사·배변 기록 계속하기",
-                    "산책은 짧게, 스트레스 신호 보이면 중단",
-                    "배변 실수 줄어드는지 확인",
-                ],
+                adopterTodos: ["휴식 공간 유지(환경 크게 바꾸지 않기)", "식사·배변 기록 계속하기", "산책은 짧게, 스트레스 신호 보이면 중단", "배변 실수 줄어드는지 확인"],
                 medicalInfo: ["구토·설사·무기력 여부 관찰", "컨디션 변화 여부 관찰(식욕·활동량)"],
             },
             {
@@ -350,7 +334,8 @@ export function CareStep() {
             return;
         }
 
-        const previewUrl = URL.createObjectURL(file);
+        const isImage = file.type.startsWith("image/");
+        const previewUrl = isImage ? URL.createObjectURL(file) : undefined;
         setWeek1Evidence((prev) => ({ ...prev, file, previewUrl, error: undefined, status: "NOT_SUBMITTED" }));
     };
 
@@ -363,7 +348,7 @@ export function CareStep() {
     };
 
     const setEvidenceFileWithPreview = (
-        setter: Dispatch<SetStateAction<EvidenceState>>,
+        setter: React.Dispatch<React.SetStateAction<EvidenceState>>,
         currentPreviewUrl: string | undefined,
         file: File | null,
         validateFn: (f: File) => string | null
@@ -524,56 +509,131 @@ export function CareStep() {
         );
     };
 
-    const [reservations, setReservations] = useState<Reservations>({
+    const [reservations, setReservations] = useState<Record<ConsultKey, ConsultReservation | null>>({
         first: null,
         second: null,
         final: null,
     });
 
-    const [reserveModalOpen, setReserveModalOpen] = useState(false);
-    const [reserveTarget, setReserveTarget] = useState<ConsultKey>("first");
-    const [reserveDate, setReserveDate] = useState(""); // YYYY-MM-DD
-    const [reserveTime, setReserveTime] = useState(""); // HH:mm
-    const [reserveError, setReserveError] = useState<string | null>(null);
+    const [reserveModal, setReserveModal] = useState<{
+        open: boolean;
+        key: ConsultKey | null;
+        title: string;
+    }>({ open: false, key: null, title: "" });
 
-    const openReserveModal = (target: ConsultKey) => {
-        setReserveTarget(target);
+    const [reserveDraft, setReserveDraft] = useState<string>("");
 
-        // 기존 예약 있으면 모달에 기본값 세팅
-        const existing = reservations[target];
-        if (existing && existing.includes("T")) {
-            const [d, t] = existing.split("T");
-            setReserveDate(d ?? "");
-            setReserveTime((t ?? "").slice(0, 5));
-        } else {
-            setReserveDate("");
-            setReserveTime("");
+    const CONSULT_LABEL: Record<ConsultKey, string> = {
+        first: "1차 화상 상담",
+        second: "2차 화상 상담",
+        final: "최종 화상 상담",
+    };
+
+    const JOIN_EARLY_MIN = 10;
+    const JOIN_LATE_MIN = 10;
+
+    function formatKoreanDateTime(dt: Date) {
+        const yyyy = dt.getFullYear();
+        const mm = String(dt.getMonth() + 1).padStart(2, "0");
+        const dd = String(dt.getDate()).padStart(2, "0");
+        const hh = String(dt.getHours()).padStart(2, "0");
+        const mi = String(dt.getMinutes()).padStart(2, "0");
+        return `${yyyy}.${mm}.${dd} ${hh}:${mi}`;
+    }
+
+    function parseLocalDatetime(datetimeLocal: string): Date | null {
+        // datetime-local은 로컬 기준으로 해석됨
+        const d = new Date(datetimeLocal);
+        if (Number.isNaN(d.getTime())) return null;
+        return d;
+    }
+
+    function canJoinNow(datetimeLocal: string) {
+        const reserved = parseLocalDatetime(datetimeLocal);
+        if (!reserved) {
+            return { ok: false, message: "예약 시간이 올바르지 않습니다." };
         }
 
-        setReserveError(null);
-        setReserveModalOpen(true);
+        const now = new Date();
+        const start = new Date(reserved.getTime() - JOIN_EARLY_MIN * 60 * 1000);
+        const end = new Date(reserved.getTime() + JOIN_LATE_MIN * 60 * 1000);
+
+        if (now < start) {
+            return {
+                ok: false,
+                message: `예약 시간이 아닙니다.\n입장 가능 시간: ${formatKoreanDateTime(start)} ~ ${formatKoreanDateTime(end)}`,
+            };
+        }
+
+        if (now > end) {
+            return {
+                ok: false,
+                message: `예약 시간이 지났습니다.\n입장 가능 시간: ${formatKoreanDateTime(start)} ~ ${formatKoreanDateTime(end)}`,
+            };
+        }
+
+        return { ok: true, message: "" };
+    }
+
+    const openReserveModal = (key: ConsultKey) => {
+        const existing = reservations[key]?.datetimeLocal ?? "";
+        setReserveDraft(existing);
+        setReserveModal({ open: true, key, title: `${CONSULT_LABEL[key]} 예약` });
     };
 
     const closeReserveModal = () => {
-        setReserveModalOpen(false);
-        setReserveError(null);
+        setReserveModal({ open: false, key: null, title: "" });
+        setReserveDraft("");
     };
 
     const saveReservation = () => {
-        if (!reserveDate || !reserveTime) {
-            setReserveError("날짜와 시간을 모두 선택해 주세요.");
+        if (!reserveModal.key) return;
+        if (!reserveDraft) {
+            alert("예약 날짜/시간을 선택해 주세요.");
             return;
         }
 
-        const iso = `${reserveDate}T${reserveTime}`;
-        setReservations((prev) => ({ ...prev, [reserveTarget]: iso }));
-        setReserveModalOpen(false);
-        setReserveError(null);
+        const d = parseLocalDatetime(reserveDraft);
+        if (!d) {
+            alert("예약 날짜/시간 형식이 올바르지 않습니다.");
+            return;
+        }
+        if (d.getTime() < Date.now()) {
+            alert("지난 시간은 예약할 수 없습니다.");
+            return;
+        }
+
+        setReservations((prev) => ({
+            ...prev,
+            [reserveModal.key as ConsultKey]: { datetimeLocal: reserveDraft },
+        }));
+
+        alert(`${CONSULT_LABEL[reserveModal.key]} 예약이 완료되었습니다.\n예약시간: ${formatKoreanDateTime(d)}`);
+        closeReserveModal();
     };
 
-    const reservationBadge = (iso: string | null) => {
-        if (!iso) return null;
-        return <span className="rounded-full bg-indigo-50 px-3 py-1 text-indigo-700 whitespace-nowrap text-xs font-semibold">예약됨: {formatReservation(iso)}</span>;
+    const handleJoinClick = (key: ConsultKey) => {
+        const r = reservations[key];
+        if (!r) {
+            alert("예약된 시간이 없습니다.\n먼저 예약을 진행해 주세요.");
+            return;
+        }
+
+        const check = canJoinNow(r.datetimeLocal);
+        if (!check.ok) {
+            alert(check.message);
+            return;
+        }
+
+        alert("입장합니다. (OpenVidu 연결은 추후 구현)");
+    };
+
+    const ReservationInfo = ({ k }: { k: ConsultKey }) => {
+        const r = reservations[k];
+        if (!r) return <span className="text-xs text-gray-400">예약 없음</span>;
+        const d = parseLocalDatetime(r.datetimeLocal);
+        if (!d) return <span className="text-xs text-gray-400">예약 시간 오류</span>;
+        return <span className="text-xs text-gray-500">예약: {formatKoreanDateTime(d)}</span>;
     };
 
     return (
@@ -756,7 +816,7 @@ export function CareStep() {
 
                                     {week1Evidence.file ? (
                                         <div className="mt-3 flex items-center gap-3">
-                                            {week1Evidence.previewUrl && week1Evidence.file.type !== "application/pdf" ? (
+                                            {week1Evidence.previewUrl ? (
                                                 <img src={week1Evidence.previewUrl} alt="접종 증빙 미리보기" className="h-16 w-16 rounded-lg border border-gray-200 object-cover" />
                                             ) : (
                                                 <div className="flex h-16 w-16 items-center justify-center rounded-lg border border-gray-200 bg-white text-xs text-gray-500">PDF</div>
@@ -829,12 +889,13 @@ export function CareStep() {
                         ) : null}
                     </section>
 
+                    {/* 1차 화상 상담 */}
                     {activeIndex === 4 ? (
                         <section className="rounded-xl border border-gray-200 p-4">
                             <div className="flex items-center justify-between gap-3">
-                                <div className="flex items-center gap-2 min-w-0">
-                                    <h4 className="text-sm font-semibold text-gray-900 whitespace-nowrap">1차 화상 상담 진행</h4>
-                                    {reservationBadge(reservations.first)}
+                                <div className="min-w-0">
+                                    <h4 className="text-sm font-semibold text-gray-900">1차 화상 상담 진행</h4>
+                                    <ReservationInfo k="first" />
                                 </div>
 
                                 <div className="flex gap-2">
@@ -848,7 +909,7 @@ export function CareStep() {
 
                                     <button
                                         type="button"
-                                        onClick={() => alert("화상 상담 입장 기능은 추후 연결됩니다.")}
+                                        onClick={() => handleJoinClick("first")}
                                         className="rounded-lg bg-[#0064FF] px-3 py-1.5 text-sm font-semibold text-white hover:bg-[#0052cc]"
                                     >
                                         입장하기
@@ -856,16 +917,19 @@ export function CareStep() {
                                 </div>
                             </div>
 
-                            <div className="mt-3 rounded-lg border border-dashed border-gray-200 bg-gray-50 p-4 text-sm text-gray-500">WebRTC(OpenVidu) 연결 영역 (추후 구현)</div>
+                            <div className="mt-3 rounded-lg border border-dashed border-gray-200 bg-gray-50 p-4 text-sm text-gray-500">
+                                WebRTC(OpenVidu) 연결 영역 (추후 구현)
+                            </div>
                         </section>
                     ) : null}
 
+                    {/* 2차 화상 상담 */}
                     {activeIndex === 5 ? (
                         <section className="rounded-xl border border-gray-200 p-4">
                             <div className="flex items-center justify-between gap-3">
-                                <div className="flex items-center gap-2 min-w-0">
-                                    <h4 className="text-sm font-semibold text-gray-900 whitespace-nowrap">2차 화상 상담 진행</h4>
-                                    {reservationBadge(reservations.second)}
+                                <div className="min-w-0">
+                                    <h4 className="text-sm font-semibold text-gray-900">2차 화상 상담 진행</h4>
+                                    <ReservationInfo k="second" />
                                 </div>
 
                                 <div className="flex gap-2">
@@ -879,7 +943,7 @@ export function CareStep() {
 
                                     <button
                                         type="button"
-                                        onClick={() => alert("화상 상담 입장 기능은 추후 연결됩니다.")}
+                                        onClick={() => handleJoinClick("second")}
                                         className="rounded-lg bg-[#0064FF] px-3 py-1.5 text-sm font-semibold text-white hover:bg-[#0052cc]"
                                     >
                                         입장하기
@@ -887,16 +951,19 @@ export function CareStep() {
                                 </div>
                             </div>
 
-                            <div className="mt-3 rounded-lg border border-dashed border-gray-200 bg-gray-50 p-4 text-sm text-gray-500">WebRTC(OpenVidu) 연결 영역 (추후 구현)</div>
+                            <div className="mt-3 rounded-lg border border-dashed border-gray-200 bg-gray-50 p-4 text-sm text-gray-500">
+                                WebRTC(OpenVidu) 연결 영역 (추후 구현)
+                            </div>
                         </section>
                     ) : null}
 
+                    {/* 최종 화상 상담 */}
                     {activeIndex === 6 ? (
                         <section className="rounded-xl border border-gray-200 p-4">
                             <div className="flex items-center justify-between gap-3">
-                                <div className="flex items-center gap-2 min-w-0">
-                                    <h4 className="text-sm font-semibold text-gray-900 whitespace-nowrap">최종 화상 상담 진행</h4>
-                                    {reservationBadge(reservations.final)}
+                                <div className="min-w-0">
+                                    <h4 className="text-sm font-semibold text-gray-900">최종 화상 상담 진행</h4>
+                                    <ReservationInfo k="final" />
                                 </div>
 
                                 <div className="flex gap-2">
@@ -910,7 +977,7 @@ export function CareStep() {
 
                                     <button
                                         type="button"
-                                        onClick={() => alert("화상 상담 입장 기능은 추후 연결됩니다.")}
+                                        onClick={() => handleJoinClick("final")}
                                         className="rounded-lg bg-[#0064FF] px-3 py-1.5 text-sm font-semibold text-white hover:bg-[#0052cc]"
                                     >
                                         입장하기
@@ -918,80 +985,44 @@ export function CareStep() {
                                 </div>
                             </div>
 
-                            <div className="mt-3 rounded-lg border border-dashed border-gray-200 bg-gray-50 p-4 text-sm text-gray-500">WebRTC(OpenVidu) 연결 영역 (추후 구현)</div>
+                            <div className="mt-3 rounded-lg border border-dashed border-gray-200 bg-gray-50 p-4 text-sm text-gray-500">
+                                WebRTC(OpenVidu) 연결 영역 (추후 구현)
+                            </div>
                         </section>
                     ) : null}
                 </div>
             </div>
 
-            {reserveModalOpen ? (
-                <div
-                    className="fixed inset-0 z-[999] flex items-center justify-center bg-black/40 p-4"
-                    role="dialog"
-                    aria-modal="true"
-                    onMouseDown={(e) => {
-                        if (e.target === e.currentTarget) closeReserveModal();
-                    }}
-                >
+            {reserveModal.open ? (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
                     <div className="w-full max-w-[520px] rounded-2xl bg-white p-6 shadow-xl">
                         <div className="flex items-start justify-between gap-3">
-                            <div className="min-w-0">
-                                <h3 className="text-lg font-semibold text-gray-900">{consultLabel(reserveTarget)} 화상 상담 예약</h3>
-                                <p className="mt-1 text-sm text-gray-500">원하는 날짜와 시간을 선택해 주세요.</p>
+                            <div>
+                                <h3 className="text-lg font-semibold text-gray-900">{reserveModal.title}</h3>
+                                <p className="mt-1 text-sm text-gray-500">원하는 날짜/시간을 선택해 주세요.</p>
                             </div>
-
-                            <button
-                                type="button"
-                                onClick={closeReserveModal}
-                                className="rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-sm font-semibold text-gray-700 hover:bg-gray-50"
-                            >
+                            <button type="button" onClick={closeReserveModal} className="rounded-lg px-2 py-1 text-sm text-gray-500 hover:bg-gray-100">
                                 닫기
                             </button>
                         </div>
 
-                        <div className="mt-5 grid gap-4 sm:grid-cols-2">
-                            <div>
-                                <label className="block text-sm font-medium text-gray-800">날짜</label>
-                                <input
-                                    type="date"
-                                    value={reserveDate}
-                                    onChange={(e) => setReserveDate(e.target.value)}
-                                    className="mt-2 w-full rounded-xl border border-gray-200 px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-200"
-                                />
-                            </div>
-
-                            <div>
-                                <label className="block text-sm font-medium text-gray-800">시간</label>
-                                <input
-                                    type="time"
-                                    value={reserveTime}
-                                    onChange={(e) => setReserveTime(e.target.value)}
-                                    className="mt-2 w-full rounded-xl border border-gray-200 px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-200"
-                                />
-                            </div>
+                        <div className="mt-4">
+                            <input
+                                type="datetime-local"
+                                value={reserveDraft}
+                                onChange={(e) => setReserveDraft(e.target.value)}
+                                className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm"
+                            />
+                            <p className="mt-2 text-xs text-gray-400">
+                                * 입장 가능 시간: 예약시간 {JOIN_EARLY_MIN}분 전 ~ {JOIN_LATE_MIN}분 후
+                            </p>
                         </div>
 
-                        {reserveError ? <p className="mt-3 text-sm text-red-600">{reserveError}</p> : null}
-
-                        <div className="mt-6 flex flex-wrap justify-end gap-2">
-                            <button
-                                type="button"
-                                onClick={() => {
-                                    // 예약 취소(해당 키만 삭제)
-                                    setReservations((prev) => ({ ...prev, [reserveTarget]: null }));
-                                    closeReserveModal();
-                                }}
-                                className="rounded-xl border border-gray-200 bg-white px-4 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-50"
-                                title="해당 상담 예약을 지웁니다."
-                            >
-                                예약 취소
+                        <div className="mt-6 flex justify-end gap-2">
+                            <button type="button" onClick={closeReserveModal} className="rounded-lg border border-gray-200 bg-white px-4 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-50">
+                                취소
                             </button>
-
-                            <button
-                                type="button"
-                                onClick={saveReservation}
-                                className="rounded-xl bg-[#0064FF] px-4 py-2 text-sm font-semibold text-white hover:bg-[#0052cc]"
-                            >
+                            <button type="button" onClick={saveReservation} className="rounded-lg bg-[#0064FF] px-4 py-2 text-sm font-semibold text-white hover:bg-[#0052cc]">
                                 예약 저장
                             </button>
                         </div>

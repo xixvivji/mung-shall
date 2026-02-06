@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { Button } from "@/shared/ui/button";
 import { CheckCircle2, Circle } from "lucide-react";
 import { ApiError } from "@/shared/api/client";
@@ -7,7 +8,10 @@ import {
   verifyPostAdoptionStep,
   completePostAdoptionProcess,
 } from "@/features/postAdoption/api/postAdoptionApi";
-import type { PostAdoptionStep, PostAdoptionStepStatus } from "@/features/mypage/types";
+import type {
+  PostAdoptionStep,
+  PostAdoptionStepStatus,
+} from "@/features/mypage/types";
 
 type Props = {
   postAdoptionId?: number | null;
@@ -52,6 +56,17 @@ function resolveApiErrorMessage(error: unknown, fallback: string) {
   return fallback;
 }
 
+function getVideoStageTitle(step: PostAdoptionStep | null) {
+  const name = step?.stepName ?? "";
+  const order = step?.stepOrder ?? null;
+
+  if (name.includes("1차") || order === 30) return "1차 화상 상담 진행";
+  if (name.includes("2차") || order === 60) return "2차 화상 상담 진행";
+  if (name.includes("최종") || order === 90) return "최종 화상 상담 진행";
+
+  return null;
+}
+
 export function PostAdoptionTools({
                                     postAdoptionId,
                                     adoptionId,
@@ -59,6 +74,8 @@ export function PostAdoptionTools({
                                     onRefresh,
                                     onStart,
                                   }: Props) {
+  const navigate = useNavigate();
+
   const [selectedStepId, setSelectedStepId] = useState<number | null>(null);
   const [detail, setDetail] = useState<PostAdoptionStep | null>(null);
   const [detailLoading, setDetailLoading] = useState(false);
@@ -81,7 +98,7 @@ export function PostAdoptionTools({
       setSelectedStepId(null);
       return;
     }
-    if (!selectedStepId || !orderedSteps.some((step) => step.id === selectedStepId)) {
+    if (!selectedStepId || !orderedSteps.some((s) => s.id === selectedStepId)) {
       setSelectedStepId(orderedSteps[0]?.id ?? null);
     }
   }, [orderedSteps, selectedStepId]);
@@ -155,16 +172,12 @@ export function PostAdoptionTools({
       setActionMessage(approved ? "?? ??? ???????." : "?? ??? ???????.");
       setRejectReason("");
       await loadDetail(postAdoptionId, selectedStepId);
-      if (onRefresh) {
-        await onRefresh();
-      }
+      if (onRefresh) await onRefresh();
     } catch (err) {
       setActionError(resolveApiErrorMessage(err, "??/?? ??? ??????."));
       if (err instanceof ApiError && err.status === 409) {
         await loadDetail(postAdoptionId, selectedStepId);
-        if (onRefresh) {
-          await onRefresh();
-        }
+        if (onRefresh) await onRefresh();
       }
     } finally {
       setActionLoading(false);
@@ -177,11 +190,11 @@ export function PostAdoptionTools({
     setCompleteMessage(null);
     try {
       await onStart();
-      if (onRefresh) {
-        await onRefresh();
-      }
+      if (onRefresh) await onRefresh();
     } catch (err) {
-      setCompleteError(resolveApiErrorMessage(err, "입양 후 프로세스를 시작하지 못했습니다."));
+      setCompleteError(
+          resolveApiErrorMessage(err, "입양 후 프로세스를 시작하지 못했습니다.")
+      );
     }
   };
 
@@ -197,9 +210,7 @@ export function PostAdoptionTools({
     try {
       await completePostAdoptionProcess(postAdoptionId);
       setCompleteMessage("입양 후 프로세스가 완료 처리되었습니다.");
-      if (onRefresh) {
-        await onRefresh();
-      }
+      if (onRefresh) await onRefresh();
     } catch (err) {
       setCompleteError(resolveApiErrorMessage(err, "완료 처리에 실패했습니다."));
     } finally {
@@ -207,9 +218,18 @@ export function PostAdoptionTools({
     }
   };
 
+  const videoStageTitle = getVideoStageTitle(detail);
+  const stepKey = detail?.stepOrder ?? null;
+
+  const handleEnterVideo = () => {
+    if (!postAdoptionId) return;
+    if (!stepKey) return;
+    if (![30, 60, 90].includes(stepKey)) return;
+    navigate(`/video/${postAdoptionId}/${stepKey}`);
+  };
+
   return (
       <div className="grid grid-cols-1 gap-6">
-        {/* Roadmap Checklist */}
         <div className="bg-white rounded-2xl p-8 shadow-sm border border-gray-100">
           <h2 className="text-xl text-gray-400 mb-8">?? ? ???</h2>
 
@@ -258,7 +278,13 @@ export function PostAdoptionTools({
                     )}
                     <div className="min-w-0">
                       <div className="flex items-center gap-2">
-                    <span className={completed ? "text-gray-500 line-through" : "text-gray-900"}>
+                    <span
+                        className={
+                          completed
+                              ? "text-gray-500 line-through"
+                              : "text-gray-900"
+                        }
+                    >
                       {step.stepName || "Post-adoption step"}
                     </span>
                         <span className="rounded-full bg-gray-100 px-2 py-0.5 text-[10px] font-semibold text-gray-600">
@@ -266,7 +292,9 @@ export function PostAdoptionTools({
                     </span>
                       </div>
                       {step.description && (
-                          <p className="mt-1 text-xs text-gray-500">{step.description}</p>
+                          <p className="mt-1 text-xs text-gray-500">
+                            {step.description}
+                          </p>
                       )}
                     </div>
                   </button>
@@ -277,10 +305,14 @@ export function PostAdoptionTools({
           <div className="mt-6 rounded-2xl border border-gray-100 bg-gray-50/60 p-4">
             <div className="flex items-center justify-between">
               <p className="text-sm font-semibold text-gray-900">?? ??</p>
-              {detailLoading ? <span className="text-xs text-gray-500">???? ?...</span> : null}
+              {detailLoading ? (
+                  <span className="text-xs text-gray-500">???? ?...</span>
+              ) : null}
             </div>
 
-            {detailError ? <p className="mt-2 text-xs text-red-600">{detailError}</p> : null}
+            {detailError ? (
+                <p className="mt-2 text-xs text-red-600">{detailError}</p>
+            ) : null}
 
             {!detailLoading && !detailError && !detail ? (
                 <p className="mt-3 text-xs text-gray-500">??? ??????.</p>
@@ -300,12 +332,36 @@ export function PostAdoptionTools({
                   </div>
                   <div className="flex items-center gap-2">
                     <span className="text-xs font-semibold text-gray-500">???</span>
-                    <span className="text-sm text-gray-900">{formatDateTime(detail.submittedAt)}</span>
+                    <span className="text-sm text-gray-900">
+                  {formatDateTime(detail.submittedAt)}
+                </span>
                   </div>
                   <div className="flex items-center gap-2">
                     <span className="text-xs font-semibold text-gray-500">???</span>
-                    <span className="text-sm text-gray-900">{formatDateTime(detail.completedAt)}</span>
+                    <span className="text-sm text-gray-900">
+                  {formatDateTime(detail.completedAt)}
+                </span>
                   </div>
+
+                  {videoStageTitle ? (
+                      <div className="mt-4 rounded-2xl border border-gray-100 bg-white p-5">
+                        <div className="text-base font-semibold text-gray-900">
+                          {videoStageTitle}
+                        </div>
+                        <div className="mt-3 rounded-xl border border-dashed border-gray-200 bg-gray-50 px-4 py-4 text-sm text-gray-600">
+                          WebRTC(OpenVidu) 연결 영역 (추후 구현)
+                        </div>
+                        <div className="mt-4">
+                          <Button
+                              className="w-full rounded-lg bg-blue-500 text-white hover:bg-blue-600"
+                              onClick={handleEnterVideo}
+                              disabled={!postAdoptionId || !stepKey}
+                          >
+                            화상 상담 입장하기
+                          </Button>
+                        </div>
+                      </div>
+                  ) : null}
 
                   {detail.rejectionReason && (
                       <div className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700">
@@ -335,7 +391,9 @@ export function PostAdoptionTools({
                   ) : null}
 
                   <div className="mt-2 space-y-2">
-                    <label className="text-xs font-semibold text-gray-600">?? ??</label>
+                    <label className="text-xs font-semibold text-gray-600">
+                      ?? ??
+                    </label>
                     <textarea
                         className="w-full rounded-lg border border-gray-200 bg-white p-2 text-xs"
                         rows={3}

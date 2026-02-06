@@ -9,11 +9,9 @@ type Props = {
 };
 
 export function ProfileSummary({ user }: Props) {
-  // ✅ 기본값: 본인인증 안 된 상태
   const [isVerified, setIsVerified] = useState(false);
 
   function handleVerify() {
-    // TODO: 나중에 본인인증 API 성공 후 true로 변경
     setIsVerified(true);
   }
 

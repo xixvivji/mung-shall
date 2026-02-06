@@ -19,35 +19,45 @@ import FAQPage from "@/pages/faq";
 import UiTestPage from "@/pages/uitest";
 import MotionPage from "@/pages/motion";
 import MatchingSurveyPage from "@/pages/matching-survey";
+import VideoMeetingPage from "@/pages/video/VideoMeetingPage";
 
 export default function AppRoutes() {
   return (
-    <BrowserRouter>
-      <Routes>
-        <Route element={<AppLayout />}>
-          <Route index element={<HomePage />} />
-          <Route path="/adoption" element={<AdoptionPage />} />
-          <Route path="/adoption/:id" element={<AdoptionDetailPage />} />
-          <Route path="/adoption-recommend" element={<AdoptionRecommendPage />} />
-          <Route path="/adoptions/:adoptionId" element={<ManagePage />} />
-          <Route path="/boards" element={<BoardListPage />} />
-          <Route path="/boards/new" element={<BoardCreatePage />} />
-          <Route path="/boards/:id" element={<BoardDetailPage />} />
-          <Route path="/boards/:id/edit" element={<BoardEditPage />} />
-          <Route path="/auth/login" element={<LoginPage />} />
-          <Route path="/auth/signup" element={<SignupPage />} />
-          <Route path="/oauth/callback" element={<OAuthCallbackPage />} />
-          <Route path="/mypage" element={<MyPage />} />
-          <Route path="/manage" element={<ManagePage />} />
-          <Route path="/center" element={<CenterPage />} />
-          <Route path="/faq" element={<FAQPage />} />
-          <Route path="/uitest" element={<UiTestPage />} />
-          <Route path="/motion" element={<MotionPage />} />
-          <Route path="/matching-survey" element={<MatchingSurveyPage />} />
-          <Route path="*" element={<NotFoundPage />} />
-          
-        </Route>
-      </Routes>
-    </BrowserRouter>
+      <BrowserRouter>
+        <Routes>
+          <Route element={<AppLayout />}>
+            <Route index element={<HomePage />} />
+            <Route path="/adoption" element={<AdoptionPage />} />
+            <Route path="/adoption/:id" element={<AdoptionDetailPage />} />
+            <Route path="/adoption-recommend" element={<AdoptionRecommendPage />} />
+            <Route path="/adoptions/:adoptionId" element={<ManagePage />} />
+
+            <Route path="/boards" element={<BoardListPage />} />
+            <Route path="/boards/new" element={<BoardCreatePage />} />
+            <Route path="/boards/:id" element={<BoardDetailPage />} />
+            <Route path="/boards/:id/edit" element={<BoardEditPage />} />
+
+            <Route path="/auth/login" element={<LoginPage />} />
+            <Route path="/auth/signup" element={<SignupPage />} />
+            <Route path="/oauth/callback" element={<OAuthCallbackPage />} />
+
+            <Route path="/mypage" element={<MyPage />} />
+            <Route path="/manage" element={<ManagePage />} />
+            <Route path="/center" element={<CenterPage />} />
+
+            <Route path="/faq" element={<FAQPage />} />
+            <Route path="/uitest" element={<UiTestPage />} />
+            <Route path="/motion" element={<MotionPage />} />
+            <Route path="/matching-survey" element={<MatchingSurveyPage />} />
+
+            <Route
+                path="/video/:postAdoptionId/:stepOrder"
+                element={<VideoMeetingPage />}
+            />
+
+            <Route path="*" element={<NotFoundPage />} />
+          </Route>
+        </Routes>
+      </BrowserRouter>
   );
 }

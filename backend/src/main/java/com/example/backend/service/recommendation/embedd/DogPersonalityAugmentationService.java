@@ -1,4 +1,4 @@
-package com.example.backend.service.recommendation;
+package com.example.backend.service.recommendation.embedd;
 
 import com.example.backend.domain.dog.AbandonedDog;
 

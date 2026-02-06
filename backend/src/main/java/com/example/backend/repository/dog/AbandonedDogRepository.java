@@ -82,4 +82,15 @@ public interface AbandonedDogRepository extends JpaRepository<AbandonedDog, Long
         """)
     List<AbandonedDog> findWithoutPersonality();
 
+    /**
+     * ✅ 최신 유기견 id 목록 (prewarm 대상)
+     * - "최신" 기준이 확정 전이면 PK(id) desc가 가장 안전
+     */
+    @Query("""
+            select a.id
+            from AbandonedDog a
+            order by a.id desc
+        """)
+    Page<Long> findLatestDogIds(Pageable pageable);
+
 }

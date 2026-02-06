@@ -9,8 +9,10 @@ import com.example.backend.repository.dog.AbandonedDogRepository;
 import com.example.backend.repository.dog.DogKindRepository;
 import com.example.backend.repository.dog.personality.DogPersonalityRepository;
 import com.example.backend.repository.shelter.ShelterRepository;
-import com.example.backend.service.recommendation.DogPersonalityAugmentationService;
+import com.example.backend.service.recommendation.embedd.DogPersonalityAugmentationService;
 
+import com.example.backend.service.recommendation.cache.EmbeddingCachingService;
+import com.example.backend.service.recommendation.embedd.EmbeddingService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.batch.core.Job;
@@ -28,9 +30,11 @@ import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.util.StringUtils;
 import org.springframework.web.client.RestTemplate;
 import org.springframework.web.util.UriComponentsBuilder;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+
 
 import java.net.URI;
-import java.time.LocalDateTime;
 import java.util.*;
 import java.util.stream.Collectors;
 
@@ -49,6 +53,7 @@ public class DogBatchConfig {
 
     private final RestTemplate restTemplate;
     private final DogPersonalityAugmentationService augmentationService;
+    private final EmbeddingCachingService embeddingCacheService;
 
     @Value("${api.abandoned-dog.url}")
     private String apiUrl;
@@ -74,6 +79,7 @@ public class DogBatchConfig {
         return new JobBuilder("updateDogDataJob", jobRepository)
                 .start(fetchAndSaveDogStep())
                 .next(backfillPersonalityStep())
+                .next(prewarmLatestDogEmbeddingStep())
                 .build();
     }
 
@@ -261,6 +267,77 @@ public class DogBatchConfig {
             log.info("💾 [Backfill] saved {} DogPersonality rows", items.size());
         };
     }
+
+    @Bean
+    public Step prewarmLatestDogEmbeddingStep() {
+        int chunkSize = 30; // 120마리면 30x4로 적당
+        return new StepBuilder("prewarmLatestDogEmbeddingStep", jobRepository)
+                .<Long, Long>chunk(chunkSize, transactionManager)
+                .reader(prewarmDogIdReader())
+                .processor(prewarmDogEmbeddingProcessor())
+                .writer(prewarmNoopWriter()) // 실제 write는 Redis에 set이라 writer는 noop 가능
+                .build();
+    }
+
+    @Bean
+    public ItemReader<Long> prewarmDogIdReader() {
+        return new ItemReader<>() {
+            private List<Long> dogIds;
+            private int nextIndex = 0;
+
+            @Override
+            public Long read() {
+                if (dogIds == null) {
+                    int prewarmSize = 120;
+                    Pageable pageable = PageRequest.of(0, prewarmSize);
+
+                    // ✅ AbandonedDogRepository에 추가한 메서드 사용
+                    dogIds = abandonedDogRepository.findLatestDogIds(pageable).getContent();
+
+                    log.info("[Prewarm] loaded latest dogIds size={}", dogIds.size());
+                }
+
+                if (nextIndex < dogIds.size()) return dogIds.get(nextIndex++);
+                return null;
+            }
+        };
+    }
+
+
+    @Bean
+    public ItemProcessor<Long, Long> prewarmDogEmbeddingProcessor() {
+        return dogId -> {
+            // 1) DogPersonality 존재 확인
+            DogPersonality p = dogPersonalityRepository.findByAbandonedDog_Id(dogId)
+                    .orElse(null);
+            if (p == null) {
+                log.debug("[Prewarm] no DogPersonality for dogId={}", dogId);
+                return null;
+            }
+
+            // 2) 텍스트 확인
+            String augmentedText = p.getAugmentedText();
+            if (!StringUtils.hasText(augmentedText)) {
+                log.debug("[Prewarm] no augmentedText for dogId={}", dogId);
+                return null;
+            }
+
+            // 3) 캐시 미스면 생성→저장, 히트면 그대로 반환 (키/해시/포인터는 서비스가 처리)
+            //    return 값은 사용하지 않지만, 호출 자체가 prewarm 목적임.
+            embeddingCacheService.getOrCreateDogEmbedding(dogId, augmentedText);
+
+            log.debug("[Prewarm] ensured embedding cached dogId={}", dogId);
+            return dogId;
+        };
+    }
+
+    @Bean
+    public ItemWriter<Long> prewarmNoopWriter() {
+        return items -> {
+            // noop
+        };
+    }
+
 
     // ------------------------------
     // API Fetch

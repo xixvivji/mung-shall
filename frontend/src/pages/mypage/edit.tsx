@@ -4,6 +4,8 @@ import { fetchMyInfo, updateMyInfo } from "@/features/member/api/memberApi";
 import type { MemberMeResponse } from "@/features/member/types";
 import { Button } from "@/shared/ui/button";
 import { ApiError } from "@/shared/api/client";
+import { authStore } from "@/features/auth/store/authStore";
+
 
 export default function MyPageEdit() {
     const navigate = useNavigate();
@@ -45,8 +47,14 @@ export default function MyPageEdit() {
                 address: address.trim() === "" ? null : address.trim(),
             });
 
+            const fresh = await fetchMyInfo();
+
+            const prev = authStore.getSnapshot();
+            authStore.setUser(prev ? { ...prev, name: fresh.name, username: fresh.username } : prev);
+
             alert("정보가 수정되었습니다.");
             navigate("/mypage");
+
         } catch (e: unknown) {
             if (e instanceof ApiError) {
                 // 서버에서 메시지 내려주는 구조면 여기서 파싱 가능

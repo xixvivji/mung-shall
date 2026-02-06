@@ -1,7 +1,7 @@
-import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/shared/ui/button";
 import { User } from "lucide-react";
+import { ROUTES } from "@/shared/constants/routes";
 import type { MemberMeResponse } from "@/features/member/types";
 
 type Props = {
@@ -9,15 +9,14 @@ type Props = {
 };
 
 export function ProfileSummary({ user }: Props) {
-  const [isVerified, setIsVerified] = useState(false);
   const navigate = useNavigate();
 
-  function handleVerify() {
-    setIsVerified(true);
+  function handleEditProfile() {
+    navigate(`${ROUTES.mypage}/edit`);
   }
 
-  function handleEditProfile() {
-    navigate("/mypage/edit");
+  function handleManageAdoption() {
+    navigate(ROUTES.manage);
   }
 
   return (
@@ -34,16 +33,6 @@ export function ProfileSummary({ user }: Props) {
               <h3 className="text-2xl font-semibold text-gray-900">
                 {user.username}
               </h3>
-
-              {isVerified && (
-                <Badge
-                  variant="outline"
-                  className="border-green-200 bg-green-50 text-green-700"
-                >
-                  <CheckCircle2 className="mr-1 h-3 w-3" />
-                  본인인증 완료
-                </Badge>
-              )}
             </div>
 
             <p className="text-gray-500">{user.email}</p>
@@ -52,22 +41,12 @@ export function ProfileSummary({ user }: Props) {
 
         {/* 우측 버튼 */}
         <div className="flex shrink-0 items-center gap-3">
-          <Button
-            variant="outline"
-            className="rounded-md"
-            onClick={handleEditProfile}
-          >
+          <Button variant="mypage" size="sm" onClick={handleEditProfile}>
             정보 수정
           </Button>
-
-          {!isVerified && (
-            <Button
-              onClick={handleVerify}
-              className="rounded-md bg-[#0064FF] hover:bg-[#0056E6]"
-            >
-              본인 인증
-            </Button>
-          )}
+          <Button variant="mypage" size="sm" onClick={handleManageAdoption}>
+            입양 관리
+          </Button>
         </div>
       </div>
     </div>

@@ -14,6 +14,13 @@ import { toAnswer } from "@/features/matching-survey/model/mapper";
 import type { AdoptionSurveyAnswer } from "@/features/matching-survey/model/types";
 import { STEP_CONFIG } from "@/features/matching-survey/model/options";
 
+import useFavoriteDogs, { resolveFavoriteErrorMessage } from "@/features/adoption/hooks/useFavoriteDogs";
+import FavoriteHeart from "@/shared/components/FavoriteHeart";
+import AlertModal from "@/shared/components/AlertModal";
+import { useAlertModal } from "@/shared/hooks/useAlertModal";
+import { ImageWithFallback } from "@/shared/ui/figma/ImageWithFallback";
+import { MapPin } from "lucide-react";
+
 function labelFor(field: keyof AdoptionSurveyAnswer, value?: string) {
   if (!value) return "-";
   const cfg = Object.values(STEP_CONFIG).find((c) => c.field === field);
@@ -25,6 +32,24 @@ function labelFor(field: keyof AdoptionSurveyAnswer, value?: string) {
 function AdopterMyPage() {
   const { user } = useAuth();
   const userId = user?.userId;
+
+  const { openAlert, alertProps } = useAlertModal();
+  const { favoriteDogs, pendingIds, toggleFavorite, isFavorite, loading: favoriteLoading } = useFavoriteDogs();
+
+  const handleToggleFavorite = async (dogId: string | number) => {
+    const result = await toggleFavorite(dogId);
+    if (result.status === "unauthenticated") {
+      openAlert({ title: "로그인 필요", message: "로그인이 필요합니다." });
+      return;
+    }
+    if (result.status === "error") {
+      openAlert({
+        title: "관심 등록 실패",
+        message: resolveFavoriteErrorMessage(result.error),
+      });
+    }
+  };
+
 
   const [memberInfo, setMemberInfo] = useState<MemberMeResponse | null>(null);
 
@@ -164,6 +189,75 @@ function AdopterMyPage() {
             입양 관리로 이동
           </Link>
         </div>
+
+        {/* 관심 강아지 목록 */}
+        <section className="rounded-xl border bg-white p-4 space-y-3">
+          <div className="flex items-center justify-between">
+            <div className="font-semibold">관심 등록한 강아지</div>
+
+            <Link
+                to="/adoption"
+                className="inline-flex items-center rounded-lg border px-3 py-2 text-sm hover:bg-gray-50"
+            >
+              입양하러 가기
+            </Link>
+          </div>
+
+          {favoriteLoading ? (
+              <div className="text-sm text-[#777]">불러오는 중...</div>
+          ) : favoriteDogs.length === 0 ? (
+              <div className="text-sm text-[#777]">관심 등록한 강아지가 없어요.</div>
+          ) : (
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                {favoriteDogs.map((dog) => {
+                  const id = String(dog.dogId);
+
+                  return (
+                      <Link
+                          key={id}
+                          to={`/adoption/${dog.dogId}`}
+                          className="group rounded-xl border border-gray-100 bg-white p-3 hover:bg-gray-50"
+                      >
+                        <div className="relative aspect-square overflow-hidden rounded-xl">
+                          <ImageWithFallback
+                              src={dog.imageUrl ?? ""}
+                              alt={dog.kindNm ?? "dog"}
+                              className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
+                          />
+
+                          {/* 하트 토글 */}
+                          <FavoriteHeart
+                              active={isFavorite(id)}
+                              disabled={pendingIds.has(id)}
+                              onToggle={(e?: any) => {
+                                // Link 클릭 막고 하트만 토글
+                                e?.preventDefault?.();
+                                void handleToggleFavorite(id);
+                              }}
+                          />
+                        </div>
+
+                        <div className="mt-3 space-y-1">
+                          <div className="font-medium text-gray-900">
+                            {dog.noticeNo ?? dog.desertionNo ?? dog.kindNm ?? `Dog #${dog.dogId}`}
+                          </div>
+                          <div className="text-sm text-gray-500">
+                            {dog.kindNm ?? "알 수 없음"} · {dog.age ?? "-"}
+                          </div>
+                          <div className="flex items-center gap-1 text-sm text-gray-400">
+                            <MapPin className="h-4 w-4" />
+                            <span>{dog.careNm ?? "-"}</span>
+                          </div>
+                        </div>
+                      </Link>
+                  );
+                })}
+              </div>
+          )}
+        </section>
+
+        <AlertModal {...alertProps} />
+
       </section>
   );
 }

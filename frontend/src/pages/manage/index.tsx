@@ -285,7 +285,7 @@ function AdopterManagePage() {
     if (!user?.userId) return;
     let mounted = true;
     setIsLoadingInProgress(true);
-    fetchAdoptionsByStatus(user.userId, "IN_PROGRESS")
+    fetchAdoptionsByStatus(user.userId, ["IN_PROGRESS", "COMPLETED"])
       .then((items) => {
         if (!mounted) return;
         console.log("[manage] inProgress adoptions:", items);
@@ -411,7 +411,7 @@ function AdopterManagePage() {
         console.warn("[adopt-create] failed, fallback to existing list", err);
       }
 
-      const existing = await fetchAdoptionsByStatus(user.userId, "IN_PROGRESS");
+      const existing = await fetchAdoptionsByStatus(user.userId, ["IN_PROGRESS"]);
       const matchedByDog = existing.find((item) => item.dogId === dogId);
       console.log("[manage] resolve existing adoption:", {
         clickedDogId: dogId,

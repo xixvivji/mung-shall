@@ -18,15 +18,12 @@ export default function MatchingSurveyPage() {
   const { user } = useAuth();
   const userId = user?.userId;
 
-  // ✅ 기존 설문 로딩 상태
   const [initial, setInitial] = useState<AdoptionSurveyAnswer | null>(null);
   const [initialLoading, setInitialLoading] = useState(false);
   const [initialError, setInitialError] = useState<string | null>(null);
 
-  // ✅ 초기값이 준비되면 설문 훅에 주입
   const survey = useMatchingSurvey(initial ?? undefined);
 
-  // ✅ 기존 설문 불러오기 (로그인 되어있을 때만)
   useEffect(() => {
     if (!userId) return;
 
@@ -37,12 +34,11 @@ export default function MatchingSurveyPage() {
     getSurvey(userId)
       .then((dto) => {
         if (!mounted) return;
-        setInitial(toAnswer(dto)); // ✅ 기존 답변을 initial로 세팅
+        setInitial(toAnswer(dto));
       })
       .catch((e: unknown) => {
         if (!mounted) return;
 
-        // 404/400 = 설문 없음 → 새로 작성
         if (e instanceof ApiError && (e.status === 404 || e.status === 400)) {
           setInitial(null);
           return;
@@ -100,15 +96,12 @@ export default function MatchingSurveyPage() {
     try {
       setSubmitting(true);
 
-      // ✅ 1) 저장 (PUT or POST)
       const saved = await saveSurveyByUser(userId, a);
       console.log("saved survey (response):", saved);
 
-      // ✅ 2) 바로 재조회해서 DB 반영 확인
       const check = await getSurvey(userId);
       console.log("check from db (GET):", check);
 
-      // ✅ 3) 성공 시 이동
       navigate("/adoption/recommend", { state: { answer: a, from } });
     } catch (e: unknown) {
       if (e instanceof ApiError) {
@@ -124,18 +117,23 @@ export default function MatchingSurveyPage() {
     }
   };
 
-  // ✅ 초기 설문 로딩 중이면 화면 잠깐 막기
   if (initialLoading) {
-    return <div className="px-6 py-16 text-sm text-[#777]">설문 불러오는 중...</div>;
+    return (
+      <div className="flex min-h-[400px] items-center justify-center">
+        <div className="text-sm text-gray-500">설문 불러오는 중...</div>
+      </div>
+    );
   }
 
   if (initialError) {
     return (
-      <div className="px-6 py-16 space-y-3">
-        <div className="text-sm text-red-600">{initialError}</div>
+      <div className="mx-auto max-w-md space-y-4 px-6 py-16">
+        <div className="rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-600">
+          {initialError}
+        </div>
         <button
           type="button"
-          className="rounded-lg border px-4 py-2 text-sm hover:bg-gray-50"
+          className="w-full rounded-lg border border-gray-300 bg-white px-4 py-2.5 text-sm font-medium text-gray-700 transition hover:bg-gray-50"
           onClick={() => window.location.reload()}
         >
           새로고침
@@ -145,27 +143,41 @@ export default function MatchingSurveyPage() {
   }
 
   return (
-    <div style={{ padding: 24, maxWidth: 720, margin: "0 auto" }}>
-      <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 8 }}>
-        <h2 style={{ margin: 0 }}>유기견 추천 설문</h2>
-        <span>
-          {survey.stepIndex + 1}/{survey.total}
-        </span>
+    <div className="mx-auto max-w-4xl px-6 py-8">
+      {/* 상단: 진행도 표시 */}
+      <div className="mb-8">
+        <div className="mb-2 flex items-center justify-between">
+          <h1 className="text-xl font-bold text-gray-900">내 추천 설문</h1>
+          <span className="text-sm font-medium text-gray-600">
+            {survey.stepIndex + 1} / {survey.total}
+          </span>
+        </div>
+        
+        {/* 프로그레스 바 */}
+        <div className="relative h-2 overflow-hidden rounded-full bg-gray-100">
+          <div
+            className="h-full rounded-full bg-gray-900 transition-all duration-500 ease-out"
+            style={{ width: `${survey.progress}%` }}
+          />
+        </div>
       </div>
 
-      <div style={{ height: 8, background: "#eee", borderRadius: 999, overflow: "hidden", marginBottom: 16 }}>
-        <div style={{ width: `${survey.progress}%`, height: "100%", background: "#111" }} />
+      {/* 질문 영역 */}
+      <div className="mb-6">
+        <h2 className="text-lg font-semibold text-gray-900">
+          {title}
+        </h2>
       </div>
 
-      <h3 style={{ marginTop: 0 }}>{title}</h3>
-
+      {/* 에러 메시지 */}
       {errorMsg && (
-        <div style={{ marginBottom: 12, padding: 10, borderRadius: 10, background: "#fff3f3", border: "1px solid #ffd6d6" }}>
-          <div style={{ fontSize: 13, color: "#b00020", fontWeight: 700 }}>{errorMsg}</div>
+        <div className="mb-6 rounded-lg border border-red-200 bg-red-50 p-3">
+          <p className="text-sm text-red-600">{errorMsg}</p>
         </div>
       )}
 
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: 10 }}>
+      {/* 옵션 그리드 */}
+      <div className="mb-8 grid grid-cols-1 gap-3 sm:grid-cols-2">
         {options.map((op) => {
           const active = survey.selected === op.value;
           return (
@@ -174,29 +186,43 @@ export default function MatchingSurveyPage() {
               type="button"
               onClick={() => survey.setField(field, op.value)}
               disabled={submitting}
-              style={{
-                textAlign: "left",
-                padding: 14,
-                borderRadius: 14,
-                border: active ? "2px solid #111" : "1px solid #ddd",
-                background: "#fff",
-                cursor: submitting ? "not-allowed" : "pointer",
-                opacity: submitting ? 0.7 : 1,
-              }}
+              className={`
+                relative rounded-xl border-2 bg-white p-4 text-left transition-all
+                ${active 
+                  ? "border-gray-900" 
+                  : "border-gray-200 hover:border-gray-300"
+                }
+                ${submitting ? "cursor-not-allowed opacity-50" : "cursor-pointer"}
+              `}
             >
-              <div style={{ fontWeight: 800 }}>{op.label}</div>
-              {op.desc && <div style={{ fontSize: 12, opacity: 0.7, marginTop: 6 }}>{op.desc}</div>}
+              <div className="font-semibold text-gray-900">{op.label}</div>
+              {op.desc && (
+                <div className="mt-1 text-sm text-gray-600">
+                  {op.desc}
+                </div>
+              )}
             </button>
           );
         })}
       </div>
 
-      <div style={{ display: "flex", justifyContent: "space-between", marginTop: 18 }}>
-        <button onClick={survey.prev} disabled={!survey.canPrev || submitting} type="button">
+      {/* 네비게이션 버튼 */}
+      <div className="flex items-center justify-between gap-3">
+        <button
+          onClick={survey.prev}
+          disabled={!survey.canPrev || submitting}
+          type="button"
+          className="rounded-lg border border-gray-300 bg-white px-6 py-2.5 text-sm font-medium text-gray-700 transition hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-40"
+        >
           이전
         </button>
 
-        <button onClick={handleNextOrSubmit} disabled={!survey.canNext || submitting} type="button">
+        <button
+          onClick={handleNextOrSubmit}
+          disabled={!survey.canNext || submitting}
+          type="button"
+          className="rounded-lg bg-gray-900 px-6 py-2.5 text-sm font-medium text-white transition hover:bg-gray-800 disabled:cursor-not-allowed disabled:opacity-40"
+        >
           {buttonLabel}
         </button>
       </div>

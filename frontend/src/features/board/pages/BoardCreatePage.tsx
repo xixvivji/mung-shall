@@ -6,9 +6,7 @@ import BoardForm from "../components/BoardForm";
 import { createBoard, toBoardApiError } from "../api/boardApi";
 import { authStore } from "@/features/auth/store/authStore";
 import type { BoardCategory } from "../types";
-
-// ✅ 멍쉘 PNG import (경로는 네 프로젝트 기준으로 맞춰줘)
-import mungshallWrite from "@/assets/images/게시글작성.png";
+import MungshallIllustration from "@/shared/components/MungshallIllustration";
 
 function parseInitialCategory(param: string | null): BoardCategory {
   const v = (param ?? "").toUpperCase();
@@ -89,25 +87,8 @@ export default function BoardCreatePage() {
           <p className="text-sm text-[#6B7280]">카테고리를 선택하고 글을 작성해주세요.</p>
         </div>
 
-        {/* ✅ 카드 래퍼를 relative로 만들고 멍쉘을 absolute로 올림 */}
         <div className="relative mt-45 rounded-[16px] bg-white p-8 shadow-lg">
-          {/* ✅ 멍쉘: md 이상에서만 보이게(원하면 hidden 조건 제거) */}
-          <img
-            src={mungshallWrite}
-            alt="멍쉘"
-            className="
-              pointer-events-none
-              absolute
-              left-[-133px]
-              top-[-183px]
-              z-10
-              hidden md:block
-              w-[400px]
-              h-auto
-              select-none
-            "
-            draggable={false}
-          />
+          <MungshallIllustration />
 
           <BoardForm
             onSubmit={handleSubmit}

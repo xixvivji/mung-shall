@@ -15,6 +15,7 @@ import Filters, {
   DEFAULT_STATUS,
 } from "./Filters";
 import Pagination from "./Pagination";
+import adoptionImg from "@/assets/images/adoption.png";
 
 function parsePage1(params: URLSearchParams) {
   const raw = params.get("page");
@@ -211,9 +212,30 @@ export default function AdoptionList() {
         <p className="text-sm text-[#6B7280]">홈 &gt; 입양하기</p>
 
         <div className="flex items-center justify-between gap-4">
-          <h1 className="text-[33px] font-bold tracking-tight text-[#333]">입양하기</h1>
+            <div className="relative inline-block">
+                <h1 className="text-[33px] font-bold tracking-tight text-[#333]">
+                    입양하기
+                </h1>
 
-          <Filters
+                <img
+                    src={adoptionImg}
+                    alt="입양하기 강아지"
+                    className="
+      pointer-events-none
+      absolute
+      -right-24
+      top-1/2
+      -translate-y-1/2
+      w-28
+      h-auto
+      select-none
+    "
+                    draggable={false}
+                />
+            </div>
+
+
+            <Filters
               breeds={breeds}
               provinces={sidoOptions}
               cities={sigunguOptions}

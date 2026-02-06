@@ -5,6 +5,7 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.data.redis.connection.RedisConnectionFactory;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.data.redis.core.StringRedisTemplate;
+import org.springframework.data.redis.serializer.RedisSerializer;
 import org.springframework.data.redis.serializer.StringRedisSerializer;
 
 @Configuration
@@ -21,7 +22,7 @@ public class RedisEmbeddingCacheConfig {
         t.setConnectionFactory(cf);
 
         StringRedisSerializer keySer = new StringRedisSerializer();
-        ByteArrayRedisSerializer valSer = new ByteArrayRedisSerializer();
+        RedisSerializer<byte[]> valSer = RedisSerializer.byteArray();
 
         t.setKeySerializer(keySer);
         t.setValueSerializer(valSer);

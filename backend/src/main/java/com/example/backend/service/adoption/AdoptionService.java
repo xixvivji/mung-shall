@@ -189,11 +189,11 @@ public class AdoptionService {
      * @return 입양 상세 정보 DTO 목록
      */
     @Transactional(readOnly = true)
-    public List<AdoptionStatusResponse> getAdoptionsByUserIdAndStatus(Long userId, AdoptionProcessStatus status) {
+    public List<AdoptionStatusResponse> getAdoptionsByUserIdAndStatuses(Long userId, List<AdoptionProcessStatus> statuses) {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new IllegalArgumentException("ID와 일치하는 유저가 없습니다: " + userId));
 
-        List<Adoption> adoptions = adoptionRepository.findByUserAndProcessStatus(user, status);
+        List<Adoption> adoptions = adoptionRepository.findByUserAndProcessStatusIn(user, statuses);
 
         return adoptions.stream()
                 .map(adoption -> AdoptionStatusResponse.builder()

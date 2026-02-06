@@ -71,11 +71,11 @@ public class AdoptionController {
     })
     @GetMapping
     public ResponseEntity<?> getAdoptionsByStatus(
-            @Parameter(description = "입양 프로세스 상태 (예: IN_PROGRESS, COMPLETED)") @RequestParam AdoptionProcessStatus status,
+            @Parameter(description = "입양 프로세스 상태 목록 (예: IN_PROGRESS,COMPLETED)") @RequestParam List<AdoptionProcessStatus> statuses,
             @Parameter(hidden = true) Authentication authentication) {
         Long currentUserId = ((CustomUserPrincipal) authentication.getPrincipal()).getUserId();
 
-        List<AdoptionStatusResponse> response = adoptionService.getAdoptionsByUserIdAndStatus(currentUserId, status);
+        List<AdoptionStatusResponse> response = adoptionService.getAdoptionsByUserIdAndStatuses(currentUserId, statuses);
         return ResponseEntity.ok(response);
     }
 

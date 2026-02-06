@@ -15,7 +15,6 @@ import Filters, {
   DEFAULT_STATUS,
 } from "./Filters";
 import Pagination from "./Pagination";
-import MungshallIllustration from "@/shared/components/MungshallIllustration";
 
 function parsePage1(params: URLSearchParams) {
   const raw = params.get("page");
@@ -223,19 +222,6 @@ export default function AdoptionList() {
         </div>
 
         <div className="relative mt-10">
-          <MungshallIllustration
-              className="
-            pointer-events-none
-            absolute
-            left-[-110px]
-            top-[-130px]
-            z-10
-            hidden md:block
-            w-[320px]
-            h-auto
-            select-none
-          "
-          />
 
           {loading ? (
               <div className="text-sm text-[#777]">Loading...</div>

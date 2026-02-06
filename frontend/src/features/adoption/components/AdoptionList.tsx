@@ -203,8 +203,8 @@ export default function AdoptionList() {
   }, []);
 
   return (
-      <section className="relative mx-auto max-w-[1200px] px-6 py-20">
-        <MungshallIllustration
+      <section className="mx-auto max-w-[1200px] px-6 py-20">
+      <MungshallIllustration
             className="
         pointer-events-none
         absolute
@@ -231,19 +231,34 @@ export default function AdoptionList() {
         </div>
 
 
-      <div className="mt-8">
-        {loading ? (
-          <div className="text-sm text-[#777]">Loading...</div>
-        ) : error ? (
-          <div className="text-sm text-[#d14343]">{error}</div>
-        ) : dogs.length === 0 ? (
-          <div className="text-sm text-[#777]">No dogs found.</div>
-        ) : (
-          <DogGrid dogs={dogs} />
-        )}
-      </div>
+        <div className="relative mt-14">
+          <MungshallIllustration
+              className="
+      pointer-events-none
+      absolute
+      left-[-120px]
+      top-[-170px]
+      z-10
+      hidden md:block
+      w-[360px]
+      h-auto
+      select-none
+    "
+          />
 
-      <div className="mt-10">
+          {loading ? (
+              <div className="text-sm text-[#777]">Loading...</div>
+          ) : error ? (
+              <div className="text-sm text-[#d14343]">{error}</div>
+          ) : dogs.length === 0 ? (
+              <div className="text-sm text-[#777]">No dogs found.</div>
+          ) : (
+              <DogGrid dogs={dogs} />
+          )}
+        </div>
+
+
+        <div className="mt-10">
         <Pagination
           currentPage={currentPage1}
           totalPages={totalPages}

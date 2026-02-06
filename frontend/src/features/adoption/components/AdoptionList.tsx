@@ -229,7 +229,7 @@ export default function AdoptionList() {
                     className="
             pointer-events-none
             absolute
-            left-[140px]
+            left-[90px]
             top-[-190px]
             z-10
             hidden md:block

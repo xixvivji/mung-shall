@@ -120,9 +120,6 @@ export function MyDogs({ dogs }: Props) {
 
   const showInterestLoading = Boolean(user) && loading;
   const showInterestEmpty = Boolean(user) && !loading && view.interest.length === 0;
-  // ✅ 지금은 MyDog에 상세 필드가 없으니, 비어있지 않아도 더미로 보여주고 싶으면 여기서 매핑하면 됨.
-  // 현재는 “UI 유지” 목적이라 더미 데이터를 그대로 사용.
-  // 추후 백엔드 붙이면 dummyDogs 대신 실제 dogs를 interest/applied/completed로 분류해서 넣으면 됨.
   void dogs;
 
   return (
@@ -153,18 +150,26 @@ export function MyDogs({ dogs }: Props) {
                 const id = String(dog.id);
                 return (
                   <div key={dog.id} className="group cursor-pointer">
-                    <div className="relative aspect-square rounded-xl overflow-hidden mb-3">
-                      <ImageWithFallback
-                        src={dog.image}
-                        alt={dog.name}
-                        className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-                      />
+                    <div className="relative mb-3 w-full aspect-[4/3] overflow-hidden rounded-t-2xl bg-neutral-50">
+                      {dog.image ? (
+                          <ImageWithFallback
+                              src={dog.image}
+                              alt={dog.name}
+                              className="h-full w-full object-contain object-center transition-transform duration-200 ease-out group-hover:scale-[1.02]"
+                          />
+                      ) : (
+                          <div className="flex h-full w-full items-center justify-center text-xs text-gray-400">
+                            No image
+                          </div>
+                      )}
+
                       <FavoriteHeart
-                        active={isFavorite(id)}
-                        disabled={pendingIds.has(id)}
-                        onToggle={() => handleToggleFavorite(id)}
+                          active={isFavorite(id)}
+                          disabled={pendingIds.has(id)}
+                          onToggle={() => handleToggleFavorite(id)}
                       />
                     </div>
+
                     <h3 className="font-medium text-gray-900 mb-1">{dog.name}</h3>
                     <p className="text-sm text-gray-500 mb-1">
                       {dog.breed} ? {dog.age} ? {dog.gender}

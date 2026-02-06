@@ -342,6 +342,7 @@ function AdopterManagePage() {
     progressPct,
     currentStep: statusCurrentStep,
     currentLabel: statusCurrentLabel,
+    processStatus,
     loading: stepsLoading,
     error: stepsError,
   } = useAdoptionStepsStatus(selectedAdoptionId, user?.userId);
@@ -628,6 +629,7 @@ function AdopterManagePage() {
             uiSteps={uiSteps}
             progressPct={progressPct}
             currentLabel={statusCurrentLabel}
+            processStatus={processStatus}
           />
 
           <NextActions
@@ -637,6 +639,7 @@ function AdopterManagePage() {
             onAdvanceStep={advanceTo}
             onSubmitStep={handleSubmitStep}
             adoptionId={selectedAdoptionId ?? undefined}
+            processStatus={processStatus}
           />
         </>
       ) : (

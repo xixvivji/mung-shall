@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { Dispatch, SetStateAction, useEffect, useMemo, useState } from "react";
 import "@/shared/styles/uiverse/PostAdoptionStepper.css";
 
 type RoadmapDetail = {
@@ -82,6 +82,23 @@ function validateEvidenceFile(file: File): string | null {
     return null;
 }
 
+/** ====== (3단계) 화상상담 예약 UI 타입/유틸 ====== */
+type ConsultKey = "first" | "second" | "final";
+type Reservations = Record<ConsultKey, string | null>;
+
+function consultLabel(key: ConsultKey) {
+    if (key === "first") return "1차";
+    if (key === "second") return "2차";
+    return "최종";
+}
+
+function formatReservation(iso: string) {
+    // iso: "YYYY-MM-DDTHH:mm"
+    const [date, time] = iso.split("T");
+    if (!date || !time) return iso;
+    return `${date} ${time}`;
+}
+
 export function CareStep() {
     const [activeIndex, setActiveIndex] = useState(0);
     const [completedSet, setCompletedSet] = useState<Set<number>>(() => new Set());
@@ -112,32 +129,17 @@ export function CareStep() {
             },
             {
                 title: "1주 적응 (Day 4–7)",
-                adopterTodos: [
-                    "집 루틴 만들기(식사-휴식-짧은 산책)",
-                    "하네스 적응(간식으로 긍정 연결)",
-                    "‘이름-시선’ 5분씩 연습",
-                    "혼자 있는 연습 1–5분부터 시작",
-                ],
+                adopterTodos: ["집 루틴 만들기(식사-휴식-짧은 산책)", "하네스 적응(간식으로 긍정 연결)", "‘이름-시선’ 5분씩 연습", "혼자 있는 연습 1–5분부터 시작"],
                 medicalInfo: ["다음 접종(2주 후) 일정 인지"],
             },
             {
                 title: "2주 점검 (Day 14)",
-                adopterTodos: [
-                    "배변 루틴 강화(성공 시 즉시 보상)",
-                    "‘앉아/기다려/이리와’ 짧게 연습",
-                    "손/발/귀 만지기 허용 훈련",
-                    "사회화는 ‘노출’만 진행",
-                ],
+                adopterTodos: ["배변 루틴 강화(성공 시 즉시 보상)", "‘앉아/기다려/이리와’ 짧게 연습", "손/발/귀 만지기 허용 훈련", "사회화는 ‘노출’만 진행"],
                 medicalInfo: ["종합백신 2차 + 코로나장염 2차 체크", "외부 활동 전 접종 여부 확인"],
             },
             {
                 title: "1개월 건강 체크 (Day 30)",
-                adopterTodos: [
-                    "루틴 안정화 및 생활 적응 확인",
-                    "사람/개 만남은 선택권 제공",
-                    "장난감·퍼즐로 에너지 해소",
-                    "건강 설문(식욕·배변·활동량)",
-                ],
+                adopterTodos: ["루틴 안정화 및 생활 적응 확인", "사람/개 만남은 선택권 제공", "장난감·퍼즐로 에너지 해소", "건강 설문(식욕·배변·활동량)"],
                 medicalInfo: [],
             },
             {
@@ -361,7 +363,7 @@ export function CareStep() {
     };
 
     const setEvidenceFileWithPreview = (
-        setter: React.Dispatch<React.SetStateAction<EvidenceState>>,
+        setter: Dispatch<SetStateAction<EvidenceState>>,
         currentPreviewUrl: string | undefined,
         file: File | null,
         validateFn: (f: File) => string | null
@@ -492,15 +494,9 @@ export function CareStep() {
                     {props.state.file ? (
                         <div className="mt-3 flex items-center gap-3">
                             {props.state.previewUrl && !isPdf ? (
-                                <img
-                                    src={props.state.previewUrl}
-                                    alt="증빙 이미지 미리보기"
-                                    className="h-16 w-16 rounded-lg border border-gray-200 object-cover"
-                                />
+                                <img src={props.state.previewUrl} alt="증빙 이미지 미리보기" className="h-16 w-16 rounded-lg border border-gray-200 object-cover" />
                             ) : (
-                                <div className="flex h-16 w-16 items-center justify-center rounded-lg border border-gray-200 bg-white text-xs text-gray-500">
-                                    PDF
-                                </div>
+                                <div className="flex h-16 w-16 items-center justify-center rounded-lg border border-gray-200 bg-white text-xs text-gray-500">PDF</div>
                             )}
 
                             <div className="min-w-0">
@@ -526,6 +522,58 @@ export function CareStep() {
                 </div>
             </div>
         );
+    };
+
+    const [reservations, setReservations] = useState<Reservations>({
+        first: null,
+        second: null,
+        final: null,
+    });
+
+    const [reserveModalOpen, setReserveModalOpen] = useState(false);
+    const [reserveTarget, setReserveTarget] = useState<ConsultKey>("first");
+    const [reserveDate, setReserveDate] = useState(""); // YYYY-MM-DD
+    const [reserveTime, setReserveTime] = useState(""); // HH:mm
+    const [reserveError, setReserveError] = useState<string | null>(null);
+
+    const openReserveModal = (target: ConsultKey) => {
+        setReserveTarget(target);
+
+        // 기존 예약 있으면 모달에 기본값 세팅
+        const existing = reservations[target];
+        if (existing && existing.includes("T")) {
+            const [d, t] = existing.split("T");
+            setReserveDate(d ?? "");
+            setReserveTime((t ?? "").slice(0, 5));
+        } else {
+            setReserveDate("");
+            setReserveTime("");
+        }
+
+        setReserveError(null);
+        setReserveModalOpen(true);
+    };
+
+    const closeReserveModal = () => {
+        setReserveModalOpen(false);
+        setReserveError(null);
+    };
+
+    const saveReservation = () => {
+        if (!reserveDate || !reserveTime) {
+            setReserveError("날짜와 시간을 모두 선택해 주세요.");
+            return;
+        }
+
+        const iso = `${reserveDate}T${reserveTime}`;
+        setReservations((prev) => ({ ...prev, [reserveTarget]: iso }));
+        setReserveModalOpen(false);
+        setReserveError(null);
+    };
+
+    const reservationBadge = (iso: string | null) => {
+        if (!iso) return null;
+        return <span className="rounded-full bg-indigo-50 px-3 py-1 text-indigo-700 whitespace-nowrap text-xs font-semibold">예약됨: {formatReservation(iso)}</span>;
     };
 
     return (
@@ -783,13 +831,16 @@ export function CareStep() {
 
                     {activeIndex === 4 ? (
                         <section className="rounded-xl border border-gray-200 p-4">
-                            <div className="flex items-center justify-between">
-                                <h4 className="text-sm font-semibold text-gray-900">1차 화상 상담 진행</h4>
+                            <div className="flex items-center justify-between gap-3">
+                                <div className="flex items-center gap-2 min-w-0">
+                                    <h4 className="text-sm font-semibold text-gray-900 whitespace-nowrap">1차 화상 상담 진행</h4>
+                                    {reservationBadge(reservations.first)}
+                                </div>
 
                                 <div className="flex gap-2">
                                     <button
                                         type="button"
-                                        onClick={() => alert("화상 상담 예약 기능은 추후 연결됩니다.")}
+                                        onClick={() => openReserveModal("first")}
                                         className="rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-100"
                                     >
                                         예약하기
@@ -805,21 +856,22 @@ export function CareStep() {
                                 </div>
                             </div>
 
-                            <div className="mt-3 rounded-lg border border-dashed border-gray-200 bg-gray-50 p-4 text-sm text-gray-500">
-                                WebRTC(OpenVidu) 연결 영역 (추후 구현)
-                            </div>
+                            <div className="mt-3 rounded-lg border border-dashed border-gray-200 bg-gray-50 p-4 text-sm text-gray-500">WebRTC(OpenVidu) 연결 영역 (추후 구현)</div>
                         </section>
                     ) : null}
 
                     {activeIndex === 5 ? (
                         <section className="rounded-xl border border-gray-200 p-4">
-                            <div className="flex items-center justify-between">
-                                <h4 className="text-sm font-semibold text-gray-900">2차 화상 상담 진행</h4>
+                            <div className="flex items-center justify-between gap-3">
+                                <div className="flex items-center gap-2 min-w-0">
+                                    <h4 className="text-sm font-semibold text-gray-900 whitespace-nowrap">2차 화상 상담 진행</h4>
+                                    {reservationBadge(reservations.second)}
+                                </div>
 
                                 <div className="flex gap-2">
                                     <button
                                         type="button"
-                                        onClick={() => alert("화상 상담 예약 기능은 추후 연결됩니다.")}
+                                        onClick={() => openReserveModal("second")}
                                         className="rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-100"
                                     >
                                         예약하기
@@ -835,21 +887,22 @@ export function CareStep() {
                                 </div>
                             </div>
 
-                            <div className="mt-3 rounded-lg border border-dashed border-gray-200 bg-gray-50 p-4 text-sm text-gray-500">
-                                WebRTC(OpenVidu) 연결 영역 (추후 구현)
-                            </div>
+                            <div className="mt-3 rounded-lg border border-dashed border-gray-200 bg-gray-50 p-4 text-sm text-gray-500">WebRTC(OpenVidu) 연결 영역 (추후 구현)</div>
                         </section>
                     ) : null}
 
                     {activeIndex === 6 ? (
                         <section className="rounded-xl border border-gray-200 p-4">
-                            <div className="flex items-center justify-between">
-                                <h4 className="text-sm font-semibold text-gray-900">최종 화상 상담 진행</h4>
+                            <div className="flex items-center justify-between gap-3">
+                                <div className="flex items-center gap-2 min-w-0">
+                                    <h4 className="text-sm font-semibold text-gray-900 whitespace-nowrap">최종 화상 상담 진행</h4>
+                                    {reservationBadge(reservations.final)}
+                                </div>
 
                                 <div className="flex gap-2">
                                     <button
                                         type="button"
-                                        onClick={() => alert("화상 상담 예약 기능은 추후 연결됩니다.")}
+                                        onClick={() => openReserveModal("final")}
                                         className="rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-100"
                                     >
                                         예약하기
@@ -865,13 +918,86 @@ export function CareStep() {
                                 </div>
                             </div>
 
-                            <div className="mt-3 rounded-lg border border-dashed border-gray-200 bg-gray-50 p-4 text-sm text-gray-500">
-                                WebRTC(OpenVidu) 연결 영역 (추후 구현)
-                            </div>
+                            <div className="mt-3 rounded-lg border border-dashed border-gray-200 bg-gray-50 p-4 text-sm text-gray-500">WebRTC(OpenVidu) 연결 영역 (추후 구현)</div>
                         </section>
                     ) : null}
                 </div>
             </div>
+
+            {reserveModalOpen ? (
+                <div
+                    className="fixed inset-0 z-[999] flex items-center justify-center bg-black/40 p-4"
+                    role="dialog"
+                    aria-modal="true"
+                    onMouseDown={(e) => {
+                        if (e.target === e.currentTarget) closeReserveModal();
+                    }}
+                >
+                    <div className="w-full max-w-[520px] rounded-2xl bg-white p-6 shadow-xl">
+                        <div className="flex items-start justify-between gap-3">
+                            <div className="min-w-0">
+                                <h3 className="text-lg font-semibold text-gray-900">{consultLabel(reserveTarget)} 화상 상담 예약</h3>
+                                <p className="mt-1 text-sm text-gray-500">원하는 날짜와 시간을 선택해 주세요.</p>
+                            </div>
+
+                            <button
+                                type="button"
+                                onClick={closeReserveModal}
+                                className="rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-sm font-semibold text-gray-700 hover:bg-gray-50"
+                            >
+                                닫기
+                            </button>
+                        </div>
+
+                        <div className="mt-5 grid gap-4 sm:grid-cols-2">
+                            <div>
+                                <label className="block text-sm font-medium text-gray-800">날짜</label>
+                                <input
+                                    type="date"
+                                    value={reserveDate}
+                                    onChange={(e) => setReserveDate(e.target.value)}
+                                    className="mt-2 w-full rounded-xl border border-gray-200 px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-200"
+                                />
+                            </div>
+
+                            <div>
+                                <label className="block text-sm font-medium text-gray-800">시간</label>
+                                <input
+                                    type="time"
+                                    value={reserveTime}
+                                    onChange={(e) => setReserveTime(e.target.value)}
+                                    className="mt-2 w-full rounded-xl border border-gray-200 px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-200"
+                                />
+                            </div>
+                        </div>
+
+                        {reserveError ? <p className="mt-3 text-sm text-red-600">{reserveError}</p> : null}
+
+                        <div className="mt-6 flex flex-wrap justify-end gap-2">
+                            <button
+                                type="button"
+                                onClick={() => {
+                                    // 예약 취소(해당 키만 삭제)
+                                    setReservations((prev) => ({ ...prev, [reserveTarget]: null }));
+                                    closeReserveModal();
+                                }}
+                                className="rounded-xl border border-gray-200 bg-white px-4 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-50"
+                                title="해당 상담 예약을 지웁니다."
+                            >
+                                예약 취소
+                            </button>
+
+                            <button
+                                type="button"
+                                onClick={saveReservation}
+                                className="rounded-xl bg-[#0064FF] px-4 py-2 text-sm font-semibold text-white hover:bg-[#0052cc]"
+                            >
+                                예약 저장
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            ) : null}
         </div>
     );
 }

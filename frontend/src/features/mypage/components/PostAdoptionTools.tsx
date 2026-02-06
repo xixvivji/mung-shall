@@ -97,27 +97,24 @@ export function PostAdoptionTools({
     setCompleteMessage(null);
   }, [postAdoptionId]);
 
-  const loadDetail = useCallback(
-      async (targetId: number, stepId: number) => {
-        setDetailLoading(true);
-        setDetailError(null);
-        try {
-          const data = await fetchPostAdoptionStep(targetId, stepId);
-          if (!data) {
-            setDetail(null);
-            setDetailError("?? ??? ?? ? ????.");
-            return;
-          }
-          setDetail(data);
-        } catch (err) {
-          setDetail(null);
-          setDetailError(resolveApiErrorMessage(err, "?? ?? ??? ???? ?????."));
-        } finally {
-          setDetailLoading(false);
-        }
-      },
-      []
-  );
+  const loadDetail = useCallback(async (targetId: number, stepId: number) => {
+    setDetailLoading(true);
+    setDetailError(null);
+    try {
+      const data = await fetchPostAdoptionStep(targetId, stepId);
+      if (!data) {
+        setDetail(null);
+        setDetailError("?? ??? ?? ? ????.");
+        return;
+      }
+      setDetail(data);
+    } catch (err) {
+      setDetail(null);
+      setDetailError(resolveApiErrorMessage(err, "?? ?? ??? ???? ?????."));
+    } finally {
+      setDetailLoading(false);
+    }
+  }, []);
 
   useEffect(() => {
     if (!postAdoptionId || !selectedStepId) {
@@ -211,7 +208,7 @@ export function PostAdoptionTools({
   };
 
   return (
-      <div className="grid grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 gap-6">
         {/* Roadmap Checklist */}
         <div className="bg-white rounded-2xl p-8 shadow-sm border border-gray-100">
           <h2 className="text-xl text-gray-400 mb-8">?? ? ???</h2>
@@ -248,7 +245,9 @@ export function PostAdoptionTools({
                       key={step.id}
                       type="button"
                       className={`w-full text-left flex items-start gap-3 rounded-xl border px-4 py-3 transition ${
-                          selected ? "border-blue-300 bg-blue-50/40" : "border-gray-100 hover:bg-gray-50"
+                          selected
+                              ? "border-blue-300 bg-blue-50/40"
+                              : "border-gray-100 hover:bg-gray-50"
                       }`}
                       onClick={() => setSelectedStepId(step.id)}
                   >
@@ -307,6 +306,7 @@ export function PostAdoptionTools({
                     <span className="text-xs font-semibold text-gray-500">???</span>
                     <span className="text-sm text-gray-900">{formatDateTime(detail.completedAt)}</span>
                   </div>
+
                   {detail.rejectionReason && (
                       <div className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700">
                         ?? ??: {detail.rejectionReason}
@@ -363,6 +363,7 @@ export function PostAdoptionTools({
                       ??
                     </Button>
                   </div>
+
                   {!canVerify && detail && (
                       <p className="text-xs text-gray-500">?? ??? ?????.</p>
                   )}
@@ -378,13 +379,6 @@ export function PostAdoptionTools({
           >
             {completeLoading ? "완료 처리 중..." : "전체 완료 처리"}
           </Button>
-        </div>
-
-        <div className="bg-white rounded-2xl p-8 shadow-sm border border-gray-100">
-          <h2 className="text-xl text-gray-400 mb-4">안내</h2>
-          <p className="text-sm text-gray-600">
-            화상 상담은 사후관리 단계(Day 30/60/90) 화면에서 진행됩니다.
-          </p>
         </div>
       </div>
   );

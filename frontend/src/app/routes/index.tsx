@@ -20,6 +20,7 @@ import UiTestPage from "@/pages/uitest";
 import MotionPage from "@/pages/motion";
 import MatchingSurveyPage from "@/pages/matching-survey";
 import VideoMeetingPage from "@/pages/video/VideoMeetingPage";
+import MyPageEdit from "@/pages/mypage/edit";
 
 export default function AppRoutes() {
   return (
@@ -42,6 +43,7 @@ export default function AppRoutes() {
             <Route path="/oauth/callback" element={<OAuthCallbackPage />} />
 
             <Route path="/mypage" element={<MyPage />} />
+            <Route path="/mypage/edit" element={<MyPageEdit />} />
             <Route path="/manage" element={<ManagePage />} />
             <Route path="/center" element={<CenterPage />} />
 

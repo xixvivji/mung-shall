@@ -6,7 +6,6 @@ import { Button } from "@/shared/ui/button";
 import { ApiError } from "@/shared/api/client";
 import { authStore } from "@/features/auth/store/authStore";
 
-
 export default function MyPageEdit() {
     const navigate = useNavigate();
 
@@ -54,10 +53,8 @@ export default function MyPageEdit() {
 
             alert("정보가 수정되었습니다.");
             navigate("/mypage");
-
         } catch (e: unknown) {
             if (e instanceof ApiError) {
-                // 서버에서 메시지 내려주는 구조면 여기서 파싱 가능
                 setErrorMsg("정보 수정에 실패했습니다. 입력값을 확인해주세요.");
             } else {
                 setErrorMsg("정보 수정 중 오류가 발생했습니다.");
@@ -69,69 +66,76 @@ export default function MyPageEdit() {
 
     if (loading) {
         return (
-            <section className="px-6 py-16 text-sm text-gray-500">
-                불러오는 중...
+            <section className="mx-auto max-w-6xl px-6 py-12">
+                <div className="text-sm text-gray-500">불러오는 중...</div>
             </section>
         );
     }
 
     if (!member) {
         return (
-            <section className="px-6 py-16 text-sm text-red-500">
-                회원 정보를 불러오지 못했습니다.
+            <section className="mx-auto max-w-6xl px-6 py-12">
+                <div className="text-sm text-red-500">회원 정보를 불러오지 못했습니다.</div>
             </section>
         );
     }
 
     return (
-        <section className="mx-auto max-w-[800px] px-6 py-16 space-y-6">
-            <h1 className="text-2xl font-semibold">내 정보 수정</h1>
+        <section className="mx-auto max-w-6xl space-y-8 px-6 py-12">
+            <h1 className="text-3xl font-bold text-gray-900">마이페이지</h1>
 
-            <div className="rounded-xl border bg-white p-6 space-y-4">
-                {errorMsg && (
-                    <div className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
-                        {errorMsg}
+            <div className="overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm">
+                <div className="border-b border-gray-100 bg-gray-50 px-6 py-4">
+                    <div className="flex items-center justify-between">
+                        <h2 className="text-lg font-semibold text-gray-900">내 정보 수정</h2>
                     </div>
-                )}
-
-                {/* 이름 */}
-                <div className="space-y-1">
-                    <label className="text-sm font-medium">이름</label>
-                    <input
-                        value={name}
-                        onChange={(e) => setName(e.target.value)}
-                        className="w-full rounded-md border px-3 py-2 text-sm"
-                    />
                 </div>
 
-                {/* 전화번호 */}
-                <div className="space-y-1">
-                    <label className="text-sm font-medium">전화번호</label>
-                    <input
-                        value={phone}
-                        onChange={(e) => setPhone(e.target.value)}
-                        className="w-full rounded-md border px-3 py-2 text-sm"
-                    />
-                </div>
+                <div className="p-6">
+                    <div className="mx-auto max-w-2xl space-y-6">
+                        {errorMsg && (
+                            <div className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+                                {errorMsg}
+                            </div>
+                        )}
 
-                {/* 주소 */}
-                <div className="space-y-1">
-                    <label className="text-sm font-medium">주소</label>
-                    <input
-                        value={address}
-                        onChange={(e) => setAddress(e.target.value)}
-                        className="w-full rounded-md border px-3 py-2 text-sm"
-                    />
-                </div>
+                        <div className="space-y-1">
+                            <label className="text-sm font-medium text-gray-700">이름</label>
+                            <input
+                                value={name}
+                                onChange={(e) => setName(e.target.value)}
+                                className="w-full rounded-xl border border-gray-200 bg-white px-4 py-3 text-sm text-gray-900 outline-none transition focus:border-gray-300 focus:ring-4 focus:ring-gray-100"
+                            />
+                        </div>
 
-                <div className="flex gap-2">
-                    <Button type="button" variant="outline" onClick={() => navigate("/mypage")}>
-                        취소
-                    </Button>
+                        <div className="space-y-1">
+                            <label className="text-sm font-medium text-gray-700">전화번호</label>
+                            <input
+                                value={phone}
+                                onChange={(e) => setPhone(e.target.value)}
+                                className="w-full rounded-xl border border-gray-200 bg-white px-4 py-3 text-sm text-gray-900 outline-none transition focus:border-gray-300 focus:ring-4 focus:ring-gray-100"
+                            />
+                        </div>
 
-                    <Button type="button" onClick={handleSave} disabled={saving}>
-                        {saving ? "저장 중..." : "저장"}
-                    </Button>
+                        <div className="space-y-1">
+                            <label className="text-sm font-medium text-gray-700">주소</label>
+                            <input
+                                value={address}
+                                onChange={(e) => setAddress(e.target.value)}
+                                className="w-full rounded-xl border border-gray-200 bg-white px-4 py-3 text-sm text-gray-900 outline-none transition focus:border-gray-300 focus:ring-4 focus:ring-gray-100"
+                            />
+                        </div>
+
+                        <div className="flex justify-end gap-2 pt-2">
+                            <Button type="button" variant="mypage" size="sm" onClick={() => navigate("/mypage")}>
+                                취소
+                            </Button>
+
+                            <Button type="button" variant="mypage" size="sm" onClick={handleSave} disabled={saving}>
+                                {saving ? "저장 중..." : "저장"}
+                            </Button>
+                        </div>
+                    </div>
                 </div>
             </div>
         </section>

@@ -1,3 +1,4 @@
+import type React from "react";
 import { useEffect, useMemo, useState } from "react";
 import "@/shared/styles/uiverse/PostAdoptionStepper.css";
 
@@ -509,6 +510,9 @@ export function CareStep() {
         );
     };
 
+    // ==========================
+    // 화상상담 예약/입장 로직
+    // ==========================
     const [reservations, setReservations] = useState<Record<ConsultKey, ConsultReservation | null>>({
         first: null,
         second: null,
@@ -542,7 +546,6 @@ export function CareStep() {
     }
 
     function parseLocalDatetime(datetimeLocal: string): Date | null {
-        // datetime-local은 로컬 기준으로 해석됨
         const d = new Date(datetimeLocal);
         if (Number.isNaN(d.getTime())) return null;
         return d;
@@ -631,9 +634,16 @@ export function CareStep() {
     const ReservationInfo = ({ k }: { k: ConsultKey }) => {
         const r = reservations[k];
         if (!r) return <span className="text-xs text-gray-400">예약 없음</span>;
+
         const d = parseLocalDatetime(r.datetimeLocal);
         if (!d) return <span className="text-xs text-gray-400">예약 시간 오류</span>;
-        return <span className="text-xs text-gray-500">예약: {formatKoreanDateTime(d)}</span>;
+
+        // ✅ 예약 확정 후 글씨 크기 키움(요청 반영)
+        return (
+            <div className="mt-1">
+                <span className="text-sm font-semibold text-gray-600">예약: {formatKoreanDateTime(d)}</span>
+            </div>
+        );
     };
 
     return (
@@ -659,7 +669,15 @@ export function CareStep() {
                         >
                             <div className="stepper-circle">
                                 {s.status === "completed" ? (
-                                    <svg viewBox="0 0 16 16" className="bi bi-check-lg" fill="currentColor" height="16" width="16" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+                                    <svg
+                                        viewBox="0 0 16 16"
+                                        className="bi bi-check-lg"
+                                        fill="currentColor"
+                                        height="16"
+                                        width="16"
+                                        xmlns="http://www.w3.org/2000/svg"
+                                        aria-hidden="true"
+                                    >
                                         <path d="M12.736 3.97a.733.733 0 0 1 1.047 0c.286.289.29.756.01 1.05L7.88 12.01a.733.733 0 0 1-1.065.02L3.217 8.384a.757.757 0 0 1 0-1.06.733.733 0 0 1 1.047 0l3.052 3.093 5.4-6.425z" />
                                     </svg>
                                 ) : (
@@ -917,9 +935,7 @@ export function CareStep() {
                                 </div>
                             </div>
 
-                            <div className="mt-3 rounded-lg border border-dashed border-gray-200 bg-gray-50 p-4 text-sm text-gray-500">
-                                WebRTC(OpenVidu) 연결 영역 (추후 구현)
-                            </div>
+                            <div className="mt-3 rounded-lg border border-dashed border-gray-200 bg-gray-50 p-4 text-sm text-gray-500">WebRTC(OpenVidu) 연결 영역 (추후 구현)</div>
                         </section>
                     ) : null}
 
@@ -951,9 +967,7 @@ export function CareStep() {
                                 </div>
                             </div>
 
-                            <div className="mt-3 rounded-lg border border-dashed border-gray-200 bg-gray-50 p-4 text-sm text-gray-500">
-                                WebRTC(OpenVidu) 연결 영역 (추후 구현)
-                            </div>
+                            <div className="mt-3 rounded-lg border border-dashed border-gray-200 bg-gray-50 p-4 text-sm text-gray-500">WebRTC(OpenVidu) 연결 영역 (추후 구현)</div>
                         </section>
                     ) : null}
 
@@ -985,14 +999,13 @@ export function CareStep() {
                                 </div>
                             </div>
 
-                            <div className="mt-3 rounded-lg border border-dashed border-gray-200 bg-gray-50 p-4 text-sm text-gray-500">
-                                WebRTC(OpenVidu) 연결 영역 (추후 구현)
-                            </div>
+                            <div className="mt-3 rounded-lg border border-dashed border-gray-200 bg-gray-50 p-4 text-sm text-gray-500">WebRTC(OpenVidu) 연결 영역 (추후 구현)</div>
                         </section>
                     ) : null}
                 </div>
             </div>
 
+            {/* 예약 모달 */}
             {reserveModal.open ? (
                 <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
                     <div className="w-full max-w-[520px] rounded-2xl bg-white p-6 shadow-xl">

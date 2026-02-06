@@ -316,11 +316,30 @@ function AdopterMyPage() {
             </div>
           </div>
 
-          <div className="p-6">
+          <div className="p-6 space-y-6">
+            {/* 사용 조건 안내 */}
             <div className="rounded-xl bg-gray-50 px-6 py-10 text-center">
-              <div className="text-sm text-gray-500">내용은 추후 추가 예정입니다.</div>
+              <div className="text-sm text-gray-600">
+                사후관리 로드맵을 모두 완성 후 사용 가능합니다.
+              </div>
+            </div>
+
+            {/* 예시 영상 영역 */}
+            <div className="rounded-xl border border-dashed border-gray-300 bg-white px-6 py-10 text-center">
+              <div className="mb-2 text-sm font-medium text-gray-700">
+                예시 영상
+              </div>
+              <div className="text-sm text-gray-500">
+                예시 영상이 여기에 표시됩니다.
+              </div>
+            </div>
+
+            {/* AI 안내 문구 */}
+            <div className="text-center text-sm text-gray-400">
+              AI 추후 연결 예정
             </div>
           </div>
+
         </section>
 
         <AlertModal {...alertProps} />

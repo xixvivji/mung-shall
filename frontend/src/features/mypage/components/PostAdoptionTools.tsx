@@ -98,10 +98,7 @@ export function PostAdoptionTools({
       setSelectedStepId(null);
       return;
     }
-    if (
-        !selectedStepId ||
-        !orderedSteps.some((step) => step.id === selectedStepId)
-    ) {
+    if (!selectedStepId || !orderedSteps.some((s) => s.id === selectedStepId)) {
       setSelectedStepId(orderedSteps[0]?.id ?? null);
     }
   }, [orderedSteps, selectedStepId]);
@@ -175,16 +172,12 @@ export function PostAdoptionTools({
       setActionMessage(approved ? "?? ??? ???????." : "?? ??? ???????.");
       setRejectReason("");
       await loadDetail(postAdoptionId, selectedStepId);
-      if (onRefresh) {
-        await onRefresh();
-      }
+      if (onRefresh) await onRefresh();
     } catch (err) {
       setActionError(resolveApiErrorMessage(err, "??/?? ??? ??????."));
       if (err instanceof ApiError && err.status === 409) {
         await loadDetail(postAdoptionId, selectedStepId);
-        if (onRefresh) {
-          await onRefresh();
-        }
+        if (onRefresh) await onRefresh();
       }
     } finally {
       setActionLoading(false);
@@ -197,9 +190,7 @@ export function PostAdoptionTools({
     setCompleteMessage(null);
     try {
       await onStart();
-      if (onRefresh) {
-        await onRefresh();
-      }
+      if (onRefresh) await onRefresh();
     } catch (err) {
       setCompleteError(
           resolveApiErrorMessage(err, "입양 후 프로세스를 시작하지 못했습니다.")
@@ -219,9 +210,7 @@ export function PostAdoptionTools({
     try {
       await completePostAdoptionProcess(postAdoptionId);
       setCompleteMessage("입양 후 프로세스가 완료 처리되었습니다.");
-      if (onRefresh) {
-        await onRefresh();
-      }
+      if (onRefresh) await onRefresh();
     } catch (err) {
       setCompleteError(resolveApiErrorMessage(err, "완료 처리에 실패했습니다."));
     } finally {
@@ -230,10 +219,12 @@ export function PostAdoptionTools({
   };
 
   const videoStageTitle = getVideoStageTitle(detail);
-  const stepKey = detail?.stepOrder ?? detail?.id ?? null;
+  const stepKey = detail?.stepOrder ?? null;
 
   const handleEnterVideo = () => {
-    if (!postAdoptionId || !stepKey) return;
+    if (!postAdoptionId) return;
+    if (!stepKey) return;
+    if (![30, 60, 90].includes(stepKey)) return;
     navigate(`/video/${postAdoptionId}/${stepKey}`);
   };
 

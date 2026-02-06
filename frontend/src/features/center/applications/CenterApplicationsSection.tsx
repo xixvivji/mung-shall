@@ -3,6 +3,7 @@ import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/sha
 import { STATUS_FILTERS } from "./utils/labels";
 import { useCenterApplications } from "./hooks/useCenterApplications";
 import { ApplicationsLayout } from "./components";
+import PostAdoptionPanel from "../components/PostAdoptionPanel";
 
 export function CenterApplicationsSection() {
   const {
@@ -50,6 +51,9 @@ export function CenterApplicationsSection() {
     handleStepApprove,
     handleStepRejectQuick,
   } = useCenterApplications();
+
+  const isInProgressTab = filter === "IN_PROGRESS";
+  const isCompletedTab = filter === "COMPLETED";
 
   return (
     <Card className="rounded-3xl border-slate-200/80 shadow-[0_10px_30px_rgba(15,23,42,0.06)]">
@@ -123,7 +127,18 @@ export function CenterApplicationsSection() {
           actionDisabled={actionDisabled}
           onFinalApprove={handleApprove}
           onOpenRejectModal={openRejectModal}
+          // ✅ 진행중 탭에서만 입양단계/액션 노출
+          showAdoptionSteps={isInProgressTab}
+          showFinalActions={isInProgressTab}
+          // ✅ 완료 탭이면 우측 상세 자리에 사후관리 패널을 끼워넣음
+          postAdoptionSlot={
+            isCompletedTab && selectedAdoptionId ? (
+              <PostAdoptionPanel adoptionId={selectedAdoptionId} />
+            ) : null
+          }
         />
+
+        {/* ❌ 여기서 PostAdoptionPanel을 따로 렌더하면 아래로 또 내려가서 2번 뜸: 제거 */}
 
         {isRejectModalOpen && (
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">

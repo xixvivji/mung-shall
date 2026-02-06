@@ -19,7 +19,7 @@ public class AdoptionCounseling {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @ManyToOne(fetch = FetchType.LAZY)
+    @OneToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "adoption_id", nullable = false)
     private Adoption adoption;
 

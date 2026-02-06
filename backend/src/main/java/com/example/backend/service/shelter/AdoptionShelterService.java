@@ -16,6 +16,7 @@ import com.example.backend.repository.adoption.AdoptionRepository;
 import com.example.backend.repository.adoption.AdoptionStepInstanceRepository;
 import com.example.backend.repository.dog.AbandonedDogRepository;
 import com.example.backend.repository.shelter.ShelterRepository;
+import com.example.backend.service.postadoption.PostAdoptionService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -36,6 +37,7 @@ public class AdoptionShelterService {
     private final ShelterRepository shelterRepository;
     private final AbandonedDogRepository abandonedDogRepository;
     private final ShelterPermissionEvaluator shelterPermissionEvaluator;
+    private final PostAdoptionService postAdoptionService;
 
     /**
      * 보호소에 소속된 강아지들의 입양 목록을 상태별로 조회하고 총 개수를 반환합니다.
@@ -254,9 +256,13 @@ public class AdoptionShelterService {
             }
         });
 
-        adoption.setProcessStatus(AdoptionProcessStatus.COMPLETED);
         adoption.setStatus(AdoptionStatus.APPROVED);
+        adoption.setProcessStatus(AdoptionProcessStatus.COMPLETED);
+        adoption.setCompletedAt(LocalDateTime.now());
         adoptionRepository.save(adoption);
+
+        // 입양 프로세스 최종 승인 시, 사후 입양 프로세스 시작
+        postAdoptionService.startPostAdoptionProcess(adoption.getId());
     }
 
     private void rejectAdoption(Adoption adoption, String reason) {

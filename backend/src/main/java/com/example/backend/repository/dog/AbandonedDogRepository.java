@@ -93,4 +93,6 @@ public interface AbandonedDogRepository extends JpaRepository<AbandonedDog, Long
         """)
     Page<Long> findLatestDogIds(Pageable pageable);
 
+    @Query(value = "SELECT * FROM abandoned_dog ORDER BY RAND() LIMIT :limit", nativeQuery = true)
+    List<AbandonedDog> findRandomDogs(@Param("limit") int limit);
 }

@@ -3,10 +3,12 @@ import type {
   AdoptionDetail,
   AdoptionContractResponse,
   AdoptionDocumentResponse,
+  AdoptionDocumentUploadResponse,
   AdoptionStepInstance,
   AdoptionStepStatus,
   EducationCertResponse,
 } from "@/features/manage/types";
+import type { AdoptionStepsStatusResponse } from "@/features/adoption/api/adoptionApi";
 import type {
   PostAdoptionProcess,
   PostAdoptionStep,
@@ -177,6 +179,14 @@ export async function fetchAdoptionDetail(
   };
 }
 
+export async function fetchAdoptionStepStatuses(
+  adoptionId: number,
+  options: RequestInit = {}
+): Promise<AdoptionStepsStatusResponse> {
+  // 변경 이유: 문서 단계 상태 확인용 steps/status API 분리
+  return api<AdoptionStepsStatusResponse>(`/adoptions/${adoptionId}/steps/status`, options);
+}
+
 export async function createAdoptionProcess(): Promise<number> {
   const data = await api<RawAdoptionCreateResponse | unknown>(`/adoptions/`, {
     method: "POST",
@@ -257,6 +267,7 @@ export async function uploadEducationCert(
   payload: EducationCertUploadPayload
 ): Promise<EducationCertResponse> {
   const formData = new FormData();
+  // 변경 이유: Swagger 기준 키 + multipart/form-data는 브라우저가 boundary를 설정하도록 유지
   formData.append("educationInstitution", payload.educationInstitution);
   formData.append("certificateNumber", payload.certificateNumber);
   formData.append("completionDate", payload.completionDate);
@@ -303,6 +314,13 @@ export async function fetchAdoptionDocuments(
   return data;
 }
 
+export async function listAdoptionDocuments(
+  adoptionId: number
+): Promise<AdoptionDocumentResponse[]> {
+  // 변경 이유: 문서 목록 조회 API를 명시적으로 분리
+  return fetchAdoptionDocuments(adoptionId);
+}
+
 export async function uploadAdoptionDocuments(
   adoptionId: number,
   files: File[],
@@ -311,51 +329,37 @@ export async function uploadAdoptionDocuments(
   if (files.length !== documentTypes.length) {
     throw new Error("files and documentTypes length mismatch.");
   }
-  const formData = new FormData();
-  const mapping: Record<string, DocumentType> = {};
-  files.forEach((file, index) => {
-    formData.append("files", file);
-    mapping[`files[${index}]`] = documentTypes[index];
-  });
-
-  formData.append(
-    "documentTypes",
-    new Blob([JSON.stringify({ documentTypes: mapping })], {
-      type: "application/json",
-    })
+  // 변경 이유: Swagger 경로에 맞춰 문서별로 병렬 업로드
+  await Promise.all(
+    files.map((file, index) =>
+      uploadAdoptionDocument(adoptionId, documentTypes[index], file)
+    )
   );
-
-  const url = `/adoptions/${adoptionId}/documents`;
-
-  if (import.meta.env.DEV) {
-    const formDataEntries = Array.from(formData.entries()).map(([key, value]) => ({
-      key,
-      value: value instanceof File ? value.name : String(value),
-    }));
-    console.debug("[documents] upload", {
-      adoptionId,
-      filesCount: files.length,
-      files: files.map((file) => file.name),
-      documentTypes: mapping,
-      formDataEntries,
-      formDataEntryCount: formDataEntries.length,
-      url,
-      stack: new Error().stack,
-    });
-  }
-
-  await api<void>(url, {
-    method: "POST",
-    body: formData,
-  });
 }
 
 export async function uploadAdoptionDocument(
   adoptionId: number,
   type: DocumentType,
   file: File
-): Promise<void> {
-  await uploadAdoptionDocuments(adoptionId, [file], [type]);
+): Promise<AdoptionDocumentUploadResponse> {
+  const formData = new FormData();
+  // 변경 이유: Swagger 기준 단일 file 필드 업로드
+  formData.append("file", file);
+
+  const url = `/adoptions/${adoptionId}/documents/${type}`;
+  if (import.meta.env.DEV) {
+    console.debug("[documents] upload", {
+      adoptionId,
+      documentType: type,
+      fileName: file.name,
+      url,
+    });
+  }
+
+  return api<AdoptionDocumentUploadResponse>(url, {
+    method: "POST",
+    body: formData,
+  });
 }
 
 export async function deleteAdoptionDocument(

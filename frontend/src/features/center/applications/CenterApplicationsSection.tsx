@@ -57,8 +57,8 @@ export function CenterApplicationsSection() {
         <div className="flex items-start justify-between gap-4">
           <div>
             <CardTitle className="text-lg font-semibold text-slate-900">입양 신청</CardTitle>
-            <CardDescription className="text-sm text-slate-600">
-              보호소 강아지 입양 목록을 진행 상태별로 조회하고 최종 승인/반려를 처리합니다.
+            <CardDescription className="text-sm text-slate-600 mt-2">
+              보호소 강아지 입양 신청을 단계별로 조회하고 승인/반려를 처리합니다.
             </CardDescription>
           </div>
 

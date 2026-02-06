@@ -1,4 +1,5 @@
 import * as React from "react";
+import { ApiError } from "@/shared/api/client";
 import {
   getShelterDogsWithAdoption,
   getShelterAdoptionDetail,
@@ -6,9 +7,10 @@ import {
   verifyShelterAdoption,
   getAdoptionSurvey,
   getAdoptionEducationCert,
-  getAdoptionDocuments,
   getAdoptionContract,
   verifyShelterAdoptionStep,
+  getAdoptionDocument,
+  type AdoptionDocumentType,
   type AdoptionProcessStatus,
   type ShelterDogWithAdoptionItem,
   type ShelterAdoptionDetail,
@@ -260,9 +262,32 @@ export function useCenterApplications() {
           return;
         }
 
+        const DOCUMENT_TYPES: AdoptionDocumentType[] = [
+          "RESIDENT_REGISTRATION_COPY",
+          "LEASE_AGREEMENT",
+          "FAMILY_RELATIONSHIP_CERTIFICATE",
+        ];
+
         if (stepOrder === 4) {
-          const docs = await getAdoptionDocuments(adoptionId);
-          setStepDetail({ kind: "documents", data: Array.isArray(docs) ? docs : [] });
+          // ✅ 3개 타입 단건 호출 (200=제출, 400/404=미제출, 그 외=진짜 에러)
+          const settled = await Promise.allSettled(
+            DOCUMENT_TYPES.map((type) => getAdoptionDocument(adoptionId, type))
+          );
+
+          const results = settled.map((r, i) => {
+            const type = DOCUMENT_TYPES[i];
+
+            if (r.status === "fulfilled") return { type, doc: r.value };
+
+            const e = r.reason;
+            if (e instanceof ApiError && (e.status === 400 || e.status === 404)) {
+              return { type, doc: null };
+            }
+
+            throw e;
+          });
+
+          setStepDetail({ kind: "documents", data: results });
           return;
         }
 
@@ -271,6 +296,7 @@ export function useCenterApplications() {
           setStepDetail({ kind: "contract", data: contract });
           return;
         }
+
         setStepDetail(null);
         setStepDetailError("지원하지 않는 단계입니다.");
       } catch (err) {
@@ -282,7 +308,6 @@ export function useCenterApplications() {
     },
     [detail]
   );
-
 
   React.useEffect(() => {
     if (!selected) return;

@@ -1,6 +1,7 @@
 package com.example.backend.api.dog;
 
 import com.example.backend.api.dog.dto.DogDetailResponse;
+import com.example.backend.api.dog.dto.DogImageResponse;
 import com.example.backend.api.dog.dto.DogStatusCountResponse;
 import com.example.backend.api.dog.dto.DogSummaryResponse;
 import com.example.backend.security.principal.CustomUserPrincipal;
@@ -17,6 +18,7 @@ import org.springframework.data.domain.Sort;
 import org.springframework.data.web.PageableDefault;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -45,9 +47,9 @@ public class DogController {
             @RequestParam(required = false) String processState,
             @Parameter(description = "페이지 요청 정보 (0-based page, size, sort)")
             @PageableDefault(size = 12, sort = "happenDt", direction = Sort.Direction.DESC) Pageable pageable,
-            @Parameter(hidden = true) Authentication authentication
+            @AuthenticationPrincipal CustomUserPrincipal principal
     ) {
-        Long currentUserId = ((CustomUserPrincipal) authentication.getPrincipal()).getUserId();
+        Long currentUserId = principal != null ? principal.getUserId() : null;
         Page<DogSummaryResponse> dogs = dogService.getDogs(region, kindNm, sexCd, processState, pageable, currentUserId);
         return ResponseEntity.ok(dogs);
     }
@@ -60,9 +62,9 @@ public class DogController {
     @GetMapping("/{id}")
     public ResponseEntity<DogDetailResponse> getDogDetail(
             @Parameter(description = "유기견의 고유 ID", required = true) @PathVariable Long id,
-            @Parameter(hidden = true) Authentication authentication
+            @AuthenticationPrincipal CustomUserPrincipal principal
     ) {
-        Long currentUserId = ((CustomUserPrincipal) authentication.getPrincipal()).getUserId();
+        Long currentUserId = principal != null ? principal.getUserId() : null;
 
         DogDetailResponse dogDetail = dogService.getDogDetail(id, currentUserId);
         return ResponseEntity.ok(dogDetail);
@@ -87,5 +89,18 @@ public class DogController {
     public ResponseEntity<List<DogStatusCountResponse>> getDogStatusCounts() {
         List<DogStatusCountResponse> statusCounts = dogService.getDogStatusCounts();
         return ResponseEntity.ok(statusCounts);
+    }
+
+    @Operation(summary = "랜덤 강아지 이미지 반환", description = "요청된 개수만큼 랜덤 강아지의 이미지 URL을 반환합니다. 기본값은 20장입니다.")
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "조회 성공"),
+    })
+    @GetMapping("/images/random")
+    public ResponseEntity<List<DogImageResponse>> getRandomDogImages(
+            @Parameter(description = "반환할 이미지의 개수 (기본값: 20)", example = "20")
+            @RequestParam(defaultValue = "20") int limit
+    ) {
+        List<DogImageResponse> dogImages = dogService.getDogImages(limit);
+        return ResponseEntity.ok(dogImages);
     }
 }

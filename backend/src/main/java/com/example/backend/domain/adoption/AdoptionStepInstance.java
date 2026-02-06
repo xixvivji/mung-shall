@@ -1,6 +1,10 @@
 package com.example.backend.domain.adoption;
 
 import com.example.backend.domain.adoption.enums.AdoptionStepStatus;
+import com.example.backend.domain.adoption.step.contract.AdoptionContract;
+import com.example.backend.domain.adoption.step.document.AdoptionDocument;
+import com.example.backend.domain.adoption.step.educationcert.AdoptionEducationCert;
+import com.example.backend.domain.adoption.step.survey.AdoptionSurvey;
 import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
@@ -38,4 +42,16 @@ public class AdoptionStepInstance {
     private LocalDateTime completedAt;
     @Column(columnDefinition = "TEXT")
     private String rejectionReason;
+
+    @OneToOne(mappedBy = "stepInstance", cascade = CascadeType.ALL, orphanRemoval = true)
+    private AdoptionEducationCert adoptionEducationCert;
+
+    @OneToOne(mappedBy = "stepInstance", cascade = CascadeType.ALL, orphanRemoval = true)
+    private AdoptionContract adoptionContract;
+
+    @OneToOne(mappedBy = "stepInstance", cascade = CascadeType.ALL, orphanRemoval = true)
+    private AdoptionDocument adoptionDocument;
+
+    @OneToOne(mappedBy = "stepInstance", cascade = CascadeType.ALL, orphanRemoval = true)
+    private AdoptionSurvey adoptionSurvey;
 }

@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import type { AdoptionStep } from "@/features/manage/types";
+import type { AdoptionProcessStatus, AdoptionStep } from "@/features/manage/types";
 
 import { ApplicationStep } from "./before/ApplicationStep";
 import { EducationCertStep } from "./before/EducationCertStep";
@@ -20,6 +20,7 @@ type Props = {
   onAdvanceStep?: (step: AdoptionStep) => void;
   onSubmitStep?: (step: AdoptionStep) => Promise<void> | void;
   adoptionId?: number;
+  processStatus?: AdoptionProcessStatus | null;
 };
 
 type StepStatus = "completed" | "current" | "pending";
@@ -105,12 +106,14 @@ export function NextActions({
                               onAdvanceStep,
                               onSubmitStep,
                               adoptionId,
+                              processStatus,
                             }: Props) {
   const currentStepN = useMemo(() => normalizeStep(currentStep), [currentStep]);
   const selectedStepN = useMemo(() => normalizeStep(selectedStep), [selectedStep]);
 
   const [consultationConfirmed, setConsultationConfirmed] = useState(false);
   const [reviewStarted, setReviewStarted] = useState(false);
+  const isReviewPhase = reviewStarted || processStatus === "COMPLETED";
 
   const [isPreApprovalModalOpen, setIsPreApprovalModalOpen] = useState(false);
   const [pendingNextStep, setPendingNextStep] = useState<AdoptionStep | null>(null);
@@ -128,13 +131,13 @@ export function NextActions({
         return false;
       }
 
-      if (reviewStarted && (s === "DOCUMENT" || s === "CONTRACT")) {
+      if (isReviewPhase && (s === "DOCUMENT" || s === "CONTRACT")) {
         return false;
       }
 
       return true;
     };
-  }, [consultationConfirmed, reviewStarted]);
+  }, [consultationConfirmed, isReviewPhase]);
 
   const isEditable = useMemo(
       () => isEditableForStep(selectedStepN),
@@ -147,11 +150,11 @@ export function NextActions({
     if (consultationConfirmed && (s === "APPLICATION" || s === "EDUCATION_CERT")) {
       return "상담이 완료되어 1~2단계는 더 이상 수정할 수 없습니다.";
     }
-    if (reviewStarted && (s === "DOCUMENT" || s === "CONTRACT")) {
+    if (isReviewPhase && (s === "DOCUMENT" || s === "CONTRACT")) {
       return "심사가 시작되어 4~5단계는 더 이상 수정할 수 없습니다.";
     }
     return null;
-  }, [consultationConfirmed, reviewStarted, selectedStepN]);
+  }, [consultationConfirmed, isReviewPhase, selectedStepN]);
 
   const advanceTo = async (next: AdoptionStep, completedStep?: AdoptionStep) => {
     if (completedStep && onSubmitStep) {
@@ -270,7 +273,7 @@ export function NextActions({
             />
         )}
 
-        {selectedStepN === "APPROVAL" && <ApprovalStep canReview={reviewStarted} />}
+        {selectedStepN === "APPROVAL" && <ApprovalStep canReview={isReviewPhase} />}
 
         {selectedStepN === "PICKUP" && (
             <PickupStep onSubmitSuccess={safeGoNextFromSelected} />

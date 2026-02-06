@@ -116,7 +116,7 @@ export default function ActionButtons({ dogId, adopting = true }: Props) {
         );
         if (!shouldMove) return;
         try {
-          const existing = await fetchAdoptionsByStatus(resolvedUserId, "IN_PROGRESS");
+          const existing = await fetchAdoptionsByStatus(resolvedUserId, ["IN_PROGRESS"]);
           const matched =
             existing.find((item) => item.dogId === numericDogId) ?? existing[0];
           const resolvedAdoptionId =

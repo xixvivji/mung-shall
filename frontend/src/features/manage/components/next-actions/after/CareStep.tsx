@@ -112,17 +112,32 @@ export function CareStep() {
             },
             {
                 title: "1주 적응 (Day 4–7)",
-                adopterTodos: ["집 루틴 만들기(식사-휴식-짧은 산책)", "하네스 적응(간식으로 긍정 연결)", "‘이름-시선’ 5분씩 연습", "혼자 있는 연습 1–5분부터 시작"],
+                adopterTodos: [
+                    "집 루틴 만들기(식사-휴식-짧은 산책)",
+                    "하네스 적응(간식으로 긍정 연결)",
+                    "‘이름-시선’ 5분씩 연습",
+                    "혼자 있는 연습 1–5분부터 시작",
+                ],
                 medicalInfo: ["다음 접종(2주 후) 일정 인지"],
             },
             {
                 title: "2주 점검 (Day 14)",
-                adopterTodos: ["배변 루틴 강화(성공 시 즉시 보상)", "‘앉아/기다려/이리와’ 짧게 연습", "손/발/귀 만지기 허용 훈련", "사회화는 ‘노출’만 진행"],
+                adopterTodos: [
+                    "배변 루틴 강화(성공 시 즉시 보상)",
+                    "‘앉아/기다려/이리와’ 짧게 연습",
+                    "손/발/귀 만지기 허용 훈련",
+                    "사회화는 ‘노출’만 진행",
+                ],
                 medicalInfo: ["종합백신 2차 + 코로나장염 2차 체크", "외부 활동 전 접종 여부 확인"],
             },
             {
                 title: "1개월 건강 체크 (Day 30)",
-                adopterTodos: ["루틴 안정화 및 생활 적응 확인", "사람/개 만남은 선택권 제공", "장난감·퍼즐로 에너지 해소", "건강 설문(식욕·배변·활동량)"],
+                adopterTodos: [
+                    "루틴 안정화 및 생활 적응 확인",
+                    "사람/개 만남은 선택권 제공",
+                    "장난감·퍼즐로 에너지 해소",
+                    "건강 설문(식욕·배변·활동량)",
+                ],
                 medicalInfo: [],
             },
             {
@@ -670,33 +685,6 @@ export function CareStep() {
                         <p className="mt-4 text-xs text-gray-400">* 진행중인 단계에서 체크/완료가 가능합니다.</p>
                     </section>
 
-                    {activeIndex === 4 ? (
-                        <section className="rounded-xl border border-gray-200 p-4">
-                            <h4 className="text-sm font-semibold text-gray-900">1차 화상 상담 진행</h4>
-                            <div className="mt-3 rounded-lg border border-dashed border-gray-200 bg-gray-50 p-4 text-sm text-gray-500">
-                                WebRTC(OpenVidu) 연결 영역 (추후 구현)
-                            </div>
-                        </section>
-                    ) : null}
-
-                    {activeIndex === 5 ? (
-                        <section className="rounded-xl border border-gray-200 p-4">
-                            <h4 className="text-sm font-semibold text-gray-900">2차 화상 상담 진행</h4>
-                            <div className="mt-3 rounded-lg border border-dashed border-gray-200 bg-gray-50 p-4 text-sm text-gray-500">
-                                WebRTC(OpenVidu) 연결 영역 (추후 구현)
-                            </div>
-                        </section>
-                    ) : null}
-
-                    {activeIndex === 6 ? (
-                        <section className="rounded-xl border border-gray-200 p-4">
-                            <h4 className="text-sm font-semibold text-gray-900">최종 화상 상담 진행</h4>
-                            <div className="mt-3 rounded-lg border border-dashed border-gray-200 bg-gray-50 p-4 text-sm text-gray-500">
-                                WebRTC(OpenVidu) 연결 영역 (추후 구현)
-                            </div>
-                        </section>
-                    ) : null}
-
                     <section className="rounded-xl border border-gray-200 p-4">
                         <h4 className="text-sm font-semibold text-gray-900">예방접종 · 의료 정보</h4>
 
@@ -809,6 +797,33 @@ export function CareStep() {
                             </div>
                         ) : null}
                     </section>
+
+                    {activeIndex === 4 ? (
+                        <section className="rounded-xl border border-gray-200 p-4">
+                            <h4 className="text-sm font-semibold text-gray-900">1차 화상 상담 진행</h4>
+                            <div className="mt-3 rounded-lg border border-dashed border-gray-200 bg-gray-50 p-4 text-sm text-gray-500">
+                                WebRTC(OpenVidu) 연결 영역 (추후 구현)
+                            </div>
+                        </section>
+                    ) : null}
+
+                    {activeIndex === 5 ? (
+                        <section className="rounded-xl border border-gray-200 p-4">
+                            <h4 className="text-sm font-semibold text-gray-900">2차 화상 상담 진행</h4>
+                            <div className="mt-3 rounded-lg border border-dashed border-gray-200 bg-gray-50 p-4 text-sm text-gray-500">
+                                WebRTC(OpenVidu) 연결 영역 (추후 구현)
+                            </div>
+                        </section>
+                    ) : null}
+
+                    {activeIndex === 6 ? (
+                        <section className="rounded-xl border border-gray-200 p-4">
+                            <h4 className="text-sm font-semibold text-gray-900">최종 화상 상담 진행</h4>
+                            <div className="mt-3 rounded-lg border border-dashed border-gray-200 bg-gray-50 p-4 text-sm text-gray-500">
+                                WebRTC(OpenVidu) 연결 영역 (추후 구현)
+                            </div>
+                        </section>
+                    ) : null}
                 </div>
             </div>
         </div>

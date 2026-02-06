@@ -41,24 +41,29 @@ type Props = {
   actionDisabled: boolean;
   onFinalApprove: () => void;
   onOpenRejectModal: () => void;
+
+  /** 진행중 탭에서만 StepList(입양 단계) */
+  showAdoptionSteps?: boolean;
+
+  /** 진행중 탭에서만 최종 승인/반려 버튼 */
+  showFinalActions?: boolean;
+
+  /** 완료 탭에서 우측 상세(안내 문구 자리)에 꽂을 UI */
+  postAdoptionSlot?: React.ReactNode;
 };
 
-/** ✅ StepList(입양 단계 카드) 안에 넣을 최종 버튼 영역 */
+/** StepList(입양 단계 카드) 안에 넣을 최종 버튼 영역 */
 function FinalActions(props: {
   canVerify: boolean;
   actionLoading: boolean;
   actionDisabled: boolean;
-  allStepsApproved: boolean; // ✅ 추가
+  allStepsApproved: boolean;
   onFinalApprove: () => void;
   onOpenRejectModal: () => void;
 }) {
   const { canVerify, actionLoading, actionDisabled, allStepsApproved, onFinalApprove, onOpenRejectModal } = props;
 
-  // ✅ 최종 반려는 조건 없음(기존 actionDisabled만)
   const rejectDisabled = actionDisabled;
-
-  // ✅ 최종 승인은 "1~5단계 모두 APPROVED"일 때만 활성
-  // (canVerify/actionDisabled 같은 기존 정책은 그대로 유지)
   const approveDisabled = actionDisabled || !allStepsApproved;
 
   return (
@@ -67,14 +72,12 @@ function FinalActions(props: {
         <p className="text-xs text-slate-500">진행중 상태에서만 최종 승인/반려를 처리할 수 있습니다.</p>
       )}
 
-      {/* ✅ 최종 승인 비활성 사유 안내(선택) */}
       {canVerify && !allStepsApproved ? (
         <p className="text-xs text-slate-500">1~5단계가 모두 승인 상태여야 최종 승인이 가능합니다.</p>
       ) : null}
 
       {actionLoading ? <span className="text-xs text-slate-500">처리 중...</span> : null}
 
-      {/* ✅ 순서: 최종 반려 -> 최종 승인 */}
       <div className="flex flex-wrap justify-end gap-2">
         <button
           type="button"
@@ -137,21 +140,17 @@ export function ApplicationsLayout(props: Props) {
     actionDisabled,
     onFinalApprove,
     onOpenRejectModal,
+
+    showAdoptionSteps = true,
+    showFinalActions = true,
+    postAdoptionSlot,
   } = props;
 
   const listCountLabel = totalCount || apps.length;
 
-  /**
-   * ✅ 1~5단계가 모두 APPROVED일 때만 최종 승인 활성화
-   * - steps가 5개 미만이면 false
-   * - status는 NOT_STARTED/PENDING/SUBMITTED/APPROVED/REJECTED 중 하나
-   */
   const allStepsApproved = React.useMemo(() => {
     const steps = detail?.steps ?? [];
     if (steps.length < 5) return false;
-
-    // 현재 UI가 idx+1을 order로 쓰는 전제와 동일하게 "앞 5개"를 1~5로 간주
-    // (만약 서버가 정렬을 보장 안 하면 order 필드 기준으로 정렬해서 쓰는 걸 추천)
     const firstFive = steps.slice(0, 5);
     return firstFive.every((s) => String(s.status).toUpperCase() === "APPROVED");
   }, [detail?.steps]);
@@ -189,12 +188,7 @@ export function ApplicationsLayout(props: Props) {
                     <div className="flex items-center gap-3">
                       <div className="flex h-14 w-14 items-center justify-center overflow-hidden rounded-xl bg-slate-100 text-xs text-slate-500">
                         {item.dogImageUrl ? (
-                          <img
-                            src={item.dogImageUrl}
-                            alt="dog"
-                            className="h-full w-full object-cover"
-                            draggable={false}
-                          />
+                          <img src={item.dogImageUrl} alt="dog" className="h-full w-full object-cover" draggable={false} />
                         ) : (
                           "No Image"
                         )}
@@ -202,9 +196,7 @@ export function ApplicationsLayout(props: Props) {
 
                       <div className="min-w-0 flex-1">
                         <div className="flex items-center gap-2">
-                          <div className="truncate text-sm font-semibold text-slate-900">
-                            {item.applicantUsername}
-                          </div>
+                          <div className="truncate text-sm font-semibold text-slate-900">{item.applicantUsername}</div>
                           <Badge variant={processBadgeVariant(item.adoptionProcessStatus) as any}>
                             {PROCESS_STATUS_LABELS[item.adoptionProcessStatus]}
                           </Badge>
@@ -233,9 +225,7 @@ export function ApplicationsLayout(props: Props) {
       {/* 우측 상세 */}
       <div className="rounded-2xl border border-slate-200 bg-white p-4">
         {!selected ? (
-          <div className="flex h-[520px] items-center justify-center text-sm text-slate-500">
-            항목을 선택해주세요.
-          </div>
+          <div className="flex h-[520px] items-center justify-center text-sm text-slate-500">항목을 선택해주세요.</div>
         ) : (
           <div className="flex min-h-[520px] flex-col gap-4">
             {detailLoading ? (
@@ -244,21 +234,14 @@ export function ApplicationsLayout(props: Props) {
               </div>
             ) : null}
             {detailError ? (
-              <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-xs text-red-600">
-                {detailError}
-              </div>
+              <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-xs text-red-600">{detailError}</div>
             ) : null}
 
             {/* 상단 헤더 */}
             <div className="flex items-start gap-4">
               <div className="flex h-20 w-20 items-center justify-center overflow-hidden rounded-2xl bg-slate-100 text-xs text-slate-500">
                 {selected.dogImageUrl ? (
-                  <img
-                    src={selected.dogImageUrl}
-                    alt="dog"
-                    className="h-full w-full object-cover"
-                    draggable={false}
-                  />
+                  <img src={selected.dogImageUrl} alt="dog" className="h-full w-full object-cover" draggable={false} />
                 ) : (
                   "No Image"
                 )}
@@ -266,9 +249,7 @@ export function ApplicationsLayout(props: Props) {
 
               <div className="flex-1">
                 <div className="flex flex-wrap items-center gap-2">
-                  <div className="text-base font-semibold text-slate-900">
-                    {(detail?.userName ?? selected.applicantUsername) + " 신청"}
-                  </div>
+                  <div className="text-base font-semibold text-slate-900">{(detail?.userName ?? selected.applicantUsername) + " 신청"}</div>
 
                   <Badge variant={processBadgeVariant(currentProcessStatus) as any}>
                     {PROCESS_STATUS_LABELS[currentProcessStatus]}
@@ -290,8 +271,8 @@ export function ApplicationsLayout(props: Props) {
                 </div>
 
                 <div className="mt-1 text-xs text-slate-500">
-                  신청자ID {detail?.userId ?? selected.applicantUserId} · 이메일 {selected.applicantUserEmail || "-"} ·
-                  전화 {selected.applicantUserPhone}
+                  신청자ID {detail?.userId ?? selected.applicantUserId} · 이메일 {selected.applicantUserEmail || "-"} · 전화{" "}
+                  {selected.applicantUserPhone}
                 </div>
 
                 {detail?.rejectionReason ? (
@@ -302,28 +283,38 @@ export function ApplicationsLayout(props: Props) {
               </div>
             </div>
 
-            {/* ✅ 단계 카드(=StepList) 안으로 최종 버튼을 "slot"으로 넣는다 */}
-            <StepList
-              detail={detail}
-              selectedStepOrder={selectedStepOrder}
-              stepDetail={stepDetail}
-              stepDetailLoading={stepDetailLoading}
-              stepDetailError={stepDetailError}
-              onToggleStep={onToggleStep}
-              onStepApprove={onStepApprove}
-              onStepReject={onStepReject}
-              actionLoading={actionLoading}
-              footer={
-                <FinalActions
-                  canVerify={canVerify}
-                  actionLoading={actionLoading}
-                  actionDisabled={actionDisabled}
-                  allStepsApproved={allStepsApproved}
-                  onFinalApprove={onFinalApprove}
-                  onOpenRejectModal={onOpenRejectModal}
-                />
-              }
-            />
+            {/* 진행중 탭: 입양 단계 / 완료 탭: 사후관리 슬롯 */}
+            {showAdoptionSteps ? (
+              <StepList
+                detail={detail}
+                selectedStepOrder={selectedStepOrder}
+                stepDetail={stepDetail}
+                stepDetailLoading={stepDetailLoading}
+                stepDetailError={stepDetailError}
+                onToggleStep={onToggleStep}
+                onStepApprove={onStepApprove}
+                onStepReject={onStepReject}
+                actionLoading={actionLoading}
+                footer={
+                  showFinalActions ? (
+                    <FinalActions
+                      canVerify={canVerify}
+                      actionLoading={actionLoading}
+                      actionDisabled={actionDisabled}
+                      allStepsApproved={allStepsApproved}
+                      onFinalApprove={onFinalApprove}
+                      onOpenRejectModal={onOpenRejectModal}
+                    />
+                  ) : null
+                }
+              />
+            ) : postAdoptionSlot ? (
+              <div className="mt-2">{postAdoptionSlot}</div>
+            ) : (
+              <div className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-600">
+                사후관리 정보가 없습니다.
+              </div>
+            )}
           </div>
         )}
       </div>

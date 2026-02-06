@@ -4,7 +4,7 @@ import {
   fetchAdoptionStepStatuses,
   normalizeAdoptionStepsStatusResponse,
 } from "@/features/adoption/api/adoptionApi";
-import type { AdoptionStep } from "@/features/manage/types";
+import type { AdoptionProcessStatus, AdoptionStep } from "@/features/manage/types";
 import {
   UI_STEP_DEFS,
   computeProgress,
@@ -20,8 +20,45 @@ export type UseAdoptionStepsStatusResult = {
   currentStep: AdoptionStep | null;
   currentLabel: string | null;
   progressPct: number;
+  processStatus: AdoptionProcessStatus | null;
   loading: boolean;
   error: string | null;
+};
+
+const isRecord = (value: unknown): value is Record<string, unknown> =>
+  Boolean(value) && typeof value === "object" && !Array.isArray(value);
+
+const normalizeProcessStatus = (value: unknown): AdoptionProcessStatus | null => {
+  if (typeof value !== "string") return null;
+  const normalized = value.trim().toUpperCase();
+  if (normalized === "IN_PROGRESS" || normalized === "COMPLETED" || normalized === "CANCELLED") {
+    return normalized as AdoptionProcessStatus;
+  }
+  return null;
+};
+
+const extractProcessStatus = (response: unknown): AdoptionProcessStatus | null => {
+  if (!isRecord(response)) return null;
+
+  const candidates: Record<string, unknown>[] = [];
+  const pushCandidate = (value: unknown) => {
+    if (!isRecord(value)) return;
+    candidates.push(value);
+    if (isRecord(value.adoption)) candidates.push(value.adoption);
+  };
+
+  pushCandidate(response);
+  pushCandidate(response.data);
+  pushCandidate(response.result);
+  pushCandidate(response.content);
+  pushCandidate(response.items);
+  pushCandidate(response.list);
+
+  for (const candidate of candidates) {
+    const status = normalizeProcessStatus(candidate.processStatus);
+    if (status) return status;
+  }
+  return null;
 };
 
 export default function useAdoptionStepsStatus(
@@ -31,6 +68,7 @@ export default function useAdoptionStepsStatus(
   const [serverSteps, setServerSteps] = useState<ServerStepLike[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [processStatus, setProcessStatus] = useState<AdoptionProcessStatus | null>(null);
 
   const abortRef = useRef<AbortController | null>(null);
   const requestIdRef = useRef(0);
@@ -52,6 +90,7 @@ export default function useAdoptionStepsStatus(
       setServerSteps([]);
       setLoading(false);
       setError(null);
+      setProcessStatus(null);
       return;
     }
 
@@ -73,6 +112,7 @@ export default function useAdoptionStepsStatus(
 
     setLoading(true);
     setError(null);
+    setProcessStatus(null);
 
     // DEBUG: trace steps/status API call
     console.debug("[useAdoptionStepsStatus] fetchAdoptionStepStatuses", {
@@ -102,6 +142,7 @@ export default function useAdoptionStepsStatus(
           stack: new Error().stack,
         });
         setServerSteps(rawSteps);
+        setProcessStatus(extractProcessStatus(response));
       })
       .catch((err: unknown) => {
         if (controller.signal.aborted) return;
@@ -122,6 +163,7 @@ export default function useAdoptionStepsStatus(
 
         const message = err instanceof Error ? err.message : "Failed to load adoption steps.";
         setError(message);
+        setProcessStatus(null);
       })
       .finally(() => {
         if (controller.signal.aborted) return;
@@ -164,6 +206,7 @@ export default function useAdoptionStepsStatus(
     currentStep: current?.key ?? null,
     currentLabel: current?.label ?? null,
     progressPct,
+    processStatus,
     loading,
     error,
   };

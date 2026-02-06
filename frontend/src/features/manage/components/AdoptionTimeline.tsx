@@ -1,6 +1,6 @@
 import { Check, CheckCircle2, Lock, X } from "lucide-react";
 import { useMemo } from "react";
-import type { AdoptionStep } from "@/features/manage/types";
+import type { AdoptionProcessStatus, AdoptionStep } from "@/features/manage/types";
 import {
   UI_STEP_DEFS,
   computeProgress,
@@ -102,6 +102,7 @@ type Props = {
   uiSteps?: UiStep[];
   progressPct?: number;
   currentLabel?: string | null;
+  processStatus?: AdoptionProcessStatus | string | null;
 };
 
 export function AdoptionTimeline({
@@ -112,6 +113,7 @@ export function AdoptionTimeline({
   uiSteps,
   progressPct,
   currentLabel,
+  processStatus,
 }: Props) {
   const currentStepN = useMemo(() => normalizeStep(currentStep), [currentStep]);
   const selectedStepN = useMemo(() => normalizeStep(selectedStep), [selectedStep]);
@@ -134,7 +136,36 @@ export function AdoptionTimeline({
     }));
   }, [uiSteps, currentStepN]);
 
-  const stepMap = useMemo(() => new Map(baseSteps.map((step) => [step.key, step])), [baseSteps]);
+  const effectiveSteps = useMemo(() => {
+    const prereqKeys: AdoptionStep[] = [
+      "APPLICATION",
+      "EDUCATION_CERT",
+      "CONSULT",
+      "DOCUMENT",
+      "CONTRACT",
+    ];
+    const prereqsDone = prereqKeys.every((key) => {
+      const step = baseSteps.find((item) => item.key === key);
+      return step?.status === "DONE";
+    });
+
+    let approvalStatus: UiStepStatus | null = null;
+    if (processStatus === "COMPLETED") {
+      approvalStatus = "DONE";
+    } else if (prereqsDone) {
+      approvalStatus = "IN_PROGRESS";
+    }
+
+    if (!approvalStatus) return baseSteps;
+    return baseSteps.map((step) =>
+      step.key === "APPROVAL" ? { ...step, status: approvalStatus } : step
+    );
+  }, [baseSteps, processStatus]);
+
+  const stepMap = useMemo(
+    () => new Map(effectiveSteps.map((step) => [step.key, step])),
+    [effectiveSteps]
+  );
 
   const stages: Stage[] = useMemo(() => {
     const aSubsteps = STAGE_STEPS.A.map((step) => {

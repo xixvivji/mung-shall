@@ -51,14 +51,16 @@ export function ProfileSummary({ user }: Props) {
 
         {/* 우측: 액션 버튼 */}
         <div className="flex shrink-0 items-center gap-3">
-          <Button variant="outline" className="rounded-md">
+          <Button variant="mypage" size="sm" className="px-3 py-2 text-sm">
             정보 수정
           </Button>
 
           {!isVerified && (
             <Button
               onClick={handleVerify}
-              className="rounded-md bg-[#0064FF] hover:bg-[#0056E6]"
+              variant="mypage"
+              size="sm"
+              className="px-3 py-2 text-sm"
             >
               본인 인증
             </Button>

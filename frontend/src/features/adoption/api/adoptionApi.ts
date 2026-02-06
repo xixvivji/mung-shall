@@ -155,6 +155,7 @@ export async function fetchAdoptionList({
         breed: dog.kindNm ?? "Unknown",
         age: dog.age ?? "",
         imageUrl: dog.imageUrl,
+        careNm: dog.careNm ?? "", 
         adopting: dog.adopting,
         processState: dog.processState,
       })),

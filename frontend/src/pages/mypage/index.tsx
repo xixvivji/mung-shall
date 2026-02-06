@@ -14,6 +14,13 @@ import { toAnswer } from "@/features/matching-survey/model/mapper";
 import type { AdoptionSurveyAnswer } from "@/features/matching-survey/model/types";
 import { STEP_CONFIG } from "@/features/matching-survey/model/options";
 
+import useFavoriteDogs, { resolveFavoriteErrorMessage } from "@/features/adoption/hooks/useFavoriteDogs";
+import FavoriteHeart from "@/shared/components/FavoriteHeart";
+import AlertModal from "@/shared/components/AlertModal";
+import { useAlertModal } from "@/shared/hooks/useAlertModal";
+import { ImageWithFallback } from "@/shared/ui/figma/ImageWithFallback";
+import { MapPin } from "lucide-react";
+
 function labelFor(field: keyof AdoptionSurveyAnswer, value?: string) {
   if (!value) return "-";
   const cfg = Object.values(STEP_CONFIG).find((c) => c.field === field);

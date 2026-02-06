@@ -669,7 +669,7 @@ export function CareStep({ adoptionId }: Props) {
 
                     <div className="min-w-0">
                       <h4 className="text-lg font-semibold text-gray-900">
-                        {consultTitle} · 화상 미팅 입장
+                        {consultTitle} 입장
                       </h4>
                       <p className="mt-1 text-sm text-gray-500">담당자와 1:1 상담 진행</p>
                     </div>

@@ -1,6 +1,11 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "react-router-dom";
-import { fetchAdoptionList, fetchDogKinds, fetchSigunguList, fetchSidoList } from "../api/adoptionApi";
+import {
+  fetchAdoptionList,
+  fetchDogKinds,
+  fetchSigunguList,
+  fetchSidoList,
+} from "../api/adoptionApi";
 import type { AdoptionDog } from "../types";
 import DogGrid from "./DogGrid";
 import Filters, {
@@ -50,8 +55,8 @@ export default function AdoptionList() {
   }, [filters.city, filters.province, filters.cityLabel, filters.provinceLabel]);
 
   const kindParam = useMemo(
-    () => (filters.kind !== DEFAULT_KIND ? filters.kind : undefined),
-    [filters.kind]
+      () => (filters.kind !== DEFAULT_KIND ? filters.kind : undefined),
+      [filters.kind]
   );
 
   const PROCESS_STATE_MAP: Record<string, string> = {
@@ -70,42 +75,42 @@ export default function AdoptionList() {
   }, [filters.status]);
 
   const goToPage1 = useCallback(
-    (nextPage1: number) => {
-      setSearchParams(
-        (prev) => {
-          const next = new URLSearchParams(prev);
-          next.set("page", String(nextPage1));
-          return next;
-        },
-        { replace: true }
-      );
-    },
-    [setSearchParams]
+      (nextPage1: number) => {
+        setSearchParams(
+            (prev) => {
+              const next = new URLSearchParams(prev);
+              next.set("page", String(nextPage1));
+              return next;
+            },
+            { replace: true }
+        );
+      },
+      [setSearchParams]
   );
 
   const handleFilterChange = useCallback(
-    (next: {
-      kind: string;
-      province: string;
-      city: string;
-      provinceLabel: string;
-      cityLabel: string;
-      status: string;
-    }) => {
-      setFilters((prev) => {
-        const isSame =
-          prev.kind === next.kind &&
-          prev.province === next.province &&
-          prev.city === next.city &&
-          prev.provinceLabel === next.provinceLabel &&
-          prev.cityLabel === next.cityLabel &&
-          prev.status === next.status;
-        if (isSame) return prev;
-        goToPage1(1);
-        return next;
-      });
-    },
-    [goToPage1]
+      (next: {
+        kind: string;
+        province: string;
+        city: string;
+        provinceLabel: string;
+        cityLabel: string;
+        status: string;
+      }) => {
+        setFilters((prev) => {
+          const isSame =
+              prev.kind === next.kind &&
+              prev.province === next.province &&
+              prev.city === next.city &&
+              prev.provinceLabel === next.provinceLabel &&
+              prev.cityLabel === next.cityLabel &&
+              prev.status === next.status;
+          if (isSame) return prev;
+          goToPage1(1);
+          return next;
+        });
+      },
+      [goToPage1]
   );
 
   useEffect(() => {
@@ -124,21 +129,21 @@ export default function AdoptionList() {
       kindNm: kindParam,
       processState: statusParam,
     })
-      .then((result) => {
-        if (cancelled) return;
-        setDogs(result.items);
-        setTotalPages(result.totalPages || 1);
-      })
-      .catch((err) => {
-        if (cancelled) return;
-        if (err instanceof DOMException && err.name === "AbortError") return;
-        const message = err instanceof Error ? err.message : "Failed to load";
-        setError(message);
-      })
-      .finally(() => {
-        if (cancelled) return;
-        setLoading(false);
-      });
+        .then((result) => {
+          if (cancelled) return;
+          setDogs(result.items);
+          setTotalPages(result.totalPages || 1);
+        })
+        .catch((err) => {
+          if (cancelled) return;
+          if (err instanceof DOMException && err.name === "AbortError") return;
+          const message = err instanceof Error ? err.message : "Failed to load";
+          setError(message);
+        })
+        .finally(() => {
+          if (cancelled) return;
+          setLoading(false);
+        });
 
     return () => {
       cancelled = true;
@@ -148,14 +153,14 @@ export default function AdoptionList() {
   useEffect(() => {
     let cancelled = false;
     fetchSidoList()
-      .then((list) => {
-        if (cancelled) return;
-        setSidoOptions(list.map((item) => ({ label: item.name, value: item.orgCd })));
-      })
-      .catch(() => {
-        if (cancelled) return;
-        setSidoOptions([]);
-      });
+        .then((list) => {
+          if (cancelled) return;
+          setSidoOptions(list.map((item) => ({ label: item.name, value: item.orgCd })));
+        })
+        .catch(() => {
+          if (cancelled) return;
+          setSidoOptions([]);
+        });
 
     return () => {
       cancelled = true;
@@ -171,14 +176,14 @@ export default function AdoptionList() {
     let cancelled = false;
     setSigunguOptions([]);
     fetchSigunguList(filters.province)
-      .then((list) => {
-        if (cancelled) return;
-        setSigunguOptions(list.map((item) => ({ label: item.name, value: item.orgCd })));
-      })
-      .catch(() => {
-        if (cancelled) return;
-        setSigunguOptions([]);
-      });
+        .then((list) => {
+          if (cancelled) return;
+          setSigunguOptions(list.map((item) => ({ label: item.name, value: item.orgCd })));
+        })
+        .catch(() => {
+          if (cancelled) return;
+          setSigunguOptions([]);
+        });
 
     return () => {
       cancelled = true;
@@ -188,14 +193,14 @@ export default function AdoptionList() {
   useEffect(() => {
     let cancelled = false;
     fetchDogKinds()
-      .then((list) => {
-        if (cancelled) return;
-        setBreeds(list);
-      })
-      .catch(() => {
-        if (cancelled) return;
-        setBreeds([]);
-      });
+        .then((list) => {
+          if (cancelled) return;
+          setBreeds(list);
+        })
+        .catch(() => {
+          if (cancelled) return;
+          setBreeds([]);
+        });
 
     return () => {
       cancelled = true;
@@ -204,21 +209,8 @@ export default function AdoptionList() {
 
   return (
       <section className="mx-auto max-w-[1200px] px-6 py-20">
-      <MungshallIllustration
-            className="
-        pointer-events-none
-        absolute
-        left-[-120px]
-        top-[-70px]
-        z-10
-        hidden md:block
-        w-[340px]
-        h-auto
-        select-none
-      "
-        />
-
         <p className="text-sm text-[#6B7280]">홈 &gt; 입양하기</p>
+
         <div className="flex items-center justify-between gap-4">
           <h1 className="text-[33px] font-bold tracking-tight text-[#333]">입양하기</h1>
 
@@ -230,20 +222,19 @@ export default function AdoptionList() {
           />
         </div>
 
-
-        <div className="relative mt-14">
+        <div className="relative mt-10">
           <MungshallIllustration
               className="
-      pointer-events-none
-      absolute
-      left-[-120px]
-      top-[-170px]
-      z-10
-      hidden md:block
-      w-[360px]
-      h-auto
-      select-none
-    "
+            pointer-events-none
+            absolute
+            left-[-110px]
+            top-[-130px]
+            z-10
+            hidden md:block
+            w-[320px]
+            h-auto
+            select-none
+          "
           />
 
           {loading ? (
@@ -257,15 +248,14 @@ export default function AdoptionList() {
           )}
         </div>
 
-
         <div className="mt-10">
-        <Pagination
-          currentPage={currentPage1}
-          totalPages={totalPages}
-          onPrev={() => goToPage1(Math.max(currentPage1 - 1, 1))}
-          onNext={() => goToPage1(Math.min(currentPage1 + 1, totalPages))}
-        />
-      </div>
-    </section>
+          <Pagination
+              currentPage={currentPage1}
+              totalPages={totalPages}
+              onPrev={() => goToPage1(Math.max(currentPage1 - 1, 1))}
+              onNext={() => goToPage1(Math.min(currentPage1 + 1, totalPages))}
+          />
+        </div>
+      </section>
   );
 }

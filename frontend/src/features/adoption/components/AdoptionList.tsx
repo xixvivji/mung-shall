@@ -10,6 +10,7 @@ import Filters, {
   DEFAULT_STATUS,
 } from "./Filters";
 import Pagination from "./Pagination";
+import MungshallIllustration from "@/shared/components/MungshallIllustration";
 
 function parsePage1(params: URLSearchParams) {
   const raw = params.get("page");
@@ -30,9 +31,7 @@ export default function AdoptionList() {
   const [sidoOptions, setSidoOptions] = useState<{ label: string; value: string }[]>([]);
   const [sigunguOptions, setSigunguOptions] = useState<{ label: string; value: string }[]>([]);
 
-  // ✅ URL이 단일 진실(1-based)
   const currentPage1 = useMemo(() => parsePage1(searchParams), [searchParams]);
-  // ✅ API는 0-based
   const page0 = currentPage1 - 1;
 
   const [filters, setFilters] = useState({
@@ -204,20 +203,32 @@ export default function AdoptionList() {
   }, []);
 
   return (
-  <section className="mx-auto max-w-[1200px] px-6 py-20">
-    <p className="text-sm text-[#6B7280]">홈 &gt; 입양하기</p>
-    <div className="flex items-center justify-between gap-4">
-      <h1 className="text-[33px] font-bold tracking-tight text-[#333]">
-        입양하기
-      </h1>
+      <section className="relative mx-auto max-w-[1200px] px-6 py-20">
+        <MungshallIllustration
+            className="
+        pointer-events-none
+        absolute
+        left-[-120px]
+        top-[-70px]
+        z-10
+        hidden md:block
+        w-[340px]
+        h-auto
+        select-none
+      "
+        />
 
-      <Filters
-        breeds={breeds}
-        provinces={sidoOptions}
-        cities={sigunguOptions}
-        onChange={handleFilterChange}
-      />
-    </div>
+        <p className="text-sm text-[#6B7280]">홈 &gt; 입양하기</p>
+        <div className="flex items-center justify-between gap-4">
+          <h1 className="text-[33px] font-bold tracking-tight text-[#333]">입양하기</h1>
+
+          <Filters
+              breeds={breeds}
+              provinces={sidoOptions}
+              cities={sigunguOptions}
+              onChange={handleFilterChange}
+          />
+        </div>
 
 
       <div className="mt-8">

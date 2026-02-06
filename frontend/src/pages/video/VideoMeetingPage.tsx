@@ -28,10 +28,12 @@ function toStepKey(value?: string): StepKey | null {
 
 export default function VideoMeetingPage() {
     const navigate = useNavigate();
-    const { postAdoptionId, stepKey: stepKeyParam } = useParams<{
+    const { postAdoptionId, stepOrder } = useParams<{
         postAdoptionId: string;
-        stepKey: string;
+        stepOrder: string;
     }>();
+
+    const stepKeyParam = stepOrder;
 
     const pageTitle = useMemo(() => titleForStepKey(stepKeyParam), [stepKeyParam]);
     const currentStepKey = useMemo(() => toStepKey(stepKeyParam), [stepKeyParam]);

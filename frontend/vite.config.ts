@@ -17,6 +17,7 @@ export default defineConfig({
       // "/api": 'https://i14c109.p.ssafy.io',
       // "/oauth2": 'https://i14c109.p.ssafy.io',
       // "/login": 'https://i14c109.p.ssafy.io',
+
       "/api": "http://localhost:8080",
       "/oauth2": "http://localhost:8080",
       "/login": "http://localhost:8080",

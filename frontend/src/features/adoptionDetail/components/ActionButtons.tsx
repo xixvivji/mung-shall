@@ -9,11 +9,23 @@ import useAuth from "@/features/auth/hooks/useAuth";
 import { startAdoption } from "@/features/adoption/api/adoptionApi";
 import { fetchAdoptionsByStatus } from "@/features/manage/api/manageApi";
 import useFavoriteDogs, { resolveFavoriteErrorMessage } from "@/features/adoption/hooks/useFavoriteDogs";
+import { resolveUserType } from "@/features/adoption/utils/adoptionCardUi";
+import type { AdoptionStatus, UserType } from "@/features/adoption/types";
 
 type Props = {
   dogId: string;
-  adopting?: boolean;
+  adoptionStatus: AdoptionStatus;
 };
+
+export function canShowActionButtons(
+  userType: UserType,
+  adoptionStatus: AdoptionStatus
+): boolean {
+  return (
+    userType === "GENERAL" &&
+    adoptionStatus === "NOT_ADOPTED"
+  );
+}
 
 type FavoriteButtonProps = {
   dogId: string;
@@ -58,19 +70,19 @@ function FavoriteButton({ dogId, onAlert }: FavoriteButtonProps) {
   );
 }
 
-export default function ActionButtons({ dogId, adopting = true }: Props) {
+export default function ActionButtons({ dogId, adoptionStatus }: Props) {
   const { openAlert, alertProps } = useAlertModal();
   const { user } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
   const [isStarting, setIsStarting] = useState(false);
 
-  const normalizedUserType = String(
-    user?.userType ?? (user as { type?: string } | null)?.type ?? ""
-  ).toLowerCase();
-  const isShelter = normalizedUserType === "shelter";
+  const userType = resolveUserType(user as { userType?: unknown; type?: unknown } | null | undefined);
+  const showActionButtons = canShowActionButtons(userType, adoptionStatus);
 
-  const canAdopt = adopting == false;
+  if (!showActionButtons) {
+    return null;
+  }
 
   const handleStartAdoption = async () => {
     const numericDogId = Number(dogId);
@@ -150,19 +162,17 @@ export default function ActionButtons({ dogId, adopting = true }: Props) {
 
   return (
     <div className="flex flex-wrap gap-3">
-      {!isShelter && (
-        <button
-          type="button"
-          className="rounded-md bg-[#3182f6] px-5 py-2 text-sm font-semibold text-white disabled:opacity-60"
-          onClick={handleStartAdoption}
-          disabled={isStarting || !canAdopt}
-          aria-busy={isStarting}
-        >
-          {isStarting ? "처리 중.." : canAdopt ? "입양하기" : "입양 진행 중"}
-        </button>
-      )}
+      <button
+        type="button"
+        className="rounded-md bg-[#3182f6] px-5 py-2 text-sm font-semibold text-white disabled:opacity-60"
+        onClick={handleStartAdoption}
+        disabled={isStarting}
+        aria-busy={isStarting}
+      >
+        {isStarting ? "처리 중.." : "입양하기"}
+      </button>
 
-      {!isShelter && <FavoriteButton dogId={dogId} onAlert={openAlert} />}
+      <FavoriteButton dogId={dogId} onAlert={openAlert} />
 
       <AlertModal {...alertProps} />
     </div>

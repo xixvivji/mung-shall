@@ -88,12 +88,12 @@ function AdopterMyPage() {
     let mounted = true;
 
     fetchMyInfo()
-      .then((data) => {
-        if (mounted) setMemberInfo(data);
-      })
-      .catch(() => {
-        if (mounted) setMemberInfo(null);
-      });
+        .then((data) => {
+          if (mounted) setMemberInfo(data);
+        })
+        .catch(() => {
+          if (mounted) setMemberInfo(null);
+        });
 
     return () => {
       mounted = false;
@@ -108,25 +108,25 @@ function AdopterMyPage() {
     setSurveyError(null);
 
     getSurvey(Number(userId))
-      .then((dto) => {
-        if (!mounted) return;
-        setSurveyAnswer(toAnswer(dto));
-      })
-      .catch((e: unknown) => {
-        if (!mounted) return;
+        .then((dto) => {
+          if (!mounted) return;
+          setSurveyAnswer(toAnswer(dto));
+        })
+        .catch((e: unknown) => {
+          if (!mounted) return;
 
-        if (e instanceof ApiError && (e.status === 404 || e.status === 400)) {
+          if (e instanceof ApiError && (e.status === 404 || e.status === 400)) {
+            setSurveyAnswer(null);
+            return;
+          }
+
+          console.error("[mypage getSurvey] failed:", e);
+          setSurveyError("설문 정보를 불러오지 못했어요.");
           setSurveyAnswer(null);
-          return;
-        }
-
-        console.error("[mypage getSurvey] failed:", e);
-        setSurveyError("설문 정보를 불러오지 못했어요.");
-        setSurveyAnswer(null);
-      })
-      .finally(() => {
-        if (mounted) setSurveyLoading(false);
-      });
+        })
+        .finally(() => {
+          if (mounted) setSurveyLoading(false);
+        });
 
     return () => {
       mounted = false;
@@ -135,25 +135,24 @@ function AdopterMyPage() {
 
   if (!memberInfo) {
     return (
-      <div className="flex min-h-[400px] items-center justify-center">
-        <div className="text-sm text-gray-500">Loading...</div>
-      </div>
+        <div className="flex min-h-[400px] items-center justify-center">
+          <div className="text-sm text-gray-500">Loading...</div>
+        </div>
     );
   }
 
   const hasSurvey = !!surveyAnswer;
 
   return (
-    <section className="mx-auto max-w-6xl space-y-8 px-6 py-12">
-      <h1 className="text-3xl font-bold text-gray-900">마이페이지</h1>
+      <section className="mx-auto max-w-6xl space-y-8 px-6 py-12">
+        <h1 className="text-3xl font-bold text-gray-900">마이페이지</h1>
 
-      <ProfileSummary user={memberInfo} />
+        <ProfileSummary user={memberInfo} />
 
-      {/* 내 추천 설문 */}
-      <div className="overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm">
-        <div className="border-b border-gray-100 bg-gray-50 px-6 py-4">
-          <div className="flex items-center justify-between">
-            <h2 className="text-lg font-semibold text-gray-900">내 추천 설문</h2>
+        <div className="overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm">
+          <div className="border-b border-gray-100 bg-gray-50 px-6 py-4">
+            <div className="flex items-center justify-between">
+              <h2 className="text-lg font-semibold text-gray-900">내 추천 설문</h2>
 
             <div className="flex items-center gap-2">
               <Button asChild variant="mypage" size="default">
@@ -172,50 +171,65 @@ function AdopterMyPage() {
                 >
                   {deleteLoading ? "삭제 중..." : "설문 삭제"}
                 </Button>
-              )}
+
+                {hasSurvey && (
+                    <Button
+                        type="button"
+                        onClick={() => void handleDeleteSurvey()}
+                        disabled={deleteLoading || surveyLoading}
+                        variant="mypage"
+                        size="sm"
+                    >
+                      {deleteLoading ? "삭제 중..." : "설문 삭제"}
+                    </Button>
+                )}
+              </div>
             </div>
           </div>
-        </div>
 
-        <div className="p-6">
-          {surveyLoading ? (
-            <div className="py-8 text-center text-sm text-gray-500">설문 불러오는 중...</div>
-          ) : surveyError ? (
-            <div className="rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-600">
-              {surveyError}
-            </div>
-          ) : hasSurvey ? (
-            <div className="space-y-4">
-              <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
-                <div className="flex items-center justify-between rounded-xl border border-gray-100 bg-gray-50 px-4 py-3.5">
-                  <span className="text-sm font-medium text-gray-600">활동성(휴식 시)</span>
-                  <span className="text-sm font-bold text-gray-900">
+          <div className="p-6">
+            {surveyLoading ? (
+                <div className="py-8 text-center text-sm text-gray-500">설문 불러오는 중...</div>
+            ) : surveyError ? (
+                <div className="rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-600">
+                  {surveyError}
+                </div>
+            ) : hasSurvey ? (
+                <div className="space-y-4">
+                  <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+                    <div className="flex items-center justify-between rounded-xl border border-gray-100 bg-gray-50 px-4 py-3.5">
+                      <span className="text-sm font-medium text-gray-600">활동성(휴식 시)</span>
+                      <span className="text-sm font-bold text-gray-900">
                     {labelFor("restActivityLevel", surveyAnswer.restActivityLevel)}
                   </span>
-                </div>
-                <div className="flex items-center justify-between rounded-xl border border-gray-100 bg-gray-50 px-4 py-3.5">
-                  <span className="text-sm font-medium text-gray-600">거주 형태</span>
-                  <span className="text-sm font-bold text-gray-900">
+                    </div>
+                    <div className="flex items-center justify-between rounded-xl border border-gray-100 bg-gray-50 px-4 py-3.5">
+                      <span className="text-sm font-medium text-gray-600">거주 형태</span>
+                      <span className="text-sm font-bold text-gray-900">
                     {labelFor("residenceType", surveyAnswer.residenceType)}
                   </span>
-                </div>
-                <div className="flex items-center justify-between rounded-xl border border-gray-100 bg-gray-50 px-4 py-3.5">
-                  <span className="text-sm font-medium text-gray-600">외출 시간</span>
-                  <span className="text-sm font-bold text-gray-900">
+                    </div>
+                    <div className="flex items-center justify-between rounded-xl border border-gray-100 bg-gray-50 px-4 py-3.5">
+                      <span className="text-sm font-medium text-gray-600">외출 시간</span>
+                      <span className="text-sm font-bold text-gray-900">
                     {labelFor("houseEmptyTime", surveyAnswer.houseEmptyTime)}
                   </span>
-                </div>
-                <div className="flex items-center justify-between rounded-xl border border-gray-100 bg-gray-50 px-4 py-3.5">
-                  <span className="text-sm font-medium text-gray-600">털 빠짐 허용</span>
-                  <span className="text-sm font-bold text-gray-900">
+                    </div>
+                    <div className="flex items-center justify-between rounded-xl border border-gray-100 bg-gray-50 px-4 py-3.5">
+                      <span className="text-sm font-medium text-gray-600">털 빠짐 허용</span>
+                      <span className="text-sm font-bold text-gray-900">
                     {labelFor("furTolerance", surveyAnswer.furTolerance)}
                   </span>
-                </div>
-                <div className="flex items-center justify-between rounded-xl border border-gray-100 bg-gray-50 px-4 py-3.5 md:col-span-2">
-                  <span className="text-sm font-medium text-gray-600">방문자 빈도</span>
-                  <span className="text-sm font-bold text-gray-900">
+                    </div>
+                    <div className="flex items-center justify-between rounded-xl border border-gray-100 bg-gray-50 px-4 py-3.5 md:col-span-2">
+                      <span className="text-sm font-medium text-gray-600">방문자 빈도</span>
+                      <span className="text-sm font-bold text-gray-900">
                     {labelFor("visitorFrequency", surveyAnswer.visitorFrequency)}
                   </span>
+                    </div>
+                  </div>
+
+                  <p className="text-xs text-gray-500">💡 설문은 추천 매칭을 위해 사용돼요</p>
                 </div>
               </div>
 
@@ -246,79 +260,119 @@ function AdopterMyPage() {
           </div>
         </div>
 
-        <div className="p-6">
-          {favoriteLoading ? (
-            <div className="py-8 text-center text-sm text-gray-500">불러오는 중...</div>
-          ) : favoriteDogs.length === 0 ? (
+        <section className="overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm">
+          <div className="border-b border-gray-100 bg-gray-50 px-6 py-4">
+            <div className="flex items-center justify-between">
+              <h2 className="text-lg font-semibold text-gray-900">관심 등록한 강아지</h2>
+
+              <Button asChild variant="mypage" size="sm">
+                <Link to="/adoption">입양하러 가기</Link>
+              </Button>
+            </div>
+          </div>
+
+          <div className="p-6">
+            {favoriteLoading ? (
+                <div className="py-8 text-center text-sm text-gray-500">불러오는 중...</div>
+            ) : favoriteDogs.length === 0 ? (
+                <div className="rounded-xl bg-gray-50 px-6 py-10 text-center">
+                  <div className="mb-2 text-sm font-medium text-gray-600">관심 등록한 강아지가 없어요.</div>
+                  <div className="text-sm text-gray-500">마음에 드는 강아지를 찾아 하트를 눌러보세요.</div>
+                </div>
+            ) : (
+                <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
+                  {favoriteDogs.map((dog) => {
+                    const id = String(dog.dogId);
+
+                    return (
+                        <Link
+                            key={id}
+                            to={`/adoption/${dog.dogId}`}
+                            className="group relative overflow-hidden rounded-2xl border border-gray-200 bg-white transition hover:border-gray-300 hover:shadow-lg"
+                        >
+                          <div className="relative aspect-square overflow-hidden bg-gray-100">
+                            {dog.imageUrl && (
+                                <ImageWithFallback
+                                    src={dog.imageUrl}
+                                    alt={dog.kindNm ?? "dog"}
+                                    className="absolute inset-0 h-full w-full scale-105 blur-[10px] brightness-90 object-cover transition duration-500"
+                                    aria-hidden
+                                />
+                            )}
+
+                            <div className="relative z-10 h-full w-full">
+                              <ImageWithFallback
+                                  src={dog.imageUrl ?? ""}
+                                  alt={dog.kindNm ?? "dog"}
+                                  className="h-full w-full object-contain transition-transform duration-200 group-hover:scale-105"
+                              />
+                            </div>
+
+                            <FavoriteHeart
+                                active={isFavorite(id)}
+                                disabled={pendingIds.has(id)}
+                                onToggle={(e?: any) => {
+                                  e?.preventDefault?.();
+                                  void handleToggleFavorite(id);
+                                }}
+                            />
+                          </div>
+
+                          <div className="space-y-1.5 p-4">
+                            <div className="font-semibold text-gray-900">
+                              {dog.noticeNo ?? dog.desertionNo ?? dog.kindNm ?? `Dog #${dog.dogId}`}
+                            </div>
+                            <div className="text-sm text-gray-600">
+                              {dog.kindNm ?? "알 수 없음"} · {dog.age ?? "-"}
+                            </div>
+                            <div className="flex items-center gap-1.5 text-sm text-gray-500">
+                              <MapPin className="h-4 w-4" />
+                              <span>{dog.careNm ?? "-"}</span>
+                            </div>
+                          </div>
+                        </Link>
+                    );
+                  })}
+                </div>
+            )}
+          </div>
+        </section>
+
+        <section className="overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm">
+          <div className="border-b border-gray-100 bg-gray-50 px-6 py-4">
+            <div className="flex items-center justify-between">
+              <h2 className="text-lg font-semibold text-gray-900">강아지 훈련 정확도 확인 (다시 고민)</h2>
+            </div>
+          </div>
+
+          <div className="p-6 space-y-6">
+            {/* 사용 조건 안내 */}
             <div className="rounded-xl bg-gray-50 px-6 py-10 text-center">
-              <div className="mb-2 text-sm font-medium text-gray-600">
-                관심 등록한 강아지가 없어요.
+              <div className="text-sm text-gray-600">
+                사후관리 로드맵을 모두 완성 후 사용 가능합니다.
+              </div>
+            </div>
+
+            {/* 예시 영상 영역 */}
+            <div className="rounded-xl border border-dashed border-gray-300 bg-white px-6 py-10 text-center">
+              <div className="mb-2 text-sm font-medium text-gray-700">
+                예시 영상
               </div>
               <div className="text-sm text-gray-500">
-                마음에 드는 강아지를 찾아 하트를 눌러보세요.
+                예시 영상이 여기에 표시됩니다.
               </div>
             </div>
-          ) : (
-            <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
-              {favoriteDogs.map((dog) => {
-                const id = String(dog.dogId);
 
-                return (
-                  <Link
-                    key={id}
-                    to={`/adoption/${dog.dogId}`}
-                    className="group relative overflow-hidden rounded-2xl border border-gray-200 bg-white transition hover:border-gray-300 hover:shadow-lg"
-                  >
-                    <div className="relative aspect-square overflow-hidden bg-gray-100">
-                      {dog.imageUrl && (
-                        <ImageWithFallback
-                          src={dog.imageUrl}
-                          alt={dog.kindNm ?? "dog"}
-                          className="absolute inset-0 h-full w-full scale-105 blur-[10px] brightness-90 object-cover transition duration-500"
-                          aria-hidden
-                        />
-                      )}
-
-                      <div className="relative z-10 h-full w-full">
-                        <ImageWithFallback
-                          src={dog.imageUrl ?? ""}
-                          alt={dog.kindNm ?? "dog"}
-                          className="h-full w-full object-contain transition-transform duration-200 group-hover:scale-105"
-                        />
-                      </div>
-
-                      <FavoriteHeart
-                        active={isFavorite(id)}
-                        disabled={pendingIds.has(id)}
-                        onToggle={(e?: any) => {
-                          e?.preventDefault?.();
-                          void handleToggleFavorite(id);
-                        }}
-                      />
-                    </div>
-
-                    <div className="space-y-1.5 p-4">
-                      <div className="font-semibold text-gray-900">
-                        {dog.noticeNo ?? dog.desertionNo ?? dog.kindNm ?? `Dog #${dog.dogId}`}
-                      </div>
-                      <div className="text-sm text-gray-600">
-                        {dog.kindNm ?? "알 수 없음"} · {dog.age ?? "-"}
-                      </div>
-                      <div className="flex items-center gap-1.5 text-sm text-gray-500">
-                        <MapPin className="h-4 w-4" />
-                        <span>{dog.careNm ?? "-"}</span>
-                      </div>
-                    </div>
-                  </Link>
-                );
-              })}
+            {/* AI 안내 문구 */}
+            <div className="text-center text-sm text-gray-400">
+              AI 추후 연결 예정
             </div>
-          )}
-        </div>
-      </section>
+          </div>
 
-      <AlertModal {...alertProps} />
-    </section>
+        </section>
+
+        <AlertModal {...alertProps} />
+      </section>
   );
 }
 

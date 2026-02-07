@@ -1,6 +1,7 @@
 package com.example.backend.domain.postadoption;
 
 import com.example.backend.domain.adoption.Adoption;
+import com.example.backend.domain.postadoption.videocall.PostAdoptionVideoCall;
 import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
@@ -27,11 +28,11 @@ public class PostAdoption {
     @JoinColumn(name = "adoption_id", nullable = false, unique = true)
     private Adoption adoption;
 
-    @Enumerated(EnumType.STRING)
-    @Column(nullable = false)
-
     @OneToMany(mappedBy = "postAdoption", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<PostAdoptionStepInstance> stepInstances = new ArrayList<>();
+
+    @OneToMany(mappedBy = "postAdoption", cascade = CascadeType.ALL, orphanRemoval = true)
+    private List<PostAdoptionVideoCall> videoCalls = new ArrayList<>();
 
     @CreationTimestamp
     private LocalDateTime createdAt;
@@ -47,5 +48,12 @@ public class PostAdoption {
     public void addStepInstance(PostAdoptionStepInstance stepInstance) {
         stepInstances.add(stepInstance);
         stepInstance.setPostAdoption(this);
+    }
+
+    public void initializeVideoCalls() {
+        for (int i = 1; i <= 3; i++) {
+            PostAdoptionVideoCall videoCall = PostAdoptionVideoCall.create(this, i);
+            this.videoCalls.add(videoCall);
+        }
     }
 }

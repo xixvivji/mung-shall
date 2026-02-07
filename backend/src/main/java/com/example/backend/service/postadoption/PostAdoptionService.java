@@ -60,6 +60,7 @@ public class PostAdoptionService {
         }
 
         PostAdoption postAdoption = new PostAdoption(adoption);
+        postAdoption.initializeVideoCalls(); // 화상통화 엔티티 초기화
         postAdoptionRepository.save(postAdoption);
 
         // 모든 PostAdoptionStepDef를 가져와 PostAdoptionStepInstance 생성

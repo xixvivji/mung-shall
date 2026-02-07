@@ -6,6 +6,15 @@ const REFRESH_WINDOW_MS = 2 * 60 * 1000;
 let cachedToken: string | null = null;
 let cachedExpMs: number | null = null;
 let refreshPromise: Promise<string> | null = null;
+let authEpoch = 0;
+
+function bumpAuthEpoch() {
+  authEpoch += 1;
+}
+
+function getAuthEpoch() {
+  return authEpoch;
+}
 
 export function getAccessToken() {
   const token = localStorage.getItem(ACCESS_TOKEN_KEY);
@@ -35,6 +44,7 @@ export function setAuthTokens(accessToken: string) {
 export function clearAuthTokens() {
   clearAccessToken();
   localStorage.removeItem(AUTH_USER_KEY);
+  bumpAuthEpoch();
 }
 
 type ApiOptions = RequestInit & {
@@ -70,7 +80,7 @@ export async function api<T>(path: string, options: ApiOptions = {}): Promise<T>
       if (import.meta.env.DEV) {
         console.debug("[auth] token expiring soon", { remainingMs });
       }
-      await refreshAccessToken();
+      await requestAccessTokenRefresh();
     }
   }
 
@@ -114,13 +124,13 @@ export async function api<T>(path: string, options: ApiOptions = {}): Promise<T>
 
   if (response.status === 401 && !skipAuth && !skipRefresh && !retry && !isRefreshPath(path)) {
     try {
-      await refreshAccessToken();
+      await requestAccessTokenRefresh();
       if (import.meta.env.DEV) {
         console.debug("[auth] retrying request after refresh", { path });
       }
       return api<T>(path, { ...options, retry: true });
     } catch {
-      // Refresh errors handled in refreshAccessToken.
+      // Refresh errors handled in requestAccessTokenRefresh.
     }
   }
 
@@ -186,10 +196,11 @@ function decodeJwtPayload(token: string): { exp?: number } | null {
   }
 }
 
-async function refreshAccessToken(): Promise<string> {
+export async function requestAccessTokenRefresh(): Promise<string> {
   if (refreshPromise) return refreshPromise;
 
   refreshPromise = (async () => {
+    const startedEpoch = getAuthEpoch();
     if (import.meta.env.DEV) {
       console.debug("[auth] refresh start");
     }
@@ -224,6 +235,14 @@ async function refreshAccessToken(): Promise<string> {
     if (!data.accessToken) {
       throw new ApiError(500, "Missing accessToken in refresh response.");
     }
+
+    if (getAuthEpoch() !== startedEpoch) {
+      if (import.meta.env.DEV) {
+        console.debug("[auth] refresh result ignored due to auth epoch mismatch");
+      }
+      return data.accessToken;
+    }
+
     setAuthTokens(data.accessToken);
 
     if (import.meta.env.DEV) {

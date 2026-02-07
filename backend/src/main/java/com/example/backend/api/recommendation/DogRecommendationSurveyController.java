@@ -28,8 +28,32 @@ import java.util.List;
 @RequiredArgsConstructor
 public class DogRecommendationSurveyController {
 
+    private static final int TOP_K = 12;
+
     private final DogRecommendationSurveyService dogRecommendationSurveyService;
     private final MatchingService matchingService;
+
+    @Operation(summary = "추천 리스트 조회", description = "요청한 유저의 설문을 기반으로 추천 리스트를 반환합니다.")
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "200", description = "추천 조회 성공",
+                    content = @Content(schema = @Schema(implementation = DogRecommendationsResponse.class))),
+            @ApiResponse(responseCode = "401", description = "인증 필요"),
+            @ApiResponse(responseCode = "403", description = "userId 불일치"),
+            @ApiResponse(responseCode = "404", description = "설문이 없음")
+    })
+    @GetMapping("/recommendations/user/{userId}")
+    public ResponseEntity<DogRecommendationsResponse> getRecommendations(
+            @Parameter(description = "요청한 유저 ID") @PathVariable Long userId
+    ) {
+        DogRecommendationSurveyResponse survey = dogRecommendationSurveyService.getSurveyByUserId(userId);
+
+        var matches = matchingService.match(survey, TOP_K);
+        List<RecommendedDogDto> recs = matches.stream()
+                .map(m -> new RecommendedDogDto(m.dogId(), m.similarity()))
+                .toList();
+
+        return ResponseEntity.ok(new DogRecommendationsResponse(recs));
+    }
 
     @Operation(summary = "강아지 추천 설문 생성", description = "유저의 강아지 추천 설문 응답을 생성합니다. 유저당 하나의 설문만 생성 가능합니다.")
     @ApiResponses(value = {
@@ -40,17 +64,12 @@ public class DogRecommendationSurveyController {
     })
     @PostMapping
     public ResponseEntity<DogSurveyWithRecommendationsResponse> createSurvey(
-            @Valid @RequestBody DogRecommendationSurveyCreateRequest request,
-            @RequestParam(defaultValue = "12") int topK) {
+            @Valid @RequestBody DogRecommendationSurveyCreateRequest request
+    ) {
         DogRecommendationSurveyResponse survey = dogRecommendationSurveyService.createSurvey(request);
 
-        var matches = matchingService.match(survey, topK);
-        var recs = matches.stream()
-                .map(m -> new RecommendedDogDto(m.dogId(), m.similarity()))
-                .toList();
-
-        return ResponseEntity.status(HttpStatus.CREATED)
-                .body(new DogSurveyWithRecommendationsResponse(survey, recs));
+        DogSurveyWithRecommendationsResponse body = buildSurveyWithRecommendations(survey);
+        return ResponseEntity.status(HttpStatus.CREATED).body(body);
     }
 
     @Operation(summary = "유저 ID로 강아지 추천 설문 조회", description = "특정 유저의 강아지 추천 설문 응답을 조회합니다.")
@@ -74,11 +93,14 @@ public class DogRecommendationSurveyController {
             @ApiResponse(responseCode = "404", description = "유저 ID에 해당하는 설문을 찾을 수 없음")
     })
     @PutMapping("/user/{userId}")
-    public ResponseEntity<DogRecommendationSurveyResponse> updateSurvey(
-            @Parameter(description = "수정할 유저 ID") @PathVariable Long userId,
-            @Valid @RequestBody DogRecommendationSurveyUpdateRequest request) {
-        DogRecommendationSurveyResponse response = dogRecommendationSurveyService.updateSurvey(userId, request);
-        return ResponseEntity.ok(response);
+    public ResponseEntity<DogSurveyWithRecommendationsResponse> updateSurvey(
+            @PathVariable Long userId,
+            @Valid @RequestBody DogRecommendationSurveyUpdateRequest request
+    ) {
+        DogRecommendationSurveyResponse survey = dogRecommendationSurveyService.updateSurvey(userId, request);
+
+        DogSurveyWithRecommendationsResponse body = buildSurveyWithRecommendations(survey);
+        return ResponseEntity.ok(body);
     }
 
     @Operation(summary = "강아지 추천 설문 삭제", description = "특정 유저의 강아지 추천 설문 응답을 삭제합니다.")
@@ -91,5 +113,15 @@ public class DogRecommendationSurveyController {
             @Parameter(description = "삭제할 유저 ID") @PathVariable Long userId) {
         dogRecommendationSurveyService.deleteSurveyByUserId(userId);
         return ResponseEntity.noContent().build();
+    }
+
+
+    // Helper
+    private DogSurveyWithRecommendationsResponse buildSurveyWithRecommendations(DogRecommendationSurveyResponse survey) {
+        var matches = matchingService.match(survey, TOP_K);
+        List<RecommendedDogDto> recs = matches.stream()
+                .map(m -> new RecommendedDogDto(m.dogId(), m.similarity()))
+                .toList();
+        return new DogSurveyWithRecommendationsResponse(survey, recs);
     }
 }

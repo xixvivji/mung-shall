@@ -1,8 +1,11 @@
 import { api } from "@/shared/api/client";
 import type { AdoptionDetail } from "../types";
+import type { AdoptionStatus } from "@/features/adoption/types";
+import { resolveAdoptionStatusFromServer } from "../utils/adoptionStatus";
 
 type DogDetailResponse = {
   id: number;
+  adoptionStatus?: AdoptionStatus | string;
   adopting?: boolean;
   desertionNo?: string;
   noticeNo?: string;
@@ -33,6 +36,7 @@ export async function fetchAdoptionDetail(id: string): Promise<AdoptionDetail> {
     breed: data.kindNm ?? "Unknown",
     description: data.specialMark ?? "",
     images: [data.popfile1, data.popfile2].filter(Boolean) as string[],
+    adoptionStatus: resolveAdoptionStatusFromServer(data.adoptionStatus),
     adopting: data.adopting,
     noticeNo: data.noticeNo,
     desertionNo: data.desertionNo,

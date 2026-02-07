@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { Button } from "@/shared/ui/button";
 import { api } from "@/shared/api/client";
@@ -122,6 +122,7 @@ export default function VideoMeetingPage() {
   const [videoEnabled, setVideoEnabled] = useState(true);
 
   const [session, setSession] = useState<SessionLike | null>(null);
+  const sessionRef = useRef<SessionLike | null>(null);
 
   const stepKeyParam = stepOrder;
   const pageTitle = useMemo(() => titleForStepKey(stepKeyParam), [stepKeyParam]);
@@ -138,16 +139,18 @@ export default function VideoMeetingPage() {
   };
 
   const leaveSession = useCallback(() => {
-    if (session) {
-      session.disconnect();
+    const currentSession = sessionRef.current;
+    if (currentSession) {
+      currentSession.disconnect();
     }
+    sessionRef.current = null;
     setSession(null);
     setLocalPublisher(null);
     setSubscribers([]);
     setIsConnected(false);
     setAudioEnabled(true);
     setVideoEnabled(true);
-  }, [session]);
+  }, []);
 
   const handleJoin = useCallback(async () => {
     if (!sessionId) {
@@ -187,6 +190,7 @@ export default function VideoMeetingPage() {
       });
 
       await newSession.publish(publisher);
+      sessionRef.current = newSession;
       setSession(newSession);
       setLocalPublisher(publisher);
       setIsConnected(true);
@@ -213,7 +217,15 @@ export default function VideoMeetingPage() {
     setVideoEnabled(next);
   }, [localPublisher, videoEnabled]);
 
-  useEffect(() => () => leaveSession(), [leaveSession]);
+  useEffect(() => {
+    sessionRef.current = session;
+  }, [session]);
+
+  useEffect(() => {
+    return () => {
+      leaveSession();
+    };
+  }, [leaveSession]);
 
   return (
     <section className="mx-auto max-w-[1200px] space-y-6 px-6 py-16">

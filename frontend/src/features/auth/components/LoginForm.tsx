@@ -1,0 +1,240 @@
+import imgImage48 from "@/assets/images/social_login_kakao.png";
+import imgImage47 from "@/assets/images/sicial_login_naver.png";
+import imgImage46 from "@/assets/images/social_login_google.png";
+import imgMungshall2 from "@/assets/images/mung.png";
+import useAuth from "@/features/auth/hooks/useAuth";
+import { useState, type FormEvent } from "react";
+import { Link, useNavigate } from "react-router-dom";
+import { ROUTES } from "@/shared/constants/routes";
+import AlertModal from "@/shared/components/AlertModal";
+import { useAlertModal } from "@/shared/hooks/useAlertModal";
+import { primaryButtonClass, secondaryButtonClass } from "@/shared/ui/buttonClasses";
+import { ApiError } from "@/shared/api/client";
+
+function Back() {
+  return (
+    <div
+      className="fixed inset-0 bg-white"
+      data-name="back"
+    />
+  );
+}
+
+function Text() {
+  return (
+    <div
+      className="absolute left-[650px] top-[588px] w-[350px] flex items-center justify-center"
+      data-name="Text"
+    >
+      <p className="text-center text-[14px] leading-[20px] text-[#737373]">
+        <Link className="underline" to="/auth/signup">
+          회원가입
+        </Link>
+        <span>{`  |  `}</span>
+        <Link className="underline" to="/auth/find-id">
+          아이디찾기
+        </Link>
+        <span>{`  |  `}</span>
+        <Link className="underline" to="/auth/find-pw">
+          비밀번호 찾기
+        </Link>
+      </p>
+    </div>
+  );
+}
+
+function SocialBtn({
+  top,
+  icon,
+  label,
+  onClick,
+}: {
+  top: string;
+  icon: string;
+  label: string;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={`absolute left-[650px] ${top} h-[36px] w-[350px] rounded-[8px] bg-white px-[12px] py-[8px] flex items-center justify-center border border-[#e5e5e5] shadow-[0px_1px_2px_0px_rgba(0,0,0,0.1)] ${secondaryButtonClass}`}
+    >
+      <div className="relative flex items-center">
+        <span className="pr-2">
+          <img src={icon} alt="" className="h-4 w-4" />
+        </span>
+        <span className="text-[14px] font-medium leading-[20px] text-[#0a0a0a]">{label}</span>
+      </div>
+    </button>
+  );
+}
+
+function Divider() {
+  return (
+    <div className="absolute left-[650px] top-[391.5px] flex w-[350px] items-center" data-name="Divider">
+      <div className="h-px flex-1 bg-[#e5e5e5]" />
+      <div className="px-2 text-center text-[12px] leading-[16px] text-[#737373] w-[138px]">
+        OR CONTINUE WITH
+      </div>
+      <div className="h-px flex-1 bg-[#e5e5e5]" />
+    </div>
+  );
+}
+
+type SocialProvider = "google" | "naver" | "kakao";
+
+const getOAuthUrl = (provider: SocialProvider) => {
+  const apiBase = import.meta.env.VITE_API_BASE_URL ?? "/api";
+  const origin = apiBase.startsWith("http") ? new URL(apiBase).origin : "";
+  return `${origin}/oauth2/authorization/${provider}`;
+};
+
+const DEFAULT_ERROR_MESSAGE = "서버 오류가 발생했습니다. 잠시 후 다시 시도해 주세요.";
+
+function parseErrorMessage(rawMessage: string) {
+  const trimmed = rawMessage.trim();
+  if (!trimmed) return "";
+  try {
+    const parsed = JSON.parse(trimmed);
+    if (parsed && typeof parsed.message === "string") {
+      return parsed.message;
+    }
+  } catch {
+    // ignore JSON parse errors
+  }
+  return trimmed;
+}
+
+function resolveErrorMessage(err: unknown) {
+  if (err instanceof ApiError) {
+    const parsed = parseErrorMessage(err.message);
+    if (parsed) return parsed;
+    if (err.status === 400) return "입력값을 확인해 주세요.";
+    if (err.status === 401 || err.status === 403) return "로그인이 필요하거나 권한이 없습니다.";
+    if (err.status === 404) return "요청한 기능을 찾을 수 없습니다.";
+    if (err.status === 500) return DEFAULT_ERROR_MESSAGE;
+    return DEFAULT_ERROR_MESSAGE;
+  }
+
+  const rawMessage = err instanceof Error ? err.message : "";
+  const parsed = parseErrorMessage(rawMessage);
+  return parsed || DEFAULT_ERROR_MESSAGE;
+}
+
+function Login() {
+  const { login } = useAuth();
+  const navigate = useNavigate();
+  const { openAlert, alertProps } = useAlertModal();
+  const [username, setUsername] = useState("");
+  const [password, setPassword] = useState("");
+  const [loading, setLoading] = useState(false);
+
+  const handleLogin = async () => {
+    if (!username.trim() || !password.trim()) {
+      openAlert({ title: "로그인 실패", message: "아이디와 비밀번호를 입력해주세요." });
+      return;
+    }
+    setLoading(true);
+    try {
+      const loggedInUser = await login({ username: username.trim(), password });
+      const userType = loggedInUser?.userType?.toLowerCase();
+      const nextRoute = userType === "shelter" || userType === "center" ? ROUTES.center : ROUTES.mypage;
+      navigate(nextRoute);
+    } catch (err) {
+      openAlert({ title: "로그인 실패", message: resolveErrorMessage(err) });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (loading) return;
+    handleLogin();
+  };
+
+  const handleSocialLogin = (provider: SocialProvider) => {
+    window.location.assign(getOAuthUrl(provider));
+  };
+
+  return (
+    <form className="absolute left-0 top-0" data-name="login" onSubmit={handleSubmit}>
+      <Back />
+
+      <p
+        className="absolute left-[650px] top-[174px] text-[40px] font-medium leading-[64px] text-[#3182f6]
+                  font-['Noto_Sans_KR','Noto Sans KR',sans-serif] whitespace-nowrap break-keep"
+      >
+        Login
+      </p>
+
+      <input
+        className="absolute left-[650px] top-[238px] h-[36px] w-[350px] rounded-[8px] border border-[#e5e5e5] px-[12px] text-[14px] shadow-[0px_1px_2px_0px_rgba(0,0,0,0.1)] outline-none"
+        placeholder="아이디"
+        value={username}
+        onChange={(event) => setUsername(event.target.value)}
+      />
+      <input
+        type="password"
+        className="absolute left-[650px] top-[290px] h-[36px] w-[350px] rounded-[8px] border border-[#e5e5e5] px-[12px] text-[14px] shadow-[0px_1px_2px_0px_rgba(0,0,0,0.1)] outline-none"
+        placeholder="비밀번호"
+        value={password}
+        onChange={(event) => setPassword(event.target.value)}
+      />
+
+      <button
+        className={`absolute left-[650px] top-[340.5px] h-[36px] w-[350px] rounded-[10px] bg-[#3182f6] px-[16px] py-[8px] text-[14px] font-medium leading-[20px] text-[#fafafa] shadow-[0px_1px_2px_0px_rgba(0,0,0,0.1)] disabled:bg-[#9ab8f6] ${primaryButtonClass}`}
+        type="submit"
+        disabled={loading}
+      >
+        {loading ? "로그인 중..." : "Log In"}
+      </button>
+
+      <Divider />
+
+      <SocialBtn
+        top="top-[422.5px]"
+        icon={imgImage46}
+        label="Google"
+        onClick={() => handleSocialLogin("google")}
+      />
+      <SocialBtn
+        top="top-[473.5px]"
+        icon={imgImage47}
+        label="NAVER"
+        onClick={() => handleSocialLogin("naver")}
+      />
+      <SocialBtn
+        top="top-[524.5px]"
+        icon={imgImage48}
+        label="Kakao"
+        onClick={() => handleSocialLogin("kakao")}
+      />
+
+      <Text />
+
+      <AlertModal {...alertProps} />
+    </form>
+  );
+}
+
+export default function Component051Login() {
+  return (
+    <div className="min-h-screen bg-white overflow-x-auto">
+      <div className="relative mx-auto h-[902px] w-[1440px]" data-name="05-1_Login">
+        <Login />
+
+        <div className="absolute left-[96.5px] top-[10px] h-[720px] w-[527px]" data-name="mungshall 2">
+          <div className="absolute inset-0 overflow-hidden pointer-events-none">
+            <img
+              alt=""
+              className="absolute left-[-52.51%] top-0 h-full w-[205.02%] max-w-none"
+              src={imgMungshall2}
+            />
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}

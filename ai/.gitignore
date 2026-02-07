@@ -1,0 +1,41 @@
+# 1. 파이썬 필수 (컴파일 파일 등)
+__pycache__/
+*.py[cod]
+*$py.class
+
+# 2. 가상환경 (이건 절대 올리면 안 됩니다!)
+venv/
+env/
+.venv/
+.conda/
+
+# 3. 환경 변수 (보안상 필수)
+.env
+.env.local
+
+# 4. AI 관련 (가장 중요 ★)
+# 모델 파일은 용량이 커서 깃허브에 안 올라갑니다. (필요하면 릴리즈나 드라이브로 공유)
+# 그러나 YOLOv8 라이선수 규약상 튜닝된 모델은 올린 뒤 출처를 밝혀야 함
+*.pt
+# *.pth
+# *.onnx
+
+# Ultralytics(YOLO)가 자동으로 만드는 결과 폴더
+runs/
+
+# 5. 테스트 데이터
+# 서버 테스트한다고 올린 영상들이 깃에 남으면 안 됩니다.
+uploaded_videos/
+*.mp4
+*.avi
+*.jpg
+*.png
+*.jpeg
+
+# 6. IDE 설정 파일 (팀원끼리 설정 충돌 방지)
+.vscode/
+.idea/
+
+# 7. OS 잡동사니
+.DS_Store
+Thumbs.db

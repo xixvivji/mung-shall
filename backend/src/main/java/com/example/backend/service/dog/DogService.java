@@ -85,7 +85,7 @@ public class DogService {
         return DogDetailResponse.fromEntity(dog, isLiked, adoptionStatus);
     }
 
-    private DogAdoptionStatus determineAdoptionStatus(AbandonedDog dog, Long userId) {
+    public DogAdoptionStatus determineAdoptionStatus(AbandonedDog dog, Long userId) {
         // 1. "종료(입양)" 상태 확인 (공공 API 데이터)
         if ("종료(입양)".equals(dog.getProcessState())) {
             return DogAdoptionStatus.ADOPTED;

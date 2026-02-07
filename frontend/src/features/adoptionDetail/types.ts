@@ -1,9 +1,12 @@
+import type { AdoptionStatus } from "@/features/adoption/types";
+
 export type AdoptionDetail = {
   id: string;
   name: string;
   breed: string;
   description: string;
   images: string[];
+  adoptionStatus: AdoptionStatus;
   adopting?: boolean;
   noticeNo?: string;
   desertionNo?: string;

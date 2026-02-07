@@ -84,25 +84,30 @@ async function createOpenViduToken(sessionId: string, clientData: string) {
 }
 
 function VideoTile({
-  streamManager,
-  title,
-}: {
+                     streamManager,
+                     title,
+                   }: {
   streamManager: StreamManagerLike;
   title: string;
 }) {
   const videoRef = useCallback(
-    (element: HTMLVideoElement | null) => {
-      if (!element) return;
-      streamManager.addVideoElement(element);
-    },
-    [streamManager]
+      (element: HTMLVideoElement | null) => {
+        if (!element) return;
+        streamManager.addVideoElement(element);
+      },
+      [streamManager]
   );
 
   return (
-    <div className="overflow-hidden rounded-xl border border-gray-200 bg-gray-900">
-      <video ref={videoRef} autoPlay playsInline className="h-[240px] w-full bg-black object-cover" />
-      <div className="px-3 py-2 text-sm font-medium text-gray-100">{title}</div>
-    </div>
+      <div className="overflow-hidden rounded-xl border border-gray-200 bg-gray-900">
+        <video
+            ref={videoRef}
+            autoPlay
+            playsInline
+            className="h-[240px] w-full bg-black object-cover"
+        />
+        <div className="px-3 py-2 text-sm font-medium text-gray-100">{title}</div>
+      </div>
   );
 }
 
@@ -140,9 +145,12 @@ export default function VideoMeetingPage() {
 
   const leaveSession = useCallback(() => {
     const currentSession = sessionRef.current;
-    if (currentSession) {
-      currentSession.disconnect();
+    try {
+      currentSession?.disconnect();
+    } catch {
+      // ignore
     }
+
     sessionRef.current = null;
     setSession(null);
     setLocalPublisher(null);
@@ -164,6 +172,7 @@ export default function VideoMeetingPage() {
     try {
       await createOpenViduSession(sessionId);
       const token = await createOpenViduToken(sessionId, "WebUser");
+
       const openVidu = new OpenVidu() as any;
       const newSession = openVidu.initSession();
 
@@ -173,8 +182,9 @@ export default function VideoMeetingPage() {
       });
 
       newSession.on("streamDestroyed", (event: any) => {
-        const targetStreamManager = event.stream?.streamManager;
-        setSubscribers((prev) => prev.filter((item) => item !== targetStreamManager));
+        const cid = event.stream?.connection?.connectionId;
+        if (!cid) return;
+        setSubscribers((prev) => prev.filter((sm) => sm.stream?.connection?.connectionId !== cid));
       });
 
       await newSession.connect(token, { clientData: "WebUser" });
@@ -190,6 +200,7 @@ export default function VideoMeetingPage() {
       });
 
       await newSession.publish(publisher);
+
       sessionRef.current = newSession;
       setSession(newSession);
       setLocalPublisher(publisher);
@@ -228,94 +239,99 @@ export default function VideoMeetingPage() {
   }, [leaveSession]);
 
   return (
-    <section className="mx-auto max-w-[1200px] space-y-6 px-6 py-16">
-      <div className="flex items-center justify-between gap-4">
-        <h1 className="text-2xl font-semibold">{pageTitle}</h1>
+      <section className="mx-auto max-w-[1200px] space-y-6 px-6 py-16">
+        <div className="flex items-center justify-between gap-4">
+          <h1 className="text-2xl font-semibold">{pageTitle}</h1>
 
-        <Link to="/mypage">
-          <Button variant="outline" className="rounded-lg">
-            마이페이지로 돌아가기
-          </Button>
-        </Link>
-      </div>
-
-      <div className="space-y-6 rounded-2xl border border-gray-100 bg-white p-8 shadow-sm">
-        <div className="flex flex-wrap gap-4 text-sm text-gray-600">
-          <div>
-            postAdoptionId: <span className="font-semibold text-gray-900">{postAdoptionId ?? "-"}</span>
-          </div>
-          <div>
-            stepKey: <span className="font-semibold text-gray-900">{stepKeyParam ?? "-"}</span>
-          </div>
-          <div>
-            sessionId: <span className="font-semibold text-gray-900">{sessionId ?? "-"}</span>
-          </div>
+          <Link to="/mypage">
+            <Button variant="outline" className="rounded-lg">
+              마이페이지로 돌아가기
+            </Button>
+          </Link>
         </div>
 
-        <div className="flex flex-wrap gap-3">
-          {STEPS.map((s) => {
-            const isCurrent = currentStepKey === s.stepKey;
-            return (
-              <Button
-                key={s.stepKey}
-                variant={isCurrent ? "default" : "outline"}
-                className="rounded-lg"
-                onClick={() => handleGo(s.stepKey)}
-              >
-                {s.title}
-              </Button>
-            );
-          })}
-        </div>
-
-        {errorMessage ? (
-          <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
-            {errorMessage}
+        <div className="space-y-6 rounded-2xl border border-gray-100 bg-white p-8 shadow-sm">
+          <div className="flex flex-wrap gap-3">
+            {STEPS.map((s) => {
+              const isCurrent = currentStepKey === s.stepKey;
+              return (
+                  <Button
+                      key={s.stepKey}
+                      variant={isCurrent ? "default" : "outline"}
+                      className="rounded-lg"
+                      onClick={() => handleGo(s.stepKey)}
+                  >
+                    {s.title}
+                  </Button>
+              );
+            })}
           </div>
-        ) : null}
 
-        <div className="flex flex-wrap gap-2">
-          <Button
-            className="rounded-lg bg-blue-600 text-white hover:bg-blue-700"
-            onClick={handleJoin}
-            disabled={isConnecting || isConnected || !sessionId}
-          >
-            {isConnecting ? "연결 중..." : isConnected ? "연결됨" : "화상 연결 시작"}
-          </Button>
-          <Button variant="outline" className="rounded-lg" onClick={leaveSession} disabled={!isConnected}>
-            연결 종료
-          </Button>
-          <Button variant="outline" className="rounded-lg" onClick={handleToggleAudio} disabled={!isConnected}>
-            {audioEnabled ? "마이크 끄기" : "마이크 켜기"}
-          </Button>
-          <Button variant="outline" className="rounded-lg" onClick={handleToggleVideo} disabled={!isConnected}>
-            {videoEnabled ? "카메라 끄기" : "카메라 켜기"}
-          </Button>
-        </div>
-
-        <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-          {localPublisher ? <VideoTile streamManager={localPublisher} title="나" /> : null}
-
-          {subscribers.map((subscriber, index) => {
-            const connectionId =
-              subscriber.stream?.connection?.connectionId ?? `subscriber-${index + 1}`;
-            const name = parseClientData(subscriber.stream?.connection?.data);
-            return <VideoTile key={connectionId} streamManager={subscriber} title={name} />;
-          })}
-
-          {!localPublisher && subscribers.length === 0 ? (
-            <div className="rounded-xl border border-dashed border-gray-200 bg-gray-50 px-4 py-10 text-center text-gray-600 md:col-span-2">
-              연결을 시작하면 내 영상과 상대방 영상이 여기에 표시됩니다.
-            </div>
+          {errorMessage ? (
+              <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+                {errorMessage}
+              </div>
           ) : null}
-        </div>
 
-        <div className="flex gap-2">
-          <Button variant="outline" className="rounded-lg" onClick={() => window.history.back()}>
-            뒤로가기
-          </Button>
+          <div className="flex flex-wrap gap-2">
+            {/* 연결 전: 파란색(마이페이지 톤) 활성 / 연결 후: "연결됨" 표시 + 비활성 */}
+            <Button
+                variant="mypage"
+                onClick={handleJoin}
+                disabled={isConnecting || isConnected || !sessionId}
+            >
+              {isConnecting ? "연결 중..." : isConnected ? "연결됨" : "화상 연결 시작"}
+            </Button>
+
+            {/* 연결 후에만 활성 + 첫 버튼과 동일한 톤 */}
+            <Button
+                variant={isConnected ? "mypage" : "outline"}
+                onClick={leaveSession}
+                disabled={!isConnected}
+            >
+              연결 종료
+            </Button>
+
+            <Button
+                variant={isConnected ? "mypage" : "outline"}
+                onClick={handleToggleAudio}
+                disabled={!isConnected}
+            >
+              {audioEnabled ? "마이크 끄기" : "마이크 켜기"}
+            </Button>
+
+            <Button
+                variant={isConnected ? "mypage" : "outline"}
+                onClick={handleToggleVideo}
+                disabled={!isConnected}
+            >
+              {videoEnabled ? "카메라 끄기" : "카메라 켜기"}
+            </Button>
+          </div>
+
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+            {localPublisher ? <VideoTile streamManager={localPublisher} title="나" /> : null}
+
+            {subscribers.map((subscriber, index) => {
+              const connectionId =
+                  subscriber.stream?.connection?.connectionId ?? `subscriber-${index + 1}`;
+              const name = parseClientData(subscriber.stream?.connection?.data);
+              return <VideoTile key={connectionId} streamManager={subscriber} title={name} />;
+            })}
+
+            {!localPublisher && subscribers.length === 0 ? (
+                <div className="rounded-xl border border-dashed border-gray-200 bg-gray-50 px-4 py-10 text-center text-gray-600 md:col-span-2">
+                  연결을 시작하면 내 영상과 상대방 영상이 여기에 표시됩니다.
+                </div>
+            ) : null}
+          </div>
+
+          <div className="flex gap-2">
+            <Button variant="outline" className="rounded-lg" onClick={() => window.history.back()}>
+              뒤로가기
+            </Button>
+          </div>
         </div>
-      </div>
-    </section>
+      </section>
   );
 }

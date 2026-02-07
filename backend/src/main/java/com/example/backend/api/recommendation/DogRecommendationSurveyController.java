@@ -1,8 +1,9 @@
 package com.example.backend.api.recommendation;
 
+import com.example.backend.api.dog.dto.DogSummaryResponse;
 import com.example.backend.api.recommendation.dto.*;
+import com.example.backend.service.dog.DogService;
 import com.example.backend.service.recommendation.DogRecommendationSurveyService;
-import com.example.backend.security.principal.CustomUserPrincipal;
 import com.example.backend.service.recommendation.matching.MatchingService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
@@ -15,11 +16,12 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
-import org.springframework.security.core.Authentication;
-import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 // {userId}를 쿼리 파라미터로 쓰지 말고, 인증 정보로 가져오기 파라미터 없이
 @Tag(name = "강아지 추천 설문 API", description = "유저의 강아지 추천 설문 CRUD API")
@@ -31,6 +33,7 @@ public class DogRecommendationSurveyController {
     private static final int TOP_K = 12;
 
     private final DogRecommendationSurveyService dogRecommendationSurveyService;
+    private final DogService dogService;
     private final MatchingService matchingService;
 
     @Operation(summary = "추천 리스트 조회", description = "요청한 유저의 설문을 기반으로 추천 리스트를 반환합니다.")
@@ -47,10 +50,7 @@ public class DogRecommendationSurveyController {
     ) {
         DogRecommendationSurveyResponse survey = dogRecommendationSurveyService.getSurveyByUserId(userId);
 
-        var matches = matchingService.match(survey, TOP_K);
-        List<RecommendedDogDto> recs = matches.stream()
-                .map(m -> new RecommendedDogDto(m.dogId(), m.similarity()))
-                .toList();
+        List<RecommendedDogDto> recs = buildRecommendations(survey);
 
         return ResponseEntity.ok(new DogRecommendationsResponse(recs));
     }
@@ -118,10 +118,34 @@ public class DogRecommendationSurveyController {
 
     // Helper
     private DogSurveyWithRecommendationsResponse buildSurveyWithRecommendations(DogRecommendationSurveyResponse survey) {
-        var matches = matchingService.match(survey, TOP_K);
-        List<RecommendedDogDto> recs = matches.stream()
-                .map(m -> new RecommendedDogDto(m.dogId(), m.similarity()))
-                .toList();
+        List<RecommendedDogDto> recs = buildRecommendations(survey);
         return new DogSurveyWithRecommendationsResponse(survey, recs);
+    }
+
+    private List<RecommendedDogDto> buildRecommendations(DogRecommendationSurveyResponse survey) {
+        var matches = matchingService.match(survey, TOP_K);
+        if (matches.isEmpty()) {
+            return List.of();
+        }
+
+        List<Long> dogIds = matches.stream()
+                .map(MatchingService.DogMatch::dogId)
+                .toList();
+        List<DogSummaryResponse> summaries = dogService.getDogSummariesByIds(dogIds, survey.getUserId());
+
+        Map<Long, DogSummaryResponse> summaryById = new HashMap<>(summaries.size());
+        for (DogSummaryResponse summary : summaries) {
+            summaryById.put(summary.getDogId(), summary);
+        }
+
+        List<RecommendedDogDto> recs = new ArrayList<>(matches.size());
+        for (var match : matches) {
+            DogSummaryResponse summary = summaryById.get(match.dogId());
+            if (summary == null) {
+                continue;
+            }
+            recs.add(RecommendedDogDto.fromSummary(summary, match.similarity()));
+        }
+        return recs;
     }
 }

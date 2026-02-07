@@ -1,5 +1,5 @@
-package com.example.backend.api.openvidu;
-
+import com.example.backend.api.postadoption.dto.videocall.VideoCallOpenRoomRequest;
+import com.example.backend.service.postadoption.PostAdoptionVideoCallService;
 import io.openvidu.java.client.*;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
@@ -9,6 +9,7 @@ import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.annotation.PostConstruct;
+import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -24,7 +25,10 @@ import java.util.Map;
 @RestController
 @RequestMapping("/api/openvidu")
 @CrossOrigin(origins = "*")
+@RequiredArgsConstructor
 public class OpenViduController {
+
+    private final PostAdoptionVideoCallService postAdoptionVideoCallService;
 
     @Value("${openvidu.url}")
     private String OPENVIDU_URL;

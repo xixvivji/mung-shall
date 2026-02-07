@@ -41,10 +41,10 @@ export function ProfileSummary({ user }: Props) {
 
         {/* 우측 버튼 */}
         <div className="flex shrink-0 items-center gap-3">
-          <Button variant="mypage" size="sm" onClick={handleEditProfile}>
+          <Button variant="mypage" size="default" onClick={handleEditProfile}>
             정보 수정
           </Button>
-          <Button variant="mypage" size="sm" onClick={handleManageAdoption}>
+          <Button variant="mypage" size="default" onClick={handleManageAdoption}>
             입양 관리
           </Button>
         </div>

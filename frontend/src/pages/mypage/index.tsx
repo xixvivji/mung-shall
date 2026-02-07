@@ -156,7 +156,7 @@ function AdopterMyPage() {
             <h2 className="text-lg font-semibold text-gray-900">내 추천 설문</h2>
 
             <div className="flex items-center gap-2">
-              <Button asChild variant="mypage" size="sm">
+              <Button asChild variant="mypage" size="default">
                 <Link to="/matching-survey?from=mypage">
                   {hasSurvey ? "설문 수정하기" : "설문 작성하기"}
                 </Link>
@@ -168,7 +168,7 @@ function AdopterMyPage() {
                   onClick={() => void handleDeleteSurvey()}
                   disabled={deleteLoading || surveyLoading}
                   variant="mypage"
-                  size="sm"
+                  size="default"
                 >
                   {deleteLoading ? "삭제 중..." : "설문 삭제"}
                 </Button>
@@ -240,7 +240,7 @@ function AdopterMyPage() {
           <div className="flex items-center justify-between">
             <h2 className="text-lg font-semibold text-gray-900">관심 등록한 강아지</h2>
 
-            <Button asChild variant="mypage" size="sm">
+            <Button asChild variant="mypage" size="default">
               <Link to="/adoption">입양하러 가기</Link>
             </Button>
           </div>

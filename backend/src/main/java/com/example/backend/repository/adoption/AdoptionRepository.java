@@ -24,6 +24,8 @@ public interface AdoptionRepository extends JpaRepository<Adoption, Long> {
 
     boolean existsByUserAndAbandonedDogAndProcessStatus(User user, AbandonedDog abandonedDog, AdoptionProcessStatus status);
 
+    boolean existsByAbandonedDogAndProcessStatus(AbandonedDog abandonedDog, AdoptionProcessStatus processStatus);
+
     List<Adoption> findByUserAndProcessStatus(User user, AdoptionProcessStatus status);
     List<Adoption> findByUserAndProcessStatusIn(User user, List<AdoptionProcessStatus> processStatuses);
 }

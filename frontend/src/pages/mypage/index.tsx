@@ -154,11 +154,22 @@ function AdopterMyPage() {
             <div className="flex items-center justify-between">
               <h2 className="text-lg font-semibold text-gray-900">내 추천 설문</h2>
 
-              <div className="flex items-center gap-2">
-                <Button asChild variant="mypage" size="sm">
-                  <Link to="/matching-survey?from=mypage">
-                    {hasSurvey ? "설문 수정하기" : "설문 작성하기"}
-                  </Link>
+            <div className="flex items-center gap-2">
+              <Button asChild variant="mypage" size="default">
+                <Link to="/matching-survey?from=mypage">
+                  {hasSurvey ? "설문 수정하기" : "설문 작성하기"}
+                </Link>
+              </Button>
+
+              {hasSurvey && (
+                <Button
+                  type="button"
+                  onClick={() => void handleDeleteSurvey()}
+                  disabled={deleteLoading || surveyLoading}
+                  variant="mypage"
+                  size="default"
+                >
+                  {deleteLoading ? "삭제 중..." : "설문 삭제"}
                 </Button>
 
                 {hasSurvey && (
@@ -220,14 +231,32 @@ function AdopterMyPage() {
 
                   <p className="text-xs text-gray-500">💡 설문은 추천 매칭을 위해 사용돼요</p>
                 </div>
-            ) : (
-                <div className="rounded-xl bg-gray-50 px-6 py-10 text-center">
-                  <div className="mb-2 text-sm font-medium text-gray-600">아직 작성한 설문이 없어요.</div>
-                  <div className="text-sm text-gray-500">
-                    위 버튼을 눌러 설문을 작성하면 추천을 받을 수 있어요.
-                  </div>
-                </div>
-            )}
+              </div>
+
+              <p className="text-xs text-gray-500">💡 설문은 추천 매칭을 위해 사용돼요</p>
+            </div>
+          ) : (
+            <div className="rounded-xl bg-gray-50 px-6 py-10 text-center">
+              <div className="mb-2 text-sm font-medium text-gray-600">
+                아직 작성한 설문이 없어요.
+              </div>
+              <div className="text-sm text-gray-500">
+                위 버튼을 눌러 설문을 작성하면 추천을 받을 수 있어요.
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* 관심 강아지 목록 */}
+      <section className="overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm">
+        <div className="border-b border-gray-100 bg-gray-50 px-6 py-4">
+          <div className="flex items-center justify-between">
+            <h2 className="text-lg font-semibold text-gray-900">관심 등록한 강아지</h2>
+
+            <Button asChild variant="mypage" size="default">
+              <Link to="/adoption">입양하러 가기</Link>
+            </Button>
           </div>
         </div>
 

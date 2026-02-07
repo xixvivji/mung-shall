@@ -45,10 +45,14 @@ const normalizeStepStatus = (status?: string | null) =>
   typeof status === "string" ? status.trim().toUpperCase() : "";
 
 const resolveStepName = (step: AdoptionStepStatusItem) =>
-  step.stepDef?.stepName ?? (typeof step.stepName === "string" ? step.stepName : null) ?? null;
+  step.stepDef?.stepName ??
+  (typeof step.stepName === "string" ? step.stepName : null) ??
+  null;
 
 const resolveStepOrder = (step: AdoptionStepStatusItem) =>
-  step.stepDef?.stepOrder ?? (typeof step.stepOrder === "number" ? step.stepOrder : null) ?? null;
+  step.stepDef?.stepOrder ??
+  (typeof step.stepOrder === "number" ? step.stepOrder : null) ??
+  null;
 
 const normalizeServerKey = (value?: string | null) =>
   typeof value === "string" ? value.trim().toUpperCase() : "";
@@ -112,7 +116,8 @@ function resolveApiErrorMessage(error: unknown, fallback: string) {
       return error.message || "현재 단계 상태에서는 업로드할 수 없습니다.";
     if (error.status === 400) return "입력값 또는 파일 업로드에 실패했습니다.";
     if (error.status === 404) return "입양 정보 또는 수료증을 찾을 수 없습니다.";
-    if (error.status === 409) return "단계 상태가 변경되었습니다. 새로고침 후 다시 시도해 주세요.";
+    if (error.status === 409)
+      return "단계 상태가 변경되었습니다. 새로고침 후 다시 시도해 주세요.";
     if (error.status >= 500) return "서버 오류입니다. 잠시 후 다시 시도해 주세요.";
     return error.message || fallback;
   }
@@ -125,12 +130,15 @@ export function EducationCertStep({ isEditable, onSubmitSuccess, adoptionId }: P
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [tempFile, setTempFile] = useState<File | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
+
   const [educationInstitution, setEducationInstitution] = useState("동물사랑배움터");
   const [certificateNumber, setCertificateNumber] = useState("");
   const [completionDate, setCompletionDate] = useState("");
+
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [submitted, setSubmitted] = useState(false);
+
   const [certificate, setCertificate] = useState<EducationCertResponse | null>(null);
   const [certLoading, setCertLoading] = useState(false);
   const [certError, setCertError] = useState<string | null>(null);
@@ -161,9 +169,7 @@ export function EducationCertStep({ isEditable, onSubmitSuccess, adoptionId }: P
   const loadCertificate = useCallback(
     async (targetId: number, options?: { silent?: boolean }) => {
       const silent = options?.silent ?? false;
-      if (!silent) {
-        setCertLoading(true);
-      }
+      if (!silent) setCertLoading(true);
       setCertError(null);
 
       try {
@@ -189,9 +195,7 @@ export function EducationCertStep({ isEditable, onSubmitSuccess, adoptionId }: P
           setCertError(resolveApiErrorMessage(err, "Failed to load certificate."));
         }
       } finally {
-        if (!silent) {
-          setCertLoading(false);
-        }
+        if (!silent) setCertLoading(false);
       }
     },
     []
@@ -300,8 +304,7 @@ export function EducationCertStep({ isEditable, onSubmitSuccess, adoptionId }: P
     try {
       const statusResponse = await fetchAdoptionStepStatuses(adoptionId);
       const steps = normalizeAdoptionStepsStatusResponse(statusResponse);
-      const educationStep =
-        findEducationStepInstance(steps) ?? fallbackEducationStep(steps);
+      const educationStep = findEducationStepInstance(steps) ?? fallbackEducationStep(steps);
       const stepInstanceId = educationStep?.id ?? null;
       const stepStatus = normalizeStepStatus(educationStep?.status ?? null);
 
@@ -333,12 +336,7 @@ export function EducationCertStep({ isEditable, onSubmitSuccess, adoptionId }: P
       if (import.meta.env.DEV) {
         console.debug("[education-cert] upload form keys", {
           adoptionId,
-          keys: [
-            "educationInstitution",
-            "certificateNumber",
-            "completionDate",
-            "certificateFile",
-          ],
+          keys: ["educationInstitution", "certificateNumber", "completionDate", "certificateFile"],
           fileName: file?.name ?? null,
         });
       }
@@ -349,6 +347,7 @@ export function EducationCertStep({ isEditable, onSubmitSuccess, adoptionId }: P
         completionDate: normalizeCompletionDate(completionDate.trim()),
         certificateFile: file,
       });
+
       setSubmitted(true);
       onSubmitSuccess();
       await loadCertificate(adoptionId, { silent: true });
@@ -408,10 +407,9 @@ export function EducationCertStep({ isEditable, onSubmitSuccess, adoptionId }: P
             </div>
             <div>
               <p className="text-xs font-semibold text-gray-500">수료일자</p>
-              <p className="text-sm text-gray-900">
-                {formatDateTime(certificate.completionDate)}
-              </p>
+              <p className="text-sm text-gray-900">{formatDateTime(certificate.completionDate)}</p>
             </div>
+
             {certificate.certificateFileUrl ? (
               <a
                 className="inline-flex text-xs font-semibold text-blue-600 hover:underline"
@@ -454,18 +452,15 @@ export function EducationCertStep({ isEditable, onSubmitSuccess, adoptionId }: P
         ) : null}
       </div>
 
-      {/* ===== 업로드 카드 ===== */}
+      {/* ===== 업로드 카드 (입력 왼쪽 / 파일 오른쪽) ===== */}
       <div className="rounded-2xl border border-gray-200 p-6">
         <div className="flex items-start justify-between gap-4">
           <div>
             <p className="text-sm font-semibold text-gray-900">교육 수료증 업로드</p>
-            <p className="mt-1 text-sm text-gray-500">
-              파일을 첨부하면 아래에 표시됩니다.
-            </p>
+            <p className="mt-1 text-sm text-gray-500">파일을 첨부하면 아래에 표시됩니다.</p>
           </div>
-          {submitError ? (
-            <p className="text-xs text-red-600">{submitError}</p>
-          ) : null}
+
+          {submitError ? <p className="text-xs text-red-600">{submitError}</p> : null}
 
           <span
             className={`shrink-0 rounded-full border px-3 py-1 text-xs font-semibold ${
@@ -478,91 +473,98 @@ export function EducationCertStep({ isEditable, onSubmitSuccess, adoptionId }: P
           </span>
         </div>
 
-        <div className="mt-5 flex flex-wrap items-center gap-3">
-          {/* ✅ 첨부는 항상 가능 */}
-          <Button className="rounded-lg" disabled={!canAttach} onClick={openModal}>
-            파일 첨부
-          </Button>
+        {/* ✅ 2컬럼 레이아웃 */}
+        <div className="mt-6 grid gap-6 md:grid-cols-2">
+          {/* LEFT: 데이터 입력 */}
+          <div className="space-y-4">
+            <div className="grid gap-4 sm:grid-cols-2">
+              <div className="space-y-2">
+                <label className="text-xs font-semibold text-gray-700">기관명</label>
+                <input
+                  className="h-10 w-full rounded-[12px] border border-[#E5E7EB] px-3 text-sm text-[#1F2937] placeholder:text-[#6B7280] focus:border-transparent focus:ring-2 focus:ring-[#5B7CFA]"
+                  placeholder="동물사랑배움터"
+                  value={educationInstitution}
+                  onChange={(event) => setEducationInstitution(event.target.value)}
+                  disabled={fieldsDisabled}
+                />
+              </div>
 
-          {file && (
-            <Button
-              variant="outline"
-              className="rounded-lg"
-              disabled={!canAttach}
-              onClick={() => {
-                setFile(null);
-                setSubmitted(false);
-              }}
-            >
-              첨부 제거
-            </Button>
-          )}
-        </div>
+              <div className="space-y-2">
+                <label className="text-xs font-semibold text-gray-700">자격 번호</label>
+                <input
+                  className="h-10 w-full rounded-[12px] border border-[#E5E7EB] px-3 text-sm text-[#1F2937] placeholder:text-[#6B7280] focus:border-transparent focus:ring-2 focus:ring-[#5B7CFA]"
+                  placeholder="제 2026-xxxx-xxxxx"
+                  value={certificateNumber}
+                  onChange={(event) => setCertificateNumber(event.target.value)}
+                  disabled={fieldsDisabled}
+                />
+              </div>
 
-        <div className="mt-4 rounded-xl bg-gray-50 p-4 text-sm">
-          {!meta ? (
-            <p className="text-gray-500">첨부된 파일이 없습니다.</p>
-          ) : (
-            <div className="space-y-1">
-              <p className="font-medium text-gray-900">{meta.name}</p>
-              <p className="text-gray-500">
-                {meta.sizeKB} KB · {meta.type}
-              </p>
+              <div className="space-y-2 sm:col-span-2">
+                <label className="text-xs font-semibold text-gray-700">수료일자</label>
+                <input
+                  type="datetime-local"
+                  className="h-10 w-full rounded-[12px] border border-[#E5E7EB] px-3 text-sm text-[#1F2937] focus:border-transparent focus:ring-2 focus:ring-[#5B7CFA]"
+                  value={completionDate}
+                  onChange={(event) => setCompletionDate(event.target.value)}
+                  disabled={fieldsDisabled}
+                />
+              </div>
             </div>
-          )}
-        </div>
 
-        {/* ✅ 제출 버튼은 항상 보이되, canSubmit일 때만 활성 */}
-        <div className="mt-5 grid gap-4 sm:grid-cols-2">
-          <div className="space-y-2">
-            <label className="text-xs font-semibold text-gray-700">기관명</label>
-            <input
-              className="h-10 w-full rounded-[12px] border border-[#E5E7EB] px-3 text-sm text-[#1F2937] placeholder:text-[#6B7280] focus:border-transparent focus:ring-2 focus:ring-[#5B7CFA]"
-              placeholder="동물사랑배움터"
-              value={educationInstitution}
-              onChange={(event) => setEducationInstitution(event.target.value)}
-              disabled={fieldsDisabled}
-            />
+            <div className="space-y-2">
+              {!canSubmit && (
+                <p className="text-xs text-gray-500">
+                  현재 단계에서는 제출할 수 없습니다. (파일 첨부는 가능)
+                </p>
+              )}
+
+              <div className="flex gap-3 justify-end">
+                <Button
+                  className="rounded-lg"
+                  disabled={!canSubmit || !file}
+                  onClick={handleSubmit}
+                >
+                  {submitting ? "Submitting..." : "제출하기"}
+                </Button>
+              </div>
+            </div>
           </div>
 
-          <div className="space-y-2">
-            <label className="text-xs font-semibold text-gray-700">자격 번호</label>
-            <input
-              className="h-10 w-full rounded-[12px] border border-[#E5E7EB] px-3 text-sm text-[#1F2937] placeholder:text-[#6B7280] focus:border-transparent focus:ring-2 focus:ring-[#5B7CFA]"
-              placeholder="제 2026-xxxx-xxxxx"
-              value={certificateNumber}
-              onChange={(event) => setCertificateNumber(event.target.value)}
-              disabled={fieldsDisabled}
-            />
-          </div>
+          {/* RIGHT: 파일 첨부 */}
+          <div className="space-y-4">
 
-          <div className="space-y-2 sm:col-span-2">
-            <label className="text-xs font-semibold text-gray-700">수료일자</label>
-            <input
-              type="datetime-local"
-              className="h-10 w-full rounded-[12px] border border-[#E5E7EB] px-3 text-sm text-[#1F2937] focus:border-transparent focus:ring-2 focus:ring-[#5B7CFA]"
-              value={completionDate}
-              onChange={(event) => setCompletionDate(event.target.value)}
-              disabled={fieldsDisabled}
-            />
-          </div>
-        </div>
+            <div className="rounded-xl bg-gray-50 p-4 text-sm">
+              {!meta ? (
+                <p className="text-gray-500">첨부된 파일이 없습니다.</p>
+              ) : (
+                <div className="space-y-1">
+                  <p className="font-medium text-gray-900">{meta.name}</p>
+                  <p className="text-gray-500">
+                    {meta.sizeKB} KB · {meta.type}
+                  </p>
+                </div>
+              )}
+            </div>
+            <div className="flex flex-wrap justify-end items-center gap-3">
+              <Button className="rounded-lg" disabled={!canAttach} onClick={openModal}>
+                파일 첨부
+              </Button>
 
-        <div className="mt-5 space-y-2">
-          {!canSubmit && (
-            <p className="text-xs text-gray-500">
-              현재 단계에서는 제출할 수 없습니다. (파일 첨부는 가능)
-            </p>
-          )}
-
-          <div className="flex gap-3">
-            <Button
-              className="rounded-lg"
-              disabled={!canSubmit || !file}
-              onClick={handleSubmit}   // ✅ 이거 필수
-            >
-              {submitting ? "Submitting..." : "Upload"}
-            </Button>
+              {file && (
+                <Button
+                  variant="outline"
+                  className="rounded-lg"
+                  disabled={!canAttach}
+                  onClick={() => {
+                    setFile(null);
+                    setSubmitted(false);
+                  }}
+                >
+                  첨부 제거
+                </Button>
+              )}
+            </div>
           </div>
         </div>
       </div>
@@ -679,9 +681,7 @@ export function EducationCertStep({ isEditable, onSubmitSuccess, adoptionId }: P
                       </div>
 
                       <div className="min-w-0 flex-1">
-                        <p className="truncate text-sm font-medium text-gray-900">
-                          {tempMeta.name}
-                        </p>
+                        <p className="truncate text-sm font-medium text-gray-900">{tempMeta.name}</p>
                         <p className="text-xs text-gray-500">{tempMeta.sizeKB} KB</p>
 
                         {/* progress bar (UI용: 100%) */}
@@ -714,11 +714,7 @@ export function EducationCertStep({ isEditable, onSubmitSuccess, adoptionId }: P
                   <Button variant="outline" className="rounded-lg" onClick={onCancel}>
                     취소
                   </Button>
-                  <Button
-                    className="rounded-lg"
-                    onClick={onConfirm}
-                    disabled={!tempFile}
-                  >
+                  <Button className="rounded-lg" onClick={onConfirm} disabled={!tempFile}>
                     확인
                   </Button>
                 </div>
@@ -737,8 +733,3 @@ export function EducationCertStep({ isEditable, onSubmitSuccess, adoptionId }: P
     </div>
   );
 }
-
-
-
-
-

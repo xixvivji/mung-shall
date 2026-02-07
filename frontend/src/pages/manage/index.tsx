@@ -513,9 +513,16 @@ function AdopterManagePage() {
         </div>
       )}
 
-      <div className="space-y-3">
-        <h2 className="text-lg font-semibold text-gray-900">진행 중 입양</h2>
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+      <div className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
+        <div className="mb-4 flex items-center justify-between gap-3">
+          <h2 className="text-lg font-semibold text-gray-900">진행 중 입양</h2>
+          {displaySummaries.length > 0 ? (
+            <span className="rounded-full border border-[#BFDBFE] bg-[#EFF6FF] px-2.5 py-1 text-xs font-semibold text-[#2563EB]">
+              {displaySummaries.length}
+            </span>
+          ) : null}
+        </div>
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
           {displaySummaries.length === 0 ? (
             <div className="rounded-2xl border border-dashed border-gray-200 bg-gray-50 p-6 text-sm text-gray-500">
               진행 중인 입양이 없습니다.
@@ -528,10 +535,10 @@ function AdopterManagePage() {
                 <div
                   key={`${summary.adoptionId}-${summary.dogId}`}
                   className={[
-                    "relative rounded-2xl border bg-white p-4 shadow-sm transition",
+                    "relative rounded-2xl border p-4 shadow-[0_1px_2px_rgba(15,23,42,0.06)] transition-colors duration-150",
                     isSelected
-                      ? "border-[#3182F6] ring-2 ring-[#c7d2fe]"
-                      : "border-gray-200 hover:border-[#dbe5ff]",
+                      ? "border-[#3B82F6] bg-[#EFF6FF] ring-2 ring-[#BFDBFE]"
+                      : "border-gray-200 bg-[#F9FAFB] hover:border-[#BFDBFE] hover:bg-white",
                   ].join(" ")}
                 >
                   <button
@@ -541,7 +548,7 @@ function AdopterManagePage() {
                       void handleCancelAdoption(summary.adoptionId);
                     }}
                     disabled={isCancelling}
-                    className="absolute right-3 top-3 rounded-full border border-gray-200 bg-white px-2 py-1 text-xs text-gray-500 hover:bg-gray-50 disabled:opacity-50"
+                    className="absolute right-3 top-3 rounded-full border border-gray-200 bg-white px-2 py-1 text-xs text-gray-500 transition-colors hover:bg-gray-50 disabled:opacity-50"
                   >
                     {isCancelling ? "취소 중" : "X"}
                   </button>

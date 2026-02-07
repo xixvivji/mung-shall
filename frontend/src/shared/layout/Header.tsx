@@ -5,9 +5,9 @@ import useAuth from "@/features/auth/hooks/useAuth";
 import Logout from "@/shared/ui/uiverse/Logout";
 
 const linkBase =
-  "text-[12px] tracking-[2.4px] uppercase leading-[12px] font-['Roboto:Regular',sans-serif] font-normal";
+  "inline-flex h-10 items-center rounded-lg px-1 text-[12px] tracking-[2.2px] uppercase leading-[12px] font-['Roboto:Regular',sans-serif] font-normal transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#93C5FD] focus-visible:ring-offset-2";
 const linkState =
-  "text-[#333] hover:text-black data-[active=true]:text-[#3182f6]";
+  "text-[#4B5563] hover:text-[#111827] data-[active=true]:text-[#2563EB]";
 
 export default function Header() {
   const { user, logout } = useAuth();
@@ -27,9 +27,12 @@ export default function Header() {
   };
 
   return (
-    <header className="sticky top-0 z-50 w-full bg-white" data-name="Header">
+    <header
+      className="sticky top-0 z-50 w-full border-b border-[#E5E7EB]/90 bg-white/95 backdrop-blur supports-[backdrop-filter]:bg-white/85"
+      data-name="Header"
+    >
       <div>
-        <div className="mx-auto flex h-[60px] w-full max-w-[1440px] items-center justify-between px-6">
+        <div className="mx-auto flex h-[68px] w-full max-w-[1440px] items-center justify-between px-4 sm:px-6 lg:px-8">
           {/* Logo */}
           <Link to={ROUTES.home} className="flex items-center">
             <img
@@ -40,7 +43,7 @@ export default function Header() {
           </Link>
 
           {/* Nav */}
-          <nav aria-label="Primary" className="flex items-center gap-10">
+          <nav aria-label="Primary" className="flex items-center gap-8">
             <NavLink
               to={ROUTES.home}
               className={() => `${linkBase} ${linkState}`}
@@ -97,7 +100,7 @@ export default function Header() {
               <div className="flex items-center gap-3">
                 <Link
                   to={myPageRoute}
-                  className="text-[14px] font-medium text-[#333] hover:text-black font-['Noto_Sans_KR','Noto Sans KR',sans-serif]"
+                  className="rounded-lg px-1 text-[14px] font-medium text-[#374151] transition-colors hover:text-[#111827] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#93C5FD] focus-visible:ring-offset-2 font-['Noto_Sans_KR','Noto Sans KR',sans-serif]"
                 >
                   {displayName}님
                 </Link>

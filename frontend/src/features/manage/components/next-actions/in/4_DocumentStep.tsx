@@ -86,7 +86,7 @@ function resolveApiErrorMessage(error: unknown, fallback: string) {
 }
 
 export function DocumentStep({ isEditable, onSubmitSuccess, adoptionId }: Props) {
-  // ✅ DocumentStep 전용: 기본 mypage(파란 버튼) + size default 통일
+  // ✅ DocumentStep 전용: 기본 mypage 버튼 + size default 통일
   const LgButton = ({
     variant = "mypage",
     className,
@@ -229,7 +229,7 @@ export function DocumentStep({ isEditable, onSubmitSuccess, adoptionId }: Props)
 
   return (
     <div className="space-y-6">
-      <div className="rounded-2xl border border-gray-200 p-6">
+      <div className="rounded-2xl border border-[#E5E7EB] bg-white p-6 shadow-[0_1px_2px_rgba(15,23,42,0.06)]">
         <div className="flex items-start justify-between gap-4">
           <div>
             <p className="text-sm font-semibold text-gray-900">Uploaded documents</p>
@@ -280,7 +280,7 @@ export function DocumentStep({ isEditable, onSubmitSuccess, adoptionId }: Props)
         )}
       </div>
 
-      <div className="rounded-2xl border border-gray-200 p-6">
+      <div className="rounded-2xl border border-[#E5E7EB] bg-white p-6 shadow-[0_1px_2px_rgba(15,23,42,0.06)]">
         {/* 헤더 */}
         <div className="flex items-start justify-between gap-4">
           <div>

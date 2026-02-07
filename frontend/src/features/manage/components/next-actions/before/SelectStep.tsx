@@ -315,12 +315,10 @@ export function SelectStep({ onSubmitSuccess, onAdopt }: Props) {
 
         <div className="mt-8 flex justify-end">
           <Button
+            variant="mypage"
             disabled={!canSubmit}
             onClick={handleSubmit}
-            className={[
-              "rounded-md bg-[#0064FF] hover:bg-[#0056E6]",
-              canSubmit ? "bg-[#5f7cf7] text-white" : "cursor-not-allowed bg-gray-300 text-gray-500",
-            ].join(" ")}
+            className="rounded-md"
           >
             {isSubmitting ? "처리 중..." : "입양하기"}
           </Button>

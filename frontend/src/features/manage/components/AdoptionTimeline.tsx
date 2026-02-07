@@ -84,13 +84,13 @@ function uiStatusLabel(status: UiStepStatus) {
 function uiStatusClass(status: UiStepStatus) {
   switch (status) {
     case "DONE":
-      return "bg-emerald-50 text-emerald-700 border border-emerald-200";
+      return "bg-[#DBEAFE] text-[#1E40AF] border border-[#93C5FD]";
     case "IN_PROGRESS":
-      return "bg-blue-50 text-blue-700 border border-blue-200";
+      return "bg-[#BFDBFE] text-[#1D4ED8] border border-[#60A5FA]";
     case "REJECTED":
       return "bg-red-50 text-red-700 border border-red-200";
     default:
-      return "bg-gray-50 text-gray-500 border border-gray-200";
+      return "bg-[#EFF4FA] text-[#475569] border border-[#CBD5E1]";
   }
 }
 
@@ -299,17 +299,19 @@ export function AdoptionTimeline({
                   : false;
 
                 const cardTone = isRejected
-                  ? "bg-red-50 border-red-200"
-                  : isDone
-                    ? "bg-white border-gray-200"
-                    : "bg-[#eef2ff] border-[#c7d2fe]";
+                  ? "bg-[#FEF2F2] shadow-[0_0_0_1px_rgba(248,113,113,0.40),0_8px_18px_rgba(185,28,28,0.16)]"
+                  : substep.status === "IN_PROGRESS"
+                    ? "bg-[#D6E8FF] shadow-[0_0_0_1px_rgba(59,130,246,0.48),0_10px_22px_rgba(37,99,235,0.22)]"
+                    : isDone
+                      ? "bg-[#ECF4FF] shadow-[0_0_0_1px_rgba(96,165,250,0.38),0_8px_18px_rgba(59,130,246,0.16)]"
+                      : "bg-[#E9EFF7] shadow-[0_0_0_1px_rgba(100,116,139,0.32),0_6px_14px_rgba(15,23,42,0.14)]";
 
                 const baseCard =
-                  `flex items-center gap-4 rounded-md border px-4 py-4 shadow-sm transition ${cardTone}`;
+                  `flex items-center gap-4 rounded-md px-4 py-4 transition-[transform,background-color,box-shadow] duration-150 ${cardTone}`;
 
-                const selectable = isSelectable ? "cursor-pointer hover:shadow-md" : "";
+                const selectable = isSelectable ? "cursor-pointer hover:scale-[1.01] active:scale-[0.998]" : "";
                 const selectedRing = isSelected
-                  ? " ring-2 ring-[#c7d2fe] border-[#3182F6]"
+                  ? " ring-2 ring-[#2563EB]/55"
                   : "";
 
                 const CardTag: any = isSelectable ? "button" : "div";
@@ -331,10 +333,12 @@ export function AdoptionTimeline({
                     <div
                       className={`flex h-5 w-5 items-center justify-center rounded-sm ${
                         isRejected
-                          ? "bg-red-100 text-red-600"
+                          ? "bg-red-200 text-red-700"
                           : isDone
-                            ? "bg-[#c7d2fe] text-[#3182F6]"
-                            : "border-2 border-[#3182F6] bg-white"
+                            ? "bg-[#93C5FD] text-[#1E3A8A]"
+                          : substep.status === "IN_PROGRESS"
+                            ? "bg-[#60A5FA] text-white"
+                            : "border border-[#64748B] bg-[#F8FAFC]"
                       }`}
                     >
                       {isDone && <Check className="h-4 w-4" />}
@@ -343,7 +347,13 @@ export function AdoptionTimeline({
 
                     <span
                       className={`text-sm font-medium ${
-                        isDone ? "text-gray-500" : isRejected ? "text-red-700" : "text-gray-900"
+                        isDone
+                          ? "text-[#1E3A8A]"
+                          : isRejected
+                            ? "text-red-700"
+                            : substep.status === "IN_PROGRESS"
+                              ? "text-[#1E3A8A]"
+                              : "text-[#334155]"
                       }`}
                     >
                       {substep.title}

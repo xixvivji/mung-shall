@@ -1,6 +1,7 @@
 package com.example.backend.api.dog.dto;
 
 import com.example.backend.domain.dog.AbandonedDog;
+import com.example.backend.domain.dog.DogAdoptionStatus;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
@@ -38,9 +39,9 @@ public class DogDetailResponse {
     private String orgNm;
     private String updTm;
     private boolean isLiked;
-    private boolean isAdopting;
+    private DogAdoptionStatus adoptionStatus;
 
-    public static DogDetailResponse fromEntity(AbandonedDog dog, boolean isLiked, boolean isAdopting) {
+    public static DogDetailResponse fromEntity(AbandonedDog dog, boolean isLiked, DogAdoptionStatus adoptionStatus) {
         return new DogDetailResponse(
                 dog.getId(),
                 dog.getDesertionNo(),
@@ -68,7 +69,7 @@ public class DogDetailResponse {
                 dog.getOrgNm(),
                 dog.getUpdTm(),
                 isLiked,
-                isAdopting
+                adoptionStatus
         );
     }
 }

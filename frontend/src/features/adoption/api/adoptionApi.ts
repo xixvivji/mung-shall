@@ -2,7 +2,8 @@
 import { api } from "@/shared/api/client";
 import { getAdoptionApplication } from "@/features/adoptionApplication/api";
 import type { AdoptionApplicationResponse } from "@/features/adoptionApplication/types";
-import type { AdoptionDog } from "../types";
+import type { AdoptionDog, AdoptionStatus } from "../types";
+import { resolveAdoptionStatus } from "../utils/adoptionCardUi";
 
 // --- Types ---
 type DogSummaryResponse = {
@@ -16,6 +17,7 @@ type DogSummaryResponse = {
   careNm?: string;
   adopting?: boolean;
   processState?: string;
+  adoptionStatus?: AdoptionStatus | string;
 };
 
 type DogsResponse = {
@@ -155,9 +157,14 @@ export async function fetchAdoptionList({
         breed: dog.kindNm ?? "Unknown",
         age: dog.age ?? "",
         imageUrl: dog.imageUrl,
-        careNm: dog.careNm ?? "", 
+        careNm: dog.careNm ?? "",
         adopting: dog.adopting,
         processState: dog.processState,
+        adoptionStatus: resolveAdoptionStatus({
+          adoptionStatus: dog.adoptionStatus,
+          adopting: dog.adopting,
+          processState: dog.processState,
+        }),
       })),
       totalPages: data.totalPages,
       totalElements: data.totalElements,

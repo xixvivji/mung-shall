@@ -20,12 +20,13 @@ export default function CenterPage() {
     []
   );
 
-  const tabBase = "px-3 py-2 text-sm rounded-xl transition border";
-  const tabActive = "bg-black text-white border-black";
+  const tabBase =
+    "px-3 py-2 text-sm rounded-xl transition-colors duration-150 border focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#111]/25 focus-visible:ring-offset-2";
+  const tabActive = "bg-black text-white border-black shadow-sm";
   const tabIdle = "bg-white text-slate-700 border-slate-200 hover:bg-slate-50";
 
   return (
-    <div className="min-h-screen bg-white-50">
+    <div className="min-h-screen bg-[#F7F8FB]">
       <h1 className="text-[33px] font-bold tracking-tight text-[#333] mt-10">
         센터 페이지
       </h1>
@@ -34,7 +35,7 @@ export default function CenterPage() {
         <CenterProfileSection />
 
         {/* 탭 버튼 */}
-        <div className="sticky top-0 z-30 -mx-4 mt-6 border-b border-slate-200 bg-50/90 px-4 py-3 backdrop-blur">
+        <div className="sticky top-0 z-30 -mx-4 mt-6 border-b border-slate-200 bg-white/90 px-4 py-3 backdrop-blur">
           <div className="flex gap-2">
             {tabs.map((t) => (
               <button

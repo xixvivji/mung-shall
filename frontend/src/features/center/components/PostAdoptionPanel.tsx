@@ -16,7 +16,7 @@ function formatDateTime(iso?: string) {
 
 function Pill({ label }: { label: string }) {
   return (
-    <span className="inline-flex items-center rounded-full border border-[#E5E7EB] bg-white px-2.5 py-1 text-xs text-[#374151]">
+    <span className="inline-flex items-center rounded-full border border-[#E5E7EB] bg-[#F9FAFB] px-2.5 py-1 text-xs font-medium text-[#374151]">
       {label}
     </span>
   );
@@ -33,15 +33,15 @@ function StatusBadge({
 }) {
   // 기준은 너희 정책에 따라 바꿔도 됨
   if (rejectionReason) {
-    return <span className="rounded-full bg-[#FEF2F2] px-2.5 py-1 text-xs font-semibold text-[#991B1B]">반려</span>;
+    return <span className="rounded-full border border-[#FECACA] bg-[#FEF2F2] px-2.5 py-1 text-xs font-semibold text-[#991B1B]">반려</span>;
   }
   if (completedAt) {
-    return <span className="rounded-full bg-[#ECFDF5] px-2.5 py-1 text-xs font-semibold text-[#065F46]">완료</span>;
+    return <span className="rounded-full border border-[#A7F3D0] bg-[#ECFDF5] px-2.5 py-1 text-xs font-semibold text-[#065F46]">완료</span>;
   }
   if (submittedAt) {
-    return <span className="rounded-full bg-[#EFF6FF] px-2.5 py-1 text-xs font-semibold text-[#1D4ED8]">제출됨</span>;
+    return <span className="rounded-full border border-[#BFDBFE] bg-[#EFF6FF] px-2.5 py-1 text-xs font-semibold text-[#1D4ED8]">제출됨</span>;
   }
-  return <span className="rounded-full bg-[#F3F4F6] px-2.5 py-1 text-xs font-semibold text-[#374151]">진행중</span>;
+  return <span className="rounded-full border border-[#E5E7EB] bg-[#F3F4F6] px-2.5 py-1 text-xs font-semibold text-[#374151]">진행중</span>;
 }
 
 export default function PostAdoptionPanel({ adoptionId }: Props) {
@@ -51,11 +51,11 @@ export default function PostAdoptionPanel({ adoptionId }: Props) {
   if (!adoptionId) return null;
 
   return (
-    <section className="rounded-2xl border border-[#E5E7EB] bg-white p-5">
+    <section className="rounded-2xl border border-[#E5E7EB] bg-white p-5 shadow-[0_1px_3px_rgba(17,24,39,0.08)]">
       <div className="flex items-start justify-between gap-3">
         <div>
-          <h3 className="text-lg font-semibold">사후관리 체크</h3>
-          <p className="mt-1 text-sm text-[#6B7280]">
+          <h3 className="text-lg font-semibold tracking-[-0.01em] text-[#111827]">사후관리 체크</h3>
+          <p className="mt-1 text-sm leading-6 text-[#6B7280]">
             쉘터 계정은 <span className="font-semibold text-[#111]">조회 전용</span>입니다.
           </p>
         </div>
@@ -72,7 +72,7 @@ export default function PostAdoptionPanel({ adoptionId }: Props) {
       {loading ? <div className="mt-4 text-sm text-[#6B7280]">불러오는 중...</div> : null}
 
       {error ? (
-        <div className="mt-4 rounded-xl border border-[#FCA5A5] bg-[#FEF2F2] p-3 text-sm text-[#991B1B]">
+        <div className="mt-4 rounded-xl border border-[#FCA5A5] bg-[#FEF2F2] p-3 text-sm leading-6 text-[#991B1B]">
           {error}
         </div>
       ) : null}
@@ -84,7 +84,7 @@ export default function PostAdoptionPanel({ adoptionId }: Props) {
       {/* 스텝 탭 */}
       {process ? (
         <>
-          <div className="mt-5 rounded-2xl border border-[#E5E7EB] p-3">
+          <div className="mt-5 rounded-2xl border border-[#E5E7EB] bg-[#F9FAFB] p-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.8)]">
             <div className="flex flex-wrap gap-2">
               {steps.map((s) => {
                 const active = selectedStepOrder === s.stepOrder;
@@ -93,9 +93,14 @@ export default function PostAdoptionPanel({ adoptionId }: Props) {
                     key={s.id}
                     type="button"
                     onClick={() => setSelectedStepOrder(s.stepOrder)}
+                    aria-label={`${s.stepName} Step ${s.stepOrder}`}
+                    aria-pressed={active}
+                    title={`${s.stepName} Step ${s.stepOrder}`}
                     className={[
-                      "flex items-center gap-2 rounded-xl border px-3 py-2 text-sm transition",
-                      active ? "border-[#111] bg-[#111] text-white" : "border-[#E5E7EB] bg-white text-[#111]",
+                      "flex items-center gap-2 rounded-xl border px-3 py-2 text-sm transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#111]/30 focus-visible:ring-offset-2 active:translate-y-px",
+                      active
+                        ? "border-[#111] bg-[#111] text-white shadow-[0_2px_8px_rgba(17,24,39,0.18)]"
+                        : "border-[#E5E7EB] bg-white text-[#111827] hover:border-[#D1D5DB] hover:bg-[#F3F4F6]",
                     ].join(" ")}
                   >
                     <span className="font-semibold">{s.stepName}</span>
@@ -108,18 +113,18 @@ export default function PostAdoptionPanel({ adoptionId }: Props) {
 
             {/* step 요약 메타 */}
             {selectedStepOrder != null ? (
-              <div className="mt-3 text-xs text-[#6B7280]">
+              <div className="mt-3 text-xs font-medium text-[#6B7280]">
                 선택 단계: Step {selectedStepOrder}
               </div>
             ) : null}
           </div>
 
           {/* 상세 */}
-          <div className="mt-5 rounded-2xl border border-[#E5E7EB] p-4">
+          <div className="mt-5 rounded-2xl border border-[#E5E7EB] bg-white p-4 shadow-[0_1px_2px_rgba(17,24,39,0.06)]">
             <div className="flex items-start justify-between gap-3">
               <div>
-                <div className="text-base font-semibold">{detail?.stepName ?? "단계 상세"}</div>
-                {detail?.description ? <div className="mt-1 text-sm text-[#6B7280]">{detail.description}</div> : null}
+                <div className="text-base font-semibold tracking-[-0.01em] text-[#111827]">{detail?.stepName ?? "단계 상세"}</div>
+                {detail?.description ? <div className="mt-1 text-sm leading-6 text-[#6B7280]">{detail.description}</div> : null}
               </div>
 
               {detail ? (
@@ -133,9 +138,9 @@ export default function PostAdoptionPanel({ adoptionId }: Props) {
             {/* 2열 레이아웃 */}
             <div className="mt-4 grid gap-4 lg:grid-cols-2">
               {/* 체크리스트 */}
-              <div className="rounded-2xl border border-[#E5E7EB] p-4">
+              <div className="rounded-2xl border border-[#E5E7EB] bg-[#FCFCFD] p-4">
                 <div className="mb-3 flex items-center justify-between">
-                  <div className="text-sm font-semibold">체크리스트</div>
+                  <div className="text-sm font-semibold text-[#111827]">체크리스트</div>
                   <div className="text-xs text-[#6B7280]">
                     {(detail?.checklistItems ?? []).filter((x) => x.checked).length}/
                     {(detail?.checklistItems ?? []).length}
@@ -149,7 +154,7 @@ export default function PostAdoptionPanel({ adoptionId }: Props) {
                     (detail?.checklistItems ?? []).map((it) => (
                       <li
                         key={it.id}
-                        className="flex items-start gap-3 rounded-xl border border-[#F3F4F6] bg-white px-3 py-2"
+                        className="flex items-start gap-3 rounded-xl border border-[#EEF0F3] bg-white px-3 py-2.5"
                       >
                         <div
                           className={[
@@ -159,7 +164,7 @@ export default function PostAdoptionPanel({ adoptionId }: Props) {
                           aria-hidden
                         />
                         <div className="min-w-0">
-                          <div className="text-sm break-words">
+                          <div className="text-sm break-words text-[#111827]">
                             {it.itemText}
                             {it.required ? <span className="ml-1 text-xs text-[#EF4444]">*</span> : null}
                           </div>
@@ -174,9 +179,9 @@ export default function PostAdoptionPanel({ adoptionId }: Props) {
               </div>
 
               {/* 제출파일 */}
-              <div className="rounded-2xl border border-[#E5E7EB] p-4">
+              <div className="rounded-2xl border border-[#E5E7EB] bg-[#FCFCFD] p-4">
                 <div className="mb-3 flex items-center justify-between">
-                  <div className="text-sm font-semibold">제출 파일</div>
+                  <div className="text-sm font-semibold text-[#111827]">제출 파일</div>
                   <div className="text-xs text-[#6B7280]">
                     {(detail?.submissionItems ?? []).filter((x) => x.submitted).length}/
                     {(detail?.submissionItems ?? []).length}
@@ -190,10 +195,10 @@ export default function PostAdoptionPanel({ adoptionId }: Props) {
                     (detail?.submissionItems ?? []).map((it) => (
                       <li
                         key={it.id}
-                        className="flex items-center justify-between gap-3 rounded-xl border border-[#F3F4F6] bg-white px-3 py-2"
+                        className="flex items-center justify-between gap-3 rounded-xl border border-[#EEF0F3] bg-white px-3 py-2.5"
                       >
                         <div className="min-w-0">
-                          <div className="truncate text-sm font-medium">
+                          <div className="truncate text-sm font-medium text-[#111827]">
                             {it.submissionName}
                             {it.required ? <span className="ml-1 text-xs text-[#EF4444]">*</span> : null}
                           </div>
@@ -209,7 +214,9 @@ export default function PostAdoptionPanel({ adoptionId }: Props) {
                             if (it.fileUrl) window.open(it.fileUrl, "_blank", "noopener,noreferrer");
                           }}
                           disabled={!it.fileUrl}
-                          className="h-9 shrink-0 rounded-xl bg-[#111] px-3 text-xs font-semibold text-white disabled:opacity-40"
+                          aria-label={`${it.submissionName} 파일 보기`}
+                          title={it.fileUrl ? `${it.submissionName} 파일 보기` : "파일 링크 없음"}
+                          className="h-9 shrink-0 rounded-xl bg-[#111] px-3 text-xs font-semibold text-white transition-colors duration-150 hover:bg-[#1F2937] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#111]/30 focus-visible:ring-offset-2 active:bg-black disabled:cursor-not-allowed disabled:bg-[#9CA3AF] disabled:opacity-70"
                         >
                           보기
                         </button>
@@ -222,7 +229,7 @@ export default function PostAdoptionPanel({ adoptionId }: Props) {
 
             {/* footer 메타 */}
             {detail ? (
-              <div className="mt-4 flex flex-wrap gap-3 text-xs text-[#6B7280]">
+              <div className="mt-4 flex flex-wrap gap-3 border-t border-[#F3F4F6] pt-3 text-xs text-[#6B7280]">
                 <span>submittedAt: {formatDateTime(detail.submittedAt)}</span>
                 <span>completedAt: {formatDateTime(detail.completedAt)}</span>
                 {detail.rejectionReason ? <span className="text-[#991B1B]">rejection: {detail.rejectionReason}</span> : null}

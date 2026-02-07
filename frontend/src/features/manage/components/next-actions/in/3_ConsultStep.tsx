@@ -48,7 +48,7 @@ const resolveCounseling = (data: CounselingResponse | null): ConsultSaved | null
 };
 
 export function ConsultStep({ isEditable, adoptionId, onConsultComplete }: Props) {
-  // ✅ ConsultStep 전용: 기본 mypage(파란 버튼) + size default 통일
+  // ✅ ConsultStep 전용: 기본 mypage 버튼 + size default 통일
   const LgButton = ({
     variant = "mypage",
     className,
@@ -143,7 +143,7 @@ export function ConsultStep({ isEditable, adoptionId, onConsultComplete }: Props
 
   return (
     <div className="space-y-6">
-      <div className="rounded-2xl border border-gray-200 p-6">
+      <div className="rounded-2xl border border-[#E5E7EB] bg-white p-6 shadow-[0_1px_2px_rgba(15,23,42,0.06)]">
         <p className="text-sm font-semibold text-gray-900">입양 상담</p>
         <p className="mt-1 text-sm text-gray-500">상담 일정을 예약하고 변경할 수 있습니다.</p>
 
@@ -188,7 +188,7 @@ export function ConsultStep({ isEditable, adoptionId, onConsultComplete }: Props
           </LgButton>
 
           <LgButton
-            variant="mypage"
+            variant="outline"
             className="rounded-lg"
             disabled={!isEditable || deleting || !counselingId}
             onClick={handleCancel}
@@ -197,7 +197,6 @@ export function ConsultStep({ isEditable, adoptionId, onConsultComplete }: Props
           </LgButton>
 
           <LgButton
-            variant="mypage"
             className="rounded-lg"
             disabled={!isEditable}
             onClick={onConsultComplete}

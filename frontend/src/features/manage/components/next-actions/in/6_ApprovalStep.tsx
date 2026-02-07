@@ -1,4 +1,5 @@
 import { useMemo, useState } from "react";
+import approvalSuccessIllustration from "@/assets/images/approval-success-illustration.svg";
 
 type ApprovalStatus = "PENDING" | "APPROVED" | "REJECTED";
 type ViewState = "LOCKED" | "ACTIVE";
@@ -62,6 +63,38 @@ function ApprovedSuccessView() {
   );
 }
 
+function ApprovalCompletedShowcase() {
+  return (
+    <div className="overflow-hidden rounded-2xl border border-[#DBEAFE] bg-gradient-to-br from-[#F8FBFF] via-white to-[#EFF6FF]">
+      <div className="px-6 py-9 sm:px-10">
+        <div className="mb-5 inline-flex items-center gap-2 rounded-full border border-[#BFDBFE] bg-[#EFF6FF] px-3 py-1 text-[11px] font-semibold tracking-[0.08em] text-[#1D4ED8]">
+          <span className="inline-block h-2 w-2 rounded-full bg-[#2563EB]" />
+          APPROVAL COMPLETED
+        </div>
+
+        <div className="mx-auto flex max-w-[560px] flex-col items-center gap-5 text-center">
+          <div className="text-center">
+            <h3 className="text-2xl font-bold tracking-[-0.01em] text-[#0F172A] sm:text-3xl">
+              심사 신청이 승인되었습니다
+            </h3>
+            <p className="mx-auto mt-3 max-w-[40ch] text-sm leading-7 text-[#475569] sm:text-base">
+              축하합니다. 보호소의 입양 심사가 승인되어 입양 후 단계로 이동할 수 있습니다.
+            </p>
+          </div>
+
+          <div className="mx-auto w-full max-w-[210px]">
+            <img
+              src={approvalSuccessIllustration}
+              alt="심사 승인 완료 일러스트"
+              className="h-auto w-full drop-shadow-[0_8px_20px_rgba(37,99,235,0.22)]"
+            />
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export function ApprovalStep({
   canReview,
   approvalStatus,
@@ -76,7 +109,7 @@ export function ApprovalStep({
 
   // ✅ 승인 완료면: 업로드 이미지 UI로 교체 렌더링
   if (viewState === "ACTIVE" && isApproved) {
-    return <ApprovedSuccessView />;
+    return <ApprovalCompletedShowcase />;
   }
 
   // ✅ 서버 값이 없으면 기존 더미를 사용(개발 편의)
@@ -87,7 +120,7 @@ export function ApprovalStep({
   // 기존 화면(심사중/반려/잠김)
   return (
     <div className="space-y-6">
-      <div className="rounded-2xl border border-gray-200 p-6">
+      <div className="rounded-2xl border border-[#E5E7EB] bg-white p-6 shadow-[0_1px_2px_rgba(15,23,42,0.06)]">
         <div className="flex items-start justify-between gap-4">
           <div>
             <p className="text-sm font-semibold text-gray-900">입양 허가</p>

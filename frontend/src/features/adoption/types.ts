@@ -1,3 +1,14 @@
+export type AdoptionStatus =
+  | "NOT_ADOPTED"
+  | "ADOPTING_BY_ME"
+  | "ADOPTING_BY_OTHERS"
+  | "ADOPTED";
+
+export type UserType =
+  | "GENERAL"
+  | "SHELTER"
+  | "GUEST";
+
 export type AdoptionDog = {
   id: string;
   name: string;
@@ -5,6 +16,8 @@ export type AdoptionDog = {
   age: string;
   imageUrl?: string;
   careNm?: string;
+  adoptionStatus: AdoptionStatus;
   adopting?: boolean;
   processState?: string;
+  adoptionStatus?: AdoptionStatus;
 };

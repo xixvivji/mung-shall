@@ -1,6 +1,7 @@
 package com.example.backend.api.recommendation.dto;
 
 import com.example.backend.api.dog.dto.DogSummaryResponse;
+import com.example.backend.domain.dog.DogAdoptionStatus;
 
 public record RecommendedDogDto(
         Long dogId,
@@ -10,7 +11,7 @@ public record RecommendedDogDto(
         String weight,
         String careNm,
         boolean isLiked,
-        boolean isAdopting,
+        DogAdoptionStatus adoptionStatus,
         double similarity
 ) {
     public static RecommendedDogDto fromSummary(DogSummaryResponse summary, double similarity) {
@@ -22,7 +23,7 @@ public record RecommendedDogDto(
                 summary.getWeight(),
                 summary.getCareNm(),
                 summary.isLiked(),
-                summary.isAdopting(),
+                summary.getAdoptionStatus(),
                 similarity
         );
     }

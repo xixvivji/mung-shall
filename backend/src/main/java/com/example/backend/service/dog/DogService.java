@@ -111,9 +111,8 @@ public class DogService {
                     DogSummaryResponse dto = DogSummaryResponse.fromEntity(dog);
                     if (finalUser != null) {
                         dto.setLiked(userDogInterestRepository.existsByUserAndAbandonedDog(finalUser, dog));
-                        dto.setAdopting(adoptionRepository.existsByUserAndAbandonedDogAndProcessStatus(
-                                finalUser, dog, AdoptionProcessStatus.IN_PROGRESS));
                     }
+                    dto.setAdoptionStatus(determineAdoptionStatus(dog, userId));
                     return dto;
                 })
                 .collect(Collectors.toList());

@@ -1,3 +1,5 @@
+import { motion, useInView } from "framer-motion";
+import { useRef } from "react";
 import kimMungshall from "@/assets/images/김멍쉘.png";
 
 /* =======================
@@ -50,67 +52,111 @@ const COLORS = {
 
 /* =======================
    GROUP WRAPPERS
-   - inset-0로 "컨테이너 전체"를 덮게 해서 % 기준이 정상화됨
-   - 내부에 relative를 둬서 나중에 그룹 애니메이션(translate 등) 붙이기 쉬움
 ======================= */
 const GROUPS = {
   mungOuter: "absolute inset-0 z-10 select-none pointer-events-none",
   shallOuter: "absolute inset-0 z-30 select-none pointer-events-none",
-
-  // 여기에 나중에 그룹 단위 이동/페이드 클래스를 붙이면 됨
   mungInner: "relative w-full h-full",
   shallInner: "relative w-full h-full",
 };
 
 /* =======================
-   ANIM placeholder
+   MOTION
+   - 섹션이 화면에 들어올 때만 재생
+   - once: true 로 1회만 재생
 ======================= */
-const ANIM = {
-  mungGroup: "", // ex) "translate-y-[20px] opacity-0"
-  shallGroup: "",
+const ease = [0.22, 1, 0.36, 1] as const;
+
+const leftGroupVariants = {
+  hidden: { opacity: 0, x: -40, filter: "blur(6px)" },
+  show: {
+    opacity: 1,
+    x: 0,
+    filter: "blur(0px)",
+    transition: { duration: 0.85, ease, when: "beforeChildren", staggerChildren: 0.12 },
+  },
+};
+
+const rightGroupVariants = {
+  hidden: { opacity: 0, x: 40, filter: "blur(6px)" },
+  show: {
+    opacity: 1,
+    x: 0,
+    filter: "blur(0px)",
+    transition: {
+      duration: 0.85,
+      ease,
+      delay: 0.45, // ✅ 왼쪽 다음
+      when: "beforeChildren",
+      staggerChildren: 0.12,
+    },
+  },
+};
+
+const itemVariants = {
+  hidden: { opacity: 0, y: 12 },
+  show: { opacity: 1, y: 0, transition: { duration: 0.55, ease } },
 };
 
 export default function IntroSection1() {
+  // ✅ 섹션이 뷰포트에 들어오면 true (한 번만)
+  const sectionRef = useRef<HTMLElement | null>(null);
+  const inView = useInView(sectionRef, { once: true, amount: 0.45 });
+
   return (
-    <section className="snap-start snap-always min-h-screen w-full bg-white">
+    <section ref={sectionRef} className="snap-start snap-always min-h-screen w-full bg-white">
       <div className="relative mx-auto max-w-[1200px] px-6 min-h-screen flex items-center">
         {/* =======================
-            MUNG GROUP (LEFT)
+            MUNG GROUP (LEFT) - 먼저
         ======================= */}
-        <div className={GROUPS.mungOuter}>
-          <div className={`${GROUPS.mungInner} ${ANIM.mungGroup}`}>
+        <motion.div
+          className={GROUPS.mungOuter}
+          variants={leftGroupVariants}
+          initial="hidden"
+          animate={inView ? "show" : "hidden"}
+        >
+          <div className={GROUPS.mungInner}>
             {/* Top Desc */}
-            <div className={`absolute ${POSITIONS.mungTopDesc} -translate-y-1/2`}>
-              <div className={`${SIZES.mungDescTop} ${COLORS.mung.desc}`}>
-                유기견의
-              </div>
-            </div>
+            <motion.div
+              variants={itemVariants}
+              className={`absolute ${POSITIONS.mungTopDesc} -translate-y-1/2`}
+            >
+              <div className={`${SIZES.mungDescTop} ${COLORS.mung.desc}`}>유기견의</div>
+            </motion.div>
 
             {/* Title */}
-            <div className={`absolute ${POSITIONS.mungTitle} -translate-y-1/2`}>
+            <motion.div
+              variants={itemVariants}
+              className={`absolute ${POSITIONS.mungTitle} -translate-y-1/2`}
+            >
               <div
                 className={`${SIZES.mungTitle} font-light tracking-tight ${COLORS.mung.title}`}
               >
                 MUNG
               </div>
-            </div>
+            </motion.div>
 
             {/* Bottom Desc */}
-            <div className={`absolute ${POSITIONS.mungBottomDesc} -translate-y-1/2`}>
-              <div className={`${SIZES.mungDescBottom} ${COLORS.mung.desc}`}>
-                에서 시작해,
-              </div>
-            </div>
+            <motion.div
+              variants={itemVariants}
+              className={`absolute ${POSITIONS.mungBottomDesc} -translate-y-1/2`}
+            >
+              <div className={`${SIZES.mungDescBottom} ${COLORS.mung.desc}`}>에서 시작해,</div>
+            </motion.div>
           </div>
-        </div>
+        </motion.div>
 
         {/* =======================
-            CHARACTER
+            CHARACTER (중앙)
+            - 섹션 들어오면 페이드/스케일 (한 번)
         ======================= */}
-        <div
+        <motion.div
           className={`absolute z-20 ${POSITIONS.character} select-none`}
           draggable={false}
           onDragStart={(e) => e.preventDefault()}
+          initial={{ opacity: 0, scale: 0.96 }}
+          animate={inView ? { opacity: 1, scale: 1 } : { opacity: 0, scale: 0.96 }}
+          transition={{ duration: 0.8, ease, delay: 0.2 }}
         >
           <img
             src={kimMungshall}
@@ -118,24 +164,29 @@ export default function IntroSection1() {
             className={`${SIZES.character} object-contain pointer-events-none`}
             draggable={false}
           />
-        </div>
+        </motion.div>
 
         {/* =======================
-            SHALL GROUP (RIGHT)
+            SHALL GROUP (RIGHT) - 나중
         ======================= */}
-        <div className={GROUPS.shallOuter}>
-          <div className={`${GROUPS.shallInner} ${ANIM.shallGroup}`}>
+        <motion.div
+          className={GROUPS.shallOuter}
+          variants={rightGroupVariants}
+          initial="hidden"
+          animate={inView ? "show" : "hidden"}
+        >
+          <div className={GROUPS.shallInner}>
             {/* Top Desc */}
-            <div
+            <motion.div
+              variants={itemVariants}
               className={`absolute ${POSITIONS.shallTopDesc} -translate-y-1/2 text-right`}
             >
-              <div className={`${SIZES.shallDescTop} ${COLORS.shall.desc}`}>
-                함께하는 의미
-              </div>
-            </div>
+              <div className={`${SIZES.shallDescTop} ${COLORS.shall.desc}`}>함께하는 의미</div>
+            </motion.div>
 
             {/* Title */}
-            <div
+            <motion.div
+              variants={itemVariants}
               className={`absolute ${POSITIONS.shallTitle} -translate-y-1/2 text-right`}
             >
               <div
@@ -143,18 +194,17 @@ export default function IntroSection1() {
               >
                 SHALL
               </div>
-            </div>
+            </motion.div>
 
             {/* Bottom Desc */}
-            <div
+            <motion.div
+              variants={itemVariants}
               className={`absolute ${POSITIONS.shallBottomDesc} -translate-y-1/2 text-right`}
             >
-              <div className={`${SIZES.shallDescBottom} ${COLORS.shall.desc}`}>
-                로 이어집니다
-              </div>
-            </div>
+              <div className={`${SIZES.shallDescBottom} ${COLORS.shall.desc}`}>로 이어집니다</div>
+            </motion.div>
           </div>
-        </div>
+        </motion.div>
       </div>
     </section>
   );

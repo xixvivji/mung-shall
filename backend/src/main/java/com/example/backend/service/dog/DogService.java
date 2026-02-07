@@ -24,6 +24,9 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
+import java.util.Map;
+import java.util.Objects;
+import java.util.function.Function;
 import java.util.Optional;
 import java.util.stream.Collectors;
 
@@ -83,6 +86,37 @@ public class DogService {
 
         DogAdoptionStatus adoptionStatus = determineAdoptionStatus(dog, userId);
         return DogDetailResponse.fromEntity(dog, isLiked, adoptionStatus);
+    }
+
+    public List<DogSummaryResponse> getDogSummariesByIds(List<Long> dogIds, Long userId) {
+        if (dogIds == null || dogIds.isEmpty()) {
+            return List.of();
+        }
+
+        List<AbandonedDog> dogs = abandonedDogRepository.findAllById(dogIds);
+        Map<Long, AbandonedDog> dogById = dogs.stream()
+                .collect(Collectors.toMap(AbandonedDog::getId, Function.identity()));
+
+        User user = null;
+        if (userId != null) {
+            user = userRepository.findById(userId)
+                    .orElseThrow(() -> new IllegalStateException("Invalid user"));
+        }
+
+        User finalUser = user;
+        return dogIds.stream()
+                .map(dogById::get)
+                .filter(Objects::nonNull)
+                .map(dog -> {
+                    DogSummaryResponse dto = DogSummaryResponse.fromEntity(dog);
+                    if (finalUser != null) {
+                        dto.setLiked(userDogInterestRepository.existsByUserAndAbandonedDog(finalUser, dog));
+                        dto.setAdopting(adoptionRepository.existsByUserAndAbandonedDogAndProcessStatus(
+                                finalUser, dog, AdoptionProcessStatus.IN_PROGRESS));
+                    }
+                    return dto;
+                })
+                .collect(Collectors.toList());
     }
 
     public DogAdoptionStatus determineAdoptionStatus(AbandonedDog dog, Long userId) {

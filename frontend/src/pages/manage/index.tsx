@@ -655,28 +655,6 @@ function AdopterManagePage() {
         </div>
       )}
 
-      <div className="space-y-3 pt-4">
-        <h2 className="text-lg font-semibold text-gray-900">입양 시작</h2>
-        <div className="flex flex-wrap items-center gap-3">
-          <Button className="rounded-lg" onClick={() => setIsSelecting((prev) => !prev)}>
-            {isSelecting ? "선택 닫기" : "입양 시작"}
-          </Button>
-          <span className="text-sm text-gray-500">
-            관심 목록에서 강아지를 선택해 입양을 시작하세요.
-          </span>
-        </div>
-
-        {isSelecting && (
-          <SelectStep
-            onAdopt={handleAdopt}
-            onSubmitSuccess={() => {
-              openAlert({ title: "입양 시작", message: "입양 신청이 시작되었습니다." });
-              setIsSelecting(false);
-            }}
-          />
-        )}
-      </div>
-
       <AlertModal {...alertProps} />
     </section>
   );

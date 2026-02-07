@@ -4,8 +4,10 @@ import com.example.backend.api.dog.dto.DogDetailResponse;
 import com.example.backend.api.dog.dto.DogImageResponse;
 import com.example.backend.api.dog.dto.DogStatusCountResponse;
 import com.example.backend.api.dog.dto.DogSummaryResponse;
+import com.example.backend.domain.adoption.Adoption;
 import com.example.backend.domain.adoption.enums.AdoptionProcessStatus;
 import com.example.backend.domain.dog.AbandonedDog;
+import com.example.backend.domain.dog.DogAdoptionStatus;
 import com.example.backend.domain.dog.DogKind;
 import com.example.backend.domain.user.User;
 import com.example.backend.repository.adoption.AdoptionRepository;
@@ -22,6 +24,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
+import java.util.Optional;
 import java.util.stream.Collectors;
 
 @Service
@@ -49,24 +52,14 @@ public class DogService {
 
         Page<AbandonedDog> dogPage = abandonedDogRepository.findAll(spec, pageable);
 
-        // 🔹 비로그인
-        if (userId == null) {
-            return dogPage.map(DogSummaryResponse::fromEntity);
-        }
-
-        // 🔹 로그인
-        User user = userRepository.findById(userId).orElseThrow(() -> new IllegalStateException("유효하지 않은 사용자"));
+        User user = (userId != null) ? userRepository.findById(userId).orElse(null) : null;
 
         return dogPage.map(dog -> {
             DogSummaryResponse dto = DogSummaryResponse.fromEntity(dog);
-            dto.setLiked(
-                    userDogInterestRepository.existsByUserAndAbandonedDog(user, dog)
-            );
-            dto.setAdopting(
-                    adoptionRepository.existsByUserAndAbandonedDogAndProcessStatus(
-                            user, dog, AdoptionProcessStatus.IN_PROGRESS
-                    )
-            );
+            if (user != null) {
+                dto.setLiked(userDogInterestRepository.existsByUserAndAbandonedDog(user, dog));
+            }
+            dto.setAdoptionStatus(determineAdoptionStatus(dog, userId));
             return dto;
         });
     }
@@ -82,18 +75,45 @@ public class DogService {
                 .orElseThrow(() -> new IllegalArgumentException("ID: " + id + " 에 해당하는 유기견을 찾을 수 없습니다."));
 
         boolean isLiked = false;
-        boolean isAdopting = false;
         if (userId != null) {
             isLiked = userRepository.findById(userId)
                     .map(user -> userDogInterestRepository.existsByUserAndAbandonedDog(user, dog))
                     .orElse(false);
-            isAdopting = userRepository.findById(userId)
-                    .map(user -> adoptionRepository.existsByUserAndAbandonedDogAndProcessStatus(user, dog, AdoptionProcessStatus.IN_PROGRESS))
-                    .orElse(false);
         }
 
-        return DogDetailResponse.fromEntity(dog, isLiked, isAdopting);
+        DogAdoptionStatus adoptionStatus = determineAdoptionStatus(dog, userId);
+        return DogDetailResponse.fromEntity(dog, isLiked, adoptionStatus);
     }
+
+    private DogAdoptionStatus determineAdoptionStatus(AbandonedDog dog, Long userId) {
+        // 1. "종료(입양)" 상태 확인 (공공 API 데이터)
+        if ("종료(입양)".equals(dog.getProcessState())) {
+            return DogAdoptionStatus.ADOPTED;
+        }
+
+        // 2. 내부 시스템에서 "COMPLETED" 상태 확인
+        if (adoptionRepository.existsByAbandonedDogAndProcessStatus(dog, AdoptionProcessStatus.COMPLETED)) {
+            return DogAdoptionStatus.ADOPTED;
+        }
+
+        // 3. "진행 중"인 입양 절차 확인
+        Optional<Adoption> inProgressAdoption = adoptionRepository.findByAbandonedDogAndProcessStatus(dog, AdoptionProcessStatus.IN_PROGRESS);
+
+        if (inProgressAdoption.isPresent()) {
+            Adoption adoption = inProgressAdoption.get();
+            // 4. 로그인 사용자가 입양 진행 중인지 확인
+            if (userId != null && adoption.getUser().getUserId().equals(userId)) {
+                return DogAdoptionStatus.ADOPTING_BY_ME;
+            } else {
+                // 5. 다른 사용자가 입양 진행 중
+                return DogAdoptionStatus.ADOPTING_BY_OTHERS;
+            }
+        }
+
+        // 6. 아무도 입양 진행/완료하지 않은 상태
+        return DogAdoptionStatus.NOT_ADOPTED;
+    }
+
 
     public List<String> getAllDogKinds() {
         return dogKindRepository.findAll().stream()

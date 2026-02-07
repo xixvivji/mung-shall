@@ -13,6 +13,7 @@ import com.example.backend.domain.shelter.Shelter;
 import com.example.backend.repository.adoption.AdoptionRepository;
 import com.example.backend.repository.dog.AbandonedDogRepository;
 import com.example.backend.repository.shelter.ShelterRepository;
+import com.example.backend.service.dog.DogService; // DogService import 추가
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
@@ -34,6 +35,7 @@ public class ShelterService {
     private final AbandonedDogRepository abandonedDogRepository;
     private final AdoptionRepository adoptionRepository;
     private final ShelterPermissionEvaluator shelterPermissionEvaluator;
+    private final DogService dogService; // DogService 주입
 
     /**
      * 특정 보호소에 보관중인 유기견 목록을 상태 필터링과 함께 페이지네이션하여 조회합니다.
@@ -54,7 +56,12 @@ public class ShelterService {
         int start = (int) pageable.getOffset();
         int end = Math.min((start + pageable.getPageSize()), dogs.size());
         List<DogSummaryResponse> dtoList = dogs.subList(start, end).stream()
-                .map(DogSummaryResponse::fromEntity)
+                .map(dog -> {
+                    DogSummaryResponse dto = DogSummaryResponse.fromEntity(dog);
+                    dto.setLiked(false); // 보호소 뷰이므로 좋아요 상태는 false
+                    dto.setAdoptionStatus(dogService.determineAdoptionStatus(dog, null)); // userId는 null
+                    return dto;
+                })
                 .collect(Collectors.toList());
 
         return new PageImpl<>(dtoList, pageable, dogs.size());
@@ -152,3 +159,4 @@ public class ShelterService {
     }
 
 }
+

@@ -5,8 +5,12 @@ import com.example.backend.api.dog.dto.DogSummaryResponse;
 import com.example.backend.api.dog.dto.DogUpdateRequest;
 import com.example.backend.api.shelter.dto.ShelterResponse;
 import com.example.backend.api.shelter.dto.ShelterUpdateRequest;
+import com.example.backend.domain.adoption.Adoption;
+import com.example.backend.domain.adoption.enums.AdoptionProcessStatus;
 import com.example.backend.domain.dog.AbandonedDog;
+import com.example.backend.domain.dog.DogAdoptionStatus;
 import com.example.backend.domain.shelter.Shelter;
+import com.example.backend.repository.adoption.AdoptionRepository;
 import com.example.backend.repository.dog.AbandonedDogRepository;
 import com.example.backend.repository.shelter.ShelterRepository;
 import lombok.RequiredArgsConstructor;
@@ -18,6 +22,7 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 
 import java.util.List;
+import java.util.Optional;
 import java.util.stream.Collectors;
 
 @Service
@@ -27,6 +32,7 @@ public class ShelterService {
 
     private final ShelterRepository shelterRepository;
     private final AbandonedDogRepository abandonedDogRepository;
+    private final AdoptionRepository adoptionRepository;
     private final ShelterPermissionEvaluator shelterPermissionEvaluator;
 
     /**
@@ -63,11 +69,12 @@ public class ShelterService {
      */
     @Transactional
     public DogDetailResponse updateDogInShelter(Long shelterId, Long dogId, DogUpdateRequest request) {
-                // 권한 검사
-                shelterPermissionEvaluator.checkShelterOwnership(shelterId);
-                AbandonedDog dog = abandonedDogRepository.findById(dogId)
-                        .orElseThrow(() -> new IllegalArgumentException("ID: " + dogId + " 에 해당하는 유기견을 찾을 수 없습니다."));
-                shelterPermissionEvaluator.checkShelterPermission(dog);
+        // 권한 검사
+        shelterPermissionEvaluator.checkShelterOwnership(shelterId);
+        AbandonedDog dog = abandonedDogRepository.findById(dogId)
+                .orElseThrow(() -> new IllegalArgumentException("ID: " + dogId + " 에 해당하는 유기견을 찾을 수 없습니다."));
+        shelterPermissionEvaluator.checkShelterPermission(dog);
+
         dog.setHappenDt(request.getHappenDt());
         dog.setHappenPlace(request.getHappenPlace());
         dog.setKindNm(request.getKindNm());
@@ -89,7 +96,9 @@ public class ShelterService {
         dog.setOrgNm(request.getOrgNm());
 
         AbandonedDog updatedDog = abandonedDogRepository.save(dog);
-        return DogDetailResponse.fromEntity(updatedDog, true, true); // 쉘터에선 수정 요망 or
+
+        // isLiked는 보호소 계정이므로 false, adoptionStatus는 ADOPTED로 설정
+        return DogDetailResponse.fromEntity(updatedDog, false, DogAdoptionStatus.ADOPTED);
     }
 
     /**

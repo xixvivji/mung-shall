@@ -1,6 +1,7 @@
 package com.example.backend.api.dog.dto;
 
 import com.example.backend.domain.dog.AbandonedDog;
+import com.example.backend.domain.dog.DogAdoptionStatus;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
@@ -19,7 +20,7 @@ public class DogSummaryResponse {
     private String weight;
     private String careNm;
     private boolean isLiked;
-    private boolean isAdopting;
+    private DogAdoptionStatus adoptionStatus;
 
     /**
      * AbandonedDog 엔티티를 DogSummaryResponse DTO로 변환하는 정적 팩토리 메소드
@@ -35,7 +36,7 @@ public class DogSummaryResponse {
                 dog.getWeight(),
                 dog.getCareNm(),
                 false, // isLiked 기본값은 false, service에서 설정
-                false // isAdopting 기본값은 false, service에서 설정
+                DogAdoptionStatus.NOT_ADOPTED // adoptionStatus 기본값, service에서 설정
         );
     }
 }

@@ -240,17 +240,6 @@ export default function VideoMeetingPage() {
       </div>
 
       <div className="space-y-6 rounded-2xl border border-gray-100 bg-white p-8 shadow-sm">
-        <div className="flex flex-wrap gap-4 text-sm text-gray-600">
-          <div>
-            postAdoptionId: <span className="font-semibold text-gray-900">{postAdoptionId ?? "-"}</span>
-          </div>
-          <div>
-            stepKey: <span className="font-semibold text-gray-900">{stepKeyParam ?? "-"}</span>
-          </div>
-          <div>
-            sessionId: <span className="font-semibold text-gray-900">{sessionId ?? "-"}</span>
-          </div>
-        </div>
 
         <div className="flex flex-wrap gap-3">
           {STEPS.map((s) => {

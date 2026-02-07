@@ -48,6 +48,15 @@ const resolveCounseling = (data: CounselingResponse | null): ConsultSaved | null
 };
 
 export function ConsultStep({ isEditable, adoptionId, onConsultComplete }: Props) {
+  // ✅ ConsultStep 전용: 기본 mypage(파란 버튼) + size default 통일
+  const LgButton = ({
+    variant = "mypage",
+    className,
+    ...props
+  }: React.ComponentProps<typeof Button>) => (
+    <Button variant={variant} size="default" className={className} {...props} />
+  );
+
   const [open, setOpen] = useState(false);
   const [saved, setSaved] = useState<ConsultSaved | null>(null);
   const [counselingId, setCounselingId] = useState<number | null>(null);
@@ -136,9 +145,7 @@ export function ConsultStep({ isEditable, adoptionId, onConsultComplete }: Props
     <div className="space-y-6">
       <div className="rounded-2xl border border-gray-200 p-6">
         <p className="text-sm font-semibold text-gray-900">입양 상담</p>
-        <p className="mt-1 text-sm text-gray-500">
-          상담 일정을 예약하고 변경할 수 있습니다.
-        </p>
+        <p className="mt-1 text-sm text-gray-500">상담 일정을 예약하고 변경할 수 있습니다.</p>
 
         {loading ? (
           <div className="mt-4 rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 text-sm text-gray-500">
@@ -167,8 +174,9 @@ export function ConsultStep({ isEditable, adoptionId, onConsultComplete }: Props
           </div>
         </div>
 
-        <div className="mt-5 flex gap-3">
-          <Button
+        {/* ✅ 버튼 우측 정렬 */}
+        <div className="mt-5 flex flex-wrap justify-end gap-3">
+          <LgButton
             className="rounded-lg"
             disabled={!isEditable || saving}
             onClick={() => {
@@ -177,23 +185,25 @@ export function ConsultStep({ isEditable, adoptionId, onConsultComplete }: Props
             }}
           >
             일정 입력/수정
-          </Button>
-          <Button
-            variant="outline"
+          </LgButton>
+
+          <LgButton
+            variant="mypage"
             className="rounded-lg"
             disabled={!isEditable || deleting || !counselingId}
             onClick={handleCancel}
           >
-            {deleting ? "취소 중..." : "상담 예약 취소"}
-          </Button>
-          <Button
-            variant="outline"
+            {deleting ? "취소 중..." : "상담 취소"}
+          </LgButton>
+
+          <LgButton
+            variant="mypage"
             className="rounded-lg"
             disabled={!isEditable}
             onClick={onConsultComplete}
           >
-            상담 완료 처리
-          </Button>
+            상담 완료
+          </LgButton>
         </div>
       </div>
 

@@ -1,4 +1,5 @@
-﻿import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+﻿// ContractStep.tsx
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { Button } from "@/shared/ui/button";
 import { ApiError } from "@/shared/api/client";
 import {
@@ -13,10 +14,14 @@ import {
   createDefaultContractOverlayValues,
 } from "./contractOverlayValues";
 
+import html2canvas from "html2canvas";
+import jsPDF from "jspdf";
+
 type Props = {
   isEditable: boolean;
   onSubmitSuccess: () => void;
   adoptionId?: number;
+  userId: string;
 };
 
 const formatDateTime = (value?: string | null) => {
@@ -45,8 +50,8 @@ const resolveApiErrorMessage = (error: unknown, fallback: string) => {
   if (error instanceof ApiError) {
     if (error.status === 401) return "Login required.";
     if (error.status === 403) return "You do not have permission.";
-    if (error.status === 404) return "Contract not found.";
-    if (error.status === 409) return "The contract status has changed. Please refresh.";
+    if (error.status === 404) return "Application form not found.";
+    if (error.status === 409) return "The application form status has changed. Please refresh.";
     if (error.status >= 500) return "Server error. Please try again.";
     return error.message || fallback;
   }
@@ -54,51 +59,75 @@ const resolveApiErrorMessage = (error: unknown, fallback: string) => {
   return fallback;
 };
 
-export function ContractStep({ isEditable, onSubmitSuccess, adoptionId }: Props) {
-  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+const sanitizeFileStem = (input: string) =>
+  (input ?? "")
+    .trim()
+    .replace(/\s+/g, "_")
+    .replace(/[\\/:*?"<>|]/g, "_")
+    .slice(0, 40) || "user";
+
+const stripAllStylesheets = (doc: Document) => {
+  doc.querySelectorAll("link[rel='stylesheet'], style").forEach((el) => el.remove());
+};
+
+export function ContractStep({ isEditable, onSubmitSuccess, adoptionId, userId }: Props) {
+  const LgButton = ({
+    variant = "mypage",
+    className,
+    ...props
+  }: React.ComponentProps<typeof Button>) => (
+    <Button variant={variant} size="default" className={className} {...props} />
+  );
+
   const [open, setOpen] = useState(false);
   const [values, setValues] = useState<ContractOverlayValues>(createDefaultContractOverlayValues());
-  const [isFormConfirmed, setIsFormConfirmed] = useState(false);
-  const [contract, setContract] = useState<AdoptionContractResponse | null>(null);
-  const [contractLoading, setContractLoading] = useState(false);
-  const [contractError, setContractError] = useState<string | null>(null);
-  const [uploading, setUploading] = useState(false);
+
+  const [applicationForm, setApplicationForm] =
+    useState<AdoptionContractResponse | null>(null);
+  const [applicationFormLoading, setApplicationFormLoading] = useState(false);
+  const [applicationFormError, setApplicationFormError] = useState<string | null>(null);
+
   const [deleting, setDeleting] = useState(false);
-  const fileInputRef = useRef<HTMLInputElement | null>(null);
 
-  const canUpload = isEditable && !uploading;
+  const [pendingFile, setPendingFile] = useState<File | null>(null);
+  const [pendingPreviewUrl, setPendingPreviewUrl] = useState<string | null>(null);
 
-  const selectedMeta = useMemo(() => {
-    if (!selectedFile) return null;
-    return {
-      name: selectedFile.name,
-      size: formatFileSize(selectedFile.size),
-      type: selectedFile.type || "unknown",
+  const [capturing, setCapturing] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  const [modalError, setModalError] = useState<string | null>(null);
+
+  // ✅ 캡쳐 직전에 overlay를 "capture" 모드로 전환
+  const [overlayMode, setOverlayMode] = useState<"edit" | "capture">("edit");
+
+  const overlayCaptureRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (pendingPreviewUrl) URL.revokeObjectURL(pendingPreviewUrl);
     };
-  }, [selectedFile]);
+  }, [pendingPreviewUrl]);
 
-  const loadContract = useCallback(
+  const loadApplicationForm = useCallback(
     async (targetId: number, options?: { silent?: boolean }) => {
       const silent = options?.silent ?? false;
-      if (!silent) setContractLoading(true);
-      setContractError(null);
+      if (!silent) setApplicationFormLoading(true);
+      setApplicationFormError(null);
 
       try {
         const data = await getAdoptionContract(targetId);
-        setContract(data);
-        if (import.meta.env.DEV) {
-          console.debug("[contract] fetched", data);
-        }
+        setApplicationForm(data);
       } catch (err) {
         if (err instanceof ApiError && err.status === 404) {
-          setContract(null);
-          setContractError(null);
+          setApplicationForm(null);
+          setApplicationFormError(null);
         } else {
-          setContract(null);
-          setContractError(resolveApiErrorMessage(err, "Failed to load contract."));
+          setApplicationForm(null);
+          setApplicationFormError(
+            resolveApiErrorMessage(err, "Failed to load application form.")
+          );
         }
       } finally {
-        if (!silent) setContractLoading(false);
+        if (!silent) setApplicationFormLoading(false);
       }
     },
     []
@@ -106,58 +135,36 @@ export function ContractStep({ isEditable, onSubmitSuccess, adoptionId }: Props)
 
   useEffect(() => {
     if (!adoptionId) {
-      setContract(null);
-      setContractError("Missing adoptionId.");
+      setApplicationForm(null);
+      setApplicationFormError("Missing adoptionId.");
       return;
     }
+    loadApplicationForm(adoptionId).catch(() => {});
+  }, [adoptionId, loadApplicationForm]);
 
-    loadContract(adoptionId).catch(() => {
-      // loadContract handles its own errors
-    });
-  }, [adoptionId, loadContract]);
-
-  const handleUpload = async () => {
-    if (!adoptionId) {
-      setContractError("Missing adoptionId.");
-      return;
-    }
-    if (!selectedFile) {
-      setContractError("Please select a contract file.");
-      return;
-    }
-
-    setUploading(true);
-    setContractError(null);
-
-    try {
-      const response = await uploadAdoptionContract(adoptionId, selectedFile);
-      setContract(response);
-      setSelectedFile(null);
-      onSubmitSuccess();
-    } catch (err) {
-      setContractError(resolveApiErrorMessage(err, "Failed to upload contract."));
-    } finally {
-      setUploading(false);
-    }
-  };
-
-  const handleDelete = async () => {
-    if (!adoptionId || !contract || deleting) return;
-    const confirmed = window.confirm("Delete the contract file?");
+  const handleDeleteUploaded = async () => {
+    if (!adoptionId || !applicationForm || deleting) return;
+    const confirmed = window.confirm("Delete the application form file?");
     if (!confirmed) return;
 
     setDeleting(true);
-    setContractError(null);
+    setApplicationFormError(null);
 
     try {
       await deleteAdoptionContract(adoptionId);
-      setContract(null);
-      await loadContract(adoptionId, { silent: true });
+      setApplicationForm(null);
+      await loadApplicationForm(adoptionId, { silent: true });
     } catch (err) {
-      setContractError(resolveApiErrorMessage(err, "Failed to delete contract."));
+      setApplicationFormError(resolveApiErrorMessage(err, "Failed to delete application form."));
     } finally {
       setDeleting(false);
     }
+  };
+
+  const handleClearPending = () => {
+    if (pendingPreviewUrl) URL.revokeObjectURL(pendingPreviewUrl);
+    setPendingPreviewUrl(null);
+    setPendingFile(null);
   };
 
   useLayoutEffect(() => {
@@ -171,183 +178,314 @@ export function ContractStep({ isEditable, onSubmitSuccess, adoptionId }: Props)
 
   const pdfUrl = "/docs/adoption-application.pdf";
 
+  const addImageFitA4 = (pdf: jsPDF, imgData: string, canvasW: number, canvasH: number) => {
+    const pageW = pdf.internal.pageSize.getWidth();
+    const pageH = pdf.internal.pageSize.getHeight();
+    const scale = Math.min(pageW / canvasW, pageH / canvasH);
+    const imgW = canvasW * scale;
+    const imgH = canvasH * scale;
+    const x = (pageW - imgW) / 2;
+    const y = (pageH - imgH) / 2;
+    pdf.addImage(imgData, "PNG", x, y, imgW, imgH);
+  };
+
+  const captureToPdfFile = async (filename: string) => {
+    const el = overlayCaptureRef.current;
+    if (!el) throw new Error("capture target missing");
+
+    // ✅ 캡쳐 레이어로 전환 후 렌더 반영 대기(2프레임)
+    setOverlayMode("capture");
+    await new Promise<void>((r) => requestAnimationFrame(() => r()));
+    await new Promise<void>((r) => requestAnimationFrame(() => r()));
+
+    const captureW = Math.ceil(el.scrollWidth || el.getBoundingClientRect().width);
+    const captureH = Math.ceil(el.scrollHeight || el.getBoundingClientRect().height);
+
+    try {
+      const canvas = await html2canvas(el, {
+        scale: 2,
+        backgroundColor: "#ffffff",
+        useCORS: true,
+        allowTaint: true,
+        windowWidth: captureW,
+        windowHeight: captureH,
+        scrollX: 0,
+        scrollY: -window.scrollY,
+        onclone: (doc) => {
+          // ✅ oklab/oklch 파서 크래시 방지
+          stripAllStylesheets(doc);
+
+          const root = doc.querySelector("[data-capture-root]") as HTMLElement | null;
+          if (!root) return;
+
+          root.style.width = `${captureW}px`;
+          root.style.height = `${captureH}px`;
+          root.style.background = "#fff";
+          root.style.overflow = "visible";
+        },
+      });
+
+      const imgData = canvas.toDataURL("image/png");
+      const pdf = new jsPDF("p", "pt", "a4");
+      addImageFitA4(pdf, imgData, canvas.width, canvas.height);
+
+      const blob = pdf.output("blob");
+      return new File([blob], filename, { type: "application/pdf" });
+    } finally {
+      // ✅ 원복
+      setOverlayMode("edit");
+    }
+  };
+
+  const handleConfirmCapture = async () => {
+    if (!isEditable) return;
+    if (!adoptionId) {
+      setApplicationFormError("Missing adoptionId.");
+      return;
+    }
+    if (capturing) return;
+
+    setCapturing(true);
+    setApplicationFormError(null);
+    setModalError(null);
+
+    try {
+      const stem = sanitizeFileStem(values.name || userId || "user");
+      const filename = `${stem}_입양신청서.pdf`;
+
+      const pdfFile = await captureToPdfFile(filename);
+
+      if (pendingPreviewUrl) URL.revokeObjectURL(pendingPreviewUrl);
+      const previewUrl = URL.createObjectURL(pdfFile);
+
+      setPendingFile(pdfFile);
+      setPendingPreviewUrl(previewUrl);
+
+      requestAnimationFrame(() => setOpen(false));
+    } catch (err) {
+      console.error("[capture error]", err);
+      setModalError(resolveApiErrorMessage(err, "Failed to create application form PDF."));
+    } finally {
+      setCapturing(false);
+    }
+  };
+
+  const handleSubmitUpload = async () => {
+    if (!isEditable) return;
+    if (!adoptionId) {
+      setApplicationFormError("Missing adoptionId.");
+      return;
+    }
+    if (!pendingFile) {
+      setApplicationFormError("첨부된 PDF가 없습니다. 먼저 신청서를 작성/확인해주세요.");
+      return;
+    }
+    if (submitting) return;
+
+    setSubmitting(true);
+    setApplicationFormError(null);
+
+    try {
+      const response = await uploadAdoptionContract(adoptionId, pendingFile);
+      setApplicationForm(response);
+
+      handleClearPending();
+      onSubmitSuccess();
+    } catch (err) {
+      setApplicationFormError(resolveApiErrorMessage(err, "Failed to upload application form."));
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
   return (
     <div className="space-y-6">
+      {/* ===== 조회/삭제 카드 ===== */}
       <div className="rounded-2xl border border-gray-200 p-6">
         <div className="flex items-start justify-between gap-4">
           <div>
-            <p className="text-sm font-semibold text-gray-900">계약서</p>
+            <p className="text-sm font-semibold text-gray-900">입양 신청서</p>
             <p className="mt-1 text-sm text-gray-500">
-              업로드된 계약서를 확인하거나 삭제 후 재업로드하세요.
+              업로드된 입양 신청서를 확인하거나 삭제 후 재업로드하세요.
             </p>
           </div>
-          {contractLoading ? <span className="text-xs text-gray-500">로딩 중...</span> : null}
+          {applicationFormLoading ? <span className="text-xs text-gray-500">로딩 중...</span> : null}
         </div>
 
-        {contractError ? <p className="mt-2 text-xs text-red-600">{contractError}</p> : null}
+        {applicationFormError ? <p className="mt-2 text-xs text-red-600">{applicationFormError}</p> : null}
 
         {!adoptionId ? (
-          <p className="mt-4 text-xs text-gray-500">
-            입양 ID가 없습니다. 입양 과정에서 다시 열어주세요.
-          </p>
-        ) : contract ? (
+          <p className="mt-4 text-xs text-gray-500">입양 ID가 없습니다. 입양 과정에서 다시 열어주세요.</p>
+        ) : applicationForm ? (
           <div className="mt-4 space-y-3 rounded-xl bg-gray-50 p-4 text-sm text-gray-700">
             <div>
               <p className="text-xs font-semibold text-gray-500">파일명</p>
               <p className="text-sm text-gray-900">
-                {contract.originalFileName || "계약서 파일"}
+                {applicationForm.originalFileName || "입양 신청서 파일"}
               </p>
             </div>
+
             <div>
               <p className="text-xs font-semibold text-gray-500">업로드 정보</p>
               <p className="text-sm text-gray-900">
-                {formatFileSize(contract.fileSize)} · {formatDateTime(contract.uploadedAt)}
+                {formatFileSize(applicationForm.fileSize)} · {formatDateTime(applicationForm.uploadedAt)}
               </p>
             </div>
-            {contract.contractFileUrl ? (
+
+            {applicationForm.contractFileUrl ? (
               <a
                 className="inline-flex text-xs font-semibold text-blue-600 hover:underline"
-                href={contract.contractFileUrl}
+                href={applicationForm.contractFileUrl}
                 target="_blank"
                 rel="noopener noreferrer"
               >
-                계약서 파일 열기
+                입양 신청서 파일 열기
               </a>
             ) : null}
 
-            <div className="pt-2">
-              <Button
+            <div className="pt-2 flex justify-end">
+              <LgButton
                 variant="outline"
                 className="rounded-lg"
                 disabled={!isEditable || deleting}
-                onClick={handleDelete}
+                onClick={handleDeleteUploaded}
               >
                 {deleting ? "삭제 중..." : "삭제"}
-              </Button>
+              </LgButton>
             </div>
           </div>
         ) : (
           <div className="mt-4 rounded-xl bg-gray-50 p-4 text-sm text-gray-500">
-            업로드된 계약서가 없습니다.
+            업로드된 입양 신청서가 없습니다.
           </div>
         )}
-
-        {contractError && adoptionId ? (
-          <div className="mt-4">
-            <Button
-              variant="outline"
-              className="rounded-lg"
-              onClick={() => loadContract(adoptionId)}
-              disabled={contractLoading}
-            >
-              다시 시도
-            </Button>
-          </div>
-        ) : null}
       </div>
 
+      {/* ===== 작성/첨부/제출 카드 ===== */}
       <div className="rounded-2xl border border-gray-200 p-6">
-        <div className="flex items-start justify-between gap-4">
-          <div>
-            <p className="text-sm font-semibold text-gray-900">계약서 업로드</p>
-            <p className="mt-1 text-sm text-gray-500">
-              서명된 계약서(PDF 권장)를 업로드하세요.
-            </p>
-          </div>
+        <div>
+          <p className="text-sm font-semibold text-gray-900">입양 신청서 작성</p>
+          <p className="mt-1 text-sm text-gray-500">
+            모달에서 작성 후 확인을 누르면 PDF로 생성되어 첨부됩니다. 제출하기를 눌러 업로드하세요.
+          </p>
         </div>
 
-        <div className="mt-4 flex flex-wrap items-center gap-3">
-          <Button
-            className="rounded-lg"
-            disabled={!canUpload}
-            onClick={() => fileInputRef.current?.click()}
-          >
-            파일 선택
-          </Button>
+        <div className="mt-4">
+          {pendingFile ? (
+            <div className="rounded-xl bg-gray-50 p-4 text-sm text-gray-700 space-y-2">
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <p className="text-xs font-semibold text-gray-500">첨부됨</p>
+                  <p className="text-sm text-gray-900">{pendingFile.name}</p>
+                  <p className="text-xs text-gray-500 mt-1">{formatFileSize(pendingFile.size)}</p>
+                </div>
 
-          {selectedFile && (
-            <Button
-              variant="outline"
-              className="rounded-lg"
-              disabled={!canUpload}
-              onClick={() => setSelectedFile(null)}
-            >
-              선택 해제
-            </Button>
-          )}
+                <div className="flex gap-2">
+                  {pendingPreviewUrl ? (
+                    <a
+                      href={pendingPreviewUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center text-xs font-semibold text-blue-600 hover:underline"
+                    >
+                      미리보기
+                    </a>
+                  ) : null}
+                  <button
+                    type="button"
+                    className="text-xs font-semibold text-gray-600 hover:underline"
+                    onClick={handleClearPending}
+                    disabled={submitting}
+                  >
+                    첨부 제거
+                  </button>
+                </div>
+              </div>
 
-          <input
-            ref={fileInputRef}
-            type="file"
-            className="hidden"
-            onChange={(e) => setSelectedFile(e.target.files?.[0] ?? null)}
-            disabled={!canUpload}
-          />
-        </div>
+              <div className="flex flex-wrap justify-end gap-3">
+                <LgButton
+                  variant="mypage"
+                  className="rounded-lg"
+                  onClick={() => setOpen(true)}
+                  disabled={!isEditable || capturing || submitting}
+                >
+                  다시 작성
+                </LgButton>
 
-        <div className="mt-4 rounded-xl bg-gray-50 p-4 text-sm">
-          {!selectedMeta ? (
-            <p className="text-gray-500">선택된 파일이 없습니다.</p>
+                <LgButton
+                  variant="mypage"
+                  className="rounded-lg"
+                  onClick={handleSubmitUpload}
+                  disabled={!isEditable || submitting}
+                >
+                  {submitting ? "제출 중..." : "제출하기"}
+                </LgButton>
+              </div>
+            </div>
           ) : (
-            <div className="space-y-1">
-              <p className="font-medium text-gray-900">{selectedMeta.name}</p>
-              <p className="text-gray-500">
-                {selectedMeta.size} · {selectedMeta.type}
-              </p>
+            <div className="flex justify-end">
+              <LgButton
+                variant="mypage"
+                className="rounded-lg"
+                onClick={() => setOpen(true)}
+                disabled={!isEditable}
+              >
+                신청서 작성하기
+              </LgButton>
             </div>
           )}
         </div>
-
-        <div className="mt-4 flex flex-wrap gap-3">
-          <Button
-            className="rounded-lg"
-            disabled={!canUpload || !selectedFile}
-            onClick={handleUpload}
-          >
-            {uploading ? "업로드 중..." : "업로드"}
-          </Button>
-          <Button variant="outline" className="rounded-lg" onClick={() => setOpen(true)}>
-            계약서 양식 보기
-          </Button>
-        </div>
       </div>
 
+      {/* ===== 모달 ===== */}
       {open && (
         <div className="fixed inset-0 z-50 bg-black/40">
-          {/* 계약서 양식 모달 오버레이 */}
           <div className="h-full w-full overflow-y-auto py-8">
             <div className="mx-auto w-[860px] max-w-[calc(100vw-32px)]">
-              {/* 모달 카드 */}
               <div className="bg-white rounded-xl shadow-xl max-h-[calc(100vh-4rem)] flex flex-col">
-                {/* 헤더 */}
                 <div className="p-6 border-b">
                   <div className="flex items-center justify-between">
                     <div>
-                      <p className="text-lg font-semibold text-gray-900">계약서 양식</p>
+                      <p className="text-lg font-semibold text-gray-900">입양 신청서 양식</p>
                       <p className="mt-1 text-sm text-gray-500">
-                        PDF 미리보기 화면입니다. 필요시 내려받아 작성하세요.
+                        PDF 위에 입력한 내용을 PDF로 생성해 첨부합니다. (제출하기를 눌러 업로드)
                       </p>
+                      {modalError ? <p className="mt-3 text-xs text-red-600">{modalError}</p> : null}
                     </div>
-                    <Button variant="outline" className="rounded-lg" onClick={() => setOpen(false)}>
+
+                    <LgButton
+                      variant="outline"
+                      className="rounded-lg"
+                      onClick={() => setOpen(false)}
+                      disabled={capturing}
+                    >
                       닫기
-                    </Button>
+                    </LgButton>
                   </div>
                 </div>
 
-                {/* 본문 */}
                 <div className="p-6 overflow-y-auto">
-                  <AdoptionPdfOverlay fileUrl={pdfUrl} values={values} onChange={setValues} />
+                  <div ref={overlayCaptureRef} data-capture-root>
+                    <AdoptionPdfOverlay
+                      fileUrl={pdfUrl}
+                      values={values}
+                      onChange={setValues}
+                      mode={overlayMode}
+                    />
+                  </div>
                 </div>
 
-                {/* 하단 액션 */}
                 <div className="border-t p-4 flex justify-end gap-2 bg-white sticky bottom-0">
-                  <Button
-                    variant="outline"
+                  <LgButton
+                    variant="mypage"
                     onClick={() => setValues(createDefaultContractOverlayValues())}
+                    disabled={capturing}
                   >
                     초기화
-                  </Button>
-                  <Button onClick={() => setOpen(false)}>확인</Button>
+                  </LgButton>
+                  <LgButton onClick={handleConfirmCapture} disabled={capturing || !isEditable}>
+                    {capturing ? "PDF 생성 중..." : "확인"}
+                  </LgButton>
                 </div>
               </div>
             </div>

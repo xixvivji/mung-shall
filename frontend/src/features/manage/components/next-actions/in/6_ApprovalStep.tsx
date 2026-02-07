@@ -66,7 +66,7 @@ export function ApprovalStep({
   canReview,
   approvalStatus,
   processStatus,
-  requiredStepLabel = "5단계 · 입양 계약서",
+  requiredStepLabel = "입양 신청서",
 }: Props) {
   const viewState: ViewState = useMemo(() => (canReview ? "ACTIVE" : "LOCKED"), [canReview]);
 

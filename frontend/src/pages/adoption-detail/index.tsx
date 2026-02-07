@@ -1,6 +1,7 @@
 import { useMemo } from "react";
 import { useParams } from "react-router-dom";
 import { ActionButtons, DogGallery, useAdoptionDetail } from "@/features/adoptionDetail";
+import { resolveAdoptionStatusLabel } from "@/features/adoptionDetail/utils/adoptionStatus";
 
 function InfoRow({ label, value }: { label: string; value?: string }) {
   return (
@@ -39,6 +40,7 @@ export default function AdoptionDetailPage() {
 
   const title = detail.careNm ? `${detail.careNm} 강아지 입양 상세 정보` : "강아지 입양 상세 정보";
   const idLabel = detail.noticeNo ?? detail.desertionNo ?? detail.id;
+  const adoptionStatusLabel = resolveAdoptionStatusLabel(detail.adoptionStatus);
 
   return (
     <section className="mx-auto max-w-[1200px] px-6 py-20">
@@ -48,7 +50,7 @@ export default function AdoptionDetailPage() {
         </h1>
 
       <div className="mt-8 grid gap-8 lg:grid-cols-[1.1fr_0.9fr]">
-        <DogGallery images={detail.images} />
+        <DogGallery images={detail.images} statusLabel={adoptionStatusLabel} />
 
         <div className="space-y-6">
           <div className="rounded-2xl border border-[#eee] bg-white p-6 shadow-[0_8px_24px_rgba(0,0,0,0.04)]">
@@ -68,7 +70,7 @@ export default function AdoptionDetailPage() {
                     : undefined
                 }
               />
-              <InfoRow label="상태" value={detail.processState} />
+              <InfoRow label="상태" value={adoptionStatusLabel} />
             </div>
           </div>
 

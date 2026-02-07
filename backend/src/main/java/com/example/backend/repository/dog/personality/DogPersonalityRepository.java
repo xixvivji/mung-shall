@@ -28,5 +28,17 @@ public interface DogPersonalityRepository extends JpaRepository<DogPersonality, 
         """)
     List<DogPersonality> findNeedBackfill();
 
+    @Query("""
+            select p.abandonedDog.id as dogId, p.augmentedText as augmentedText
+            from DogPersonality p
+            where p.augmentedText is not null
+              and p.augmentedText <> ''
+        """)
+    List<DogTextProjection> findAllDogTextProjections();
+
+    interface DogTextProjection {
+        Long getDogId();
+        String getAugmentedText();
+    }
 
 }

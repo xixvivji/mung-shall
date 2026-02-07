@@ -19,13 +19,15 @@ export default function IntroSection3() {
 
           {/* 텍스트 */}
           <div>
-            <h3 className="text-xl font-semibold text-[#111]">
+            <h3 className="text-2xl font-semibold text-[#111]">
               WebRTC 기반 화상 통화 사후 관리
             </h3>
-            <p className="mt-3 text-sm leading-6 text-[#6B7280]">
+            <p className="mt-4 text-base leading-7 text-[#6B7280]">
               입양 이후에도 화상 상담을 통해 반려견의 상태를
+              <br/>
               지속적으로 확인하고 소통할 수 있습니다.
             </p>
+
           </div>
         </div>
 
@@ -33,11 +35,12 @@ export default function IntroSection3() {
         <div className="grid grid-cols-1 md:grid-cols-2 items-center gap-16">
           {/* 텍스트 */}
           <div>
-            <h3 className="text-xl font-semibold text-[#111]">
+            <h3 className="text-2xl font-semibold text-[#111]">
               문서 제출도, 조회도 한눈에
             </h3>
-            <p className="mt-3 text-sm leading-6 text-[#6B7280]">
+            <p className="mt-4 text-base leading-7 text-[#6B7280]">
               입양에 필요한 각종 서류를 한 곳에서
+              <br/>
               제출하고 진행 상태를 바로 확인할 수 있습니다.
             </p>
           </div>

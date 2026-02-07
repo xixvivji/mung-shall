@@ -23,7 +23,7 @@ public class MatchingService {
     private final EmbeddingCachingService embeddingCachingService;
 
     public List<DogMatch> match(DogRecommendationSurveyResponse servey, int topK) {
-        if(topK <= 0) topK = 20;
+        if(topK <= 0) topK = 12;
 
         // 설문 임베딩
         float[] userVec = embeddingService.embedAdopterSurvey(servey);

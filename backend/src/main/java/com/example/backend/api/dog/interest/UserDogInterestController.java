@@ -1,7 +1,9 @@
 package com.example.backend.api.dog.interest;
 
 import com.example.backend.api.dog.dto.DogSummaryResponse;
+import com.example.backend.domain.dog.AbandonedDog;
 import com.example.backend.security.principal.CustomUserPrincipal;
+import com.example.backend.service.dog.DogService;
 import com.example.backend.service.dog.interest.UserDogInterestService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
@@ -25,6 +27,7 @@ import java.util.stream.Collectors;
 public class UserDogInterestController {
 
     private final UserDogInterestService userDogInterestService;
+    private final DogService dogService; // DogService 주입
 
     @Operation(summary = "강아지 좋아요 등록", description = "사용자가 특정 강아지에 대해 좋아요를 등록합니다.")
     @ApiResponses(value = {
@@ -64,13 +67,20 @@ public class UserDogInterestController {
             @ApiResponse(responseCode = "401", description = "인증되지 않은 사용자")
     })
     @GetMapping("/members/me/liked-dogs")
-    public ResponseEntity<?> getLikedDogs(@Parameter(hidden = true) Authentication authentication) {
+    public ResponseEntity<List<DogSummaryResponse>> getLikedDogs(@Parameter(hidden = true) Authentication authentication) {
         Long currentUserId = ((CustomUserPrincipal) authentication.getPrincipal()).getUserId();
 
-        List<DogSummaryResponse> likedDogs = userDogInterestService.getLikedDogs(currentUserId).stream()
-                .map(DogSummaryResponse::fromEntity)
+        List<AbandonedDog> likedDogs = userDogInterestService.getLikedDogs(currentUserId);
+
+        List<DogSummaryResponse> response = likedDogs.stream()
+                .map(dog -> {
+                    DogSummaryResponse dto = DogSummaryResponse.fromEntity(dog);
+                    dto.setLiked(true); // 좋아요한 강아지이므로 항상 true
+                    dto.setAdoptionStatus(dogService.determineAdoptionStatus(dog, currentUserId));
+                    return dto;
+                })
                 .collect(Collectors.toList());
-        return ResponseEntity.ok(likedDogs);
+        return ResponseEntity.ok(response);
     }
 }
 

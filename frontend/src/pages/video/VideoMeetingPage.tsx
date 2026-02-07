@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { Button } from "@/shared/ui/button";
 import { api } from "@/shared/api/client";
+import { OpenVidu } from "openvidu-browser";
 
 type StepKey = 30 | 60 | 90;
 
@@ -10,10 +11,6 @@ const STEPS: { stepKey: StepKey; title: string }[] = [
   { stepKey: 60, title: "2차 화상 상담 진행" },
   { stepKey: 90, title: "최종 화상 상담 진행" },
 ];
-
-const OPENVIDU_SCRIPT_ID = "openvidu-browser-script";
-const OPENVIDU_SCRIPT_URL =
-  "https://unpkg.com/openvidu-browser@2.32.0/lib/OpenViduBrowser-2.32.0.min.js";
 
 type StreamManagerLike = {
   addVideoElement: (element: HTMLVideoElement) => void;
@@ -37,22 +34,6 @@ type PublisherLike = StreamManagerLike & {
   publishAudio: (enabled: boolean) => void;
   publishVideo: (enabled: boolean) => void;
 };
-
-type OpenViduLike = {
-  initSession: () => SessionLike;
-  initPublisherAsync: (
-    targetElement?: string | HTMLElement | undefined,
-    properties?: Record<string, unknown>
-  ) => Promise<PublisherLike>;
-};
-
-type OpenViduConstructorLike = new () => OpenViduLike;
-
-declare global {
-  interface Window {
-    OpenVidu?: OpenViduConstructorLike;
-  }
-}
 
 function titleForStepKey(stepKey?: string) {
   const n = Number(stepKey);
@@ -83,39 +64,6 @@ function parseClientData(raw?: string) {
     // ignore malformed metadata and fallback
   }
   return "참여자";
-}
-
-async function loadOpenVidu(): Promise<OpenViduConstructorLike> {
-  if (window.OpenVidu) return window.OpenVidu;
-
-  const existing = document.getElementById(OPENVIDU_SCRIPT_ID) as HTMLScriptElement | null;
-  if (existing) {
-    await new Promise<void>((resolve, reject) => {
-      existing.addEventListener("load", () => resolve(), { once: true });
-      existing.addEventListener("error", () => reject(new Error("OpenVidu 스크립트 로드 실패")), {
-        once: true,
-      });
-    });
-    if (!window.OpenVidu) {
-      throw new Error("OpenVidu 객체를 찾을 수 없습니다.");
-    }
-    return window.OpenVidu;
-  }
-
-  await new Promise<void>((resolve, reject) => {
-    const script = document.createElement("script");
-    script.id = OPENVIDU_SCRIPT_ID;
-    script.src = OPENVIDU_SCRIPT_URL;
-    script.async = true;
-    script.onload = () => resolve();
-    script.onerror = () => reject(new Error("OpenVidu 스크립트 로드 실패"));
-    document.body.appendChild(script);
-  });
-
-  if (!window.OpenVidu) {
-    throw new Error("OpenVidu 객체를 찾을 수 없습니다.");
-  }
-  return window.OpenVidu;
 }
 
 async function createOpenViduSession(sessionId: string) {
@@ -213,8 +161,7 @@ export default function VideoMeetingPage() {
     try {
       await createOpenViduSession(sessionId);
       const token = await createOpenViduToken(sessionId, "WebUser");
-      const OpenViduCtor = await loadOpenVidu();
-      const openVidu = new OpenViduCtor();
+      const openVidu = new OpenVidu() as any;
       const newSession = openVidu.initSession();
 
       newSession.on("streamCreated", (event: any) => {

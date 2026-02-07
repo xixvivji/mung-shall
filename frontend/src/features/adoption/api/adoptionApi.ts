@@ -15,6 +15,7 @@ type DogSummaryResponse = {
   age?: string;
   weight?: string;
   careNm?: string;
+  adoptionStatus: AdoptionStatus;
   adopting?: boolean;
   processState?: string;
   adoptionStatus?: AdoptionStatus | string;
@@ -158,6 +159,7 @@ export async function fetchAdoptionList({
         age: dog.age ?? "",
         imageUrl: dog.imageUrl,
         careNm: dog.careNm ?? "", 
+        adoptionStatus: dog.adoptionStatus,
         adopting: dog.adopting,
         processState: dog.processState,
         adoptionStatus: resolveAdoptionStatus({

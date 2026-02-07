@@ -16,6 +16,7 @@ export type AdoptionDog = {
   age: string;
   imageUrl?: string;
   careNm?: string;
+  adoptionStatus: AdoptionStatus;
   adopting?: boolean;
   processState?: string;
   adoptionStatus?: AdoptionStatus;

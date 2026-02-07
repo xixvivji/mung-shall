@@ -1,4 +1,5 @@
 import type { DragEvent } from "react";
+import type { DragEvent } from "react";
 import { Link } from "react-router-dom";
 import { MapPin } from "lucide-react";
 import { ROUTES } from "@/shared/constants/routes";
@@ -19,6 +20,7 @@ type DogCardProps = {
   variant?: "link" | "div";
   selected?: boolean;
   draggable?: boolean;
+  onDragStart?: (e: DragEvent<HTMLDivElement>) => void;
   onDragStart?: (e: DragEvent<HTMLDivElement>) => void;
   className?: string;
   favoriteActive: boolean;
@@ -97,7 +99,7 @@ export default function DogCard({
             <ImageWithFallback
               src={dog.imageUrl}
               alt={breedText}
-              className="absolute inset-0 h-full w-full object-cover scale-[1.05] blur-[10px] brightness-90 transition duration-500"
+              className="absolute inset-0 h-full w-full scale-[1.05] object-cover blur-[10px] brightness-90 transition duration-500"
               aria-hidden
             />
             <div className="relative z-10 h-full w-full">
@@ -123,6 +125,7 @@ export default function DogCard({
 
       <div className="flex items-center gap-1 text-sm text-gray-400">
         <MapPin className="h-4 w-4" />
+        <span>{careText}</span>
         <span>{careText}</span>
       </div>
     </>

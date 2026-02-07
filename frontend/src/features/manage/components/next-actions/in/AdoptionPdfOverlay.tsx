@@ -1,3 +1,4 @@
+// AdoptionPdfOverlay.tsx
 import { useLayoutEffect, useMemo, useRef, useState } from "react";
 import { Document, Page, pdfjs } from "react-pdf";
 import { Button } from "@/shared/ui/button";
@@ -88,13 +89,17 @@ function SignaturePad({
   };
 
   return (
-    <div className="space-y-2">
+    <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
       <canvas
         ref={canvasRef}
         width={Math.max(1, Math.floor(width))}
         height={Math.max(1, Math.floor(height))}
-        className="border border-gray-400 bg-white rounded-sm"
-        style={{ touchAction: "none" }}
+        style={{
+          border: "1px solid #9ca3af",
+          background: "#fff",
+          borderRadius: 2,
+          touchAction: "none",
+        }}
         onMouseDown={start}
         onMouseMove={move}
         onMouseUp={end}
@@ -103,8 +108,8 @@ function SignaturePad({
         onTouchMove={move}
         onTouchEnd={end}
       />
-      <div className="flex justify-end">
-        <button type="button" className="text-xs text-gray-600 underline" onClick={clear}>
+      <div style={{ display: "flex", justifyContent: "flex-end" }}>
+        <button type="button" style={{ fontSize: 12, color: "#4b5563", textDecoration: "underline" }} onClick={clear}>
           서명 지우기
         </button>
       </div>
@@ -117,10 +122,12 @@ export function AdoptionPdfOverlay({
   fileUrl,
   values,
   onChange,
+  mode = "edit",
 }: {
   fileUrl: string;
   values: ContractOverlayValues;
   onChange: (next: ContractOverlayValues) => void;
+  mode?: "edit" | "capture";
 }) {
   const wrapRef = useRef<HTMLDivElement | null>(null);
   const [wrapW, setWrapW] = useState(720);
@@ -168,137 +175,246 @@ export function AdoptionPdfOverlay({
     []
   );
 
+  const captureTextStyle: React.CSSProperties = {
+    display: "block",
+    width: "100%",
+    height: "100%",
+    fontSize: 11,
+    lineHeight: "1.2",
+    color: "#000",
+    whiteSpace: "pre-wrap",
+    padding: "0 2px",
+  };
+
   return (
-    <div ref={wrapRef} className="relative w-full">
-      <div className="[&_canvas]:pointer-events-none">
-        <Document
-          file={fileUrl}
-          loading={<div className="text-sm text-gray-500">PDF 불러오는 중...</div>}
-          onLoadSuccess={() => setLoaded(true)}
-          onLoadError={() => setLoaded(false)}
-        >
-          <Page
-            pageNumber={1}
-            width={wrapW}
-            renderTextLayer={false}
-            renderAnnotationLayer={false}
-            onRenderSuccess={() => {
-              const c = wrapRef.current?.querySelector("canvas");
-              if (c) setPageH((c as HTMLCanvasElement).height);
-            }}
-          />
-        </Document>
-      </div>
+    <div ref={wrapRef} style={{ width: "100%" }}>
+      {/* 캡쳐/표시 공통: PDF 크기 고정 박스 */}
+      <div
+        style={{
+          position: "relative", // ✅ inline
+          width: wrapW,
+          height: pageH,
+          background: "#fff",
+        }}
+      >
+        {/* react-pdf canvas */}
+        <div>
+          <Document
+            file={fileUrl}
+            loading={<div style={{ fontSize: 14, color: "#6b7280" }}>PDF 불러오는 중...</div>}
+            onLoadSuccess={() => setLoaded(true)}
+            onLoadError={() => setLoaded(false)}
+          >
+            <Page
+              pageNumber={1}
+              width={wrapW}
+              renderTextLayer={false}
+              renderAnnotationLayer={false}
+              onRenderSuccess={() => {
+                const c = wrapRef.current?.querySelector("canvas");
+                if (c) setPageH((c as HTMLCanvasElement).height);
+              }}
+            />
+          </Document>
+        </div>
 
-      {loaded && (
-        <div className="absolute inset-0" style={{ width: wrapW, height: pageH }}>
-          {fields.map((f) => {
-            const style: React.CSSProperties = {
+        {/* ✅ 오버레이 컨테이너: className="absolute inset-0" 쓰지 말고 inline */}
+        {loaded && (
+          <div
+            style={{
               position: "absolute",
-              left: f.x * scale,
-              top: f.y * scale,
-              width: f.w * scale,
-              height: f.h * scale,
-            };
+              left: 0,
+              top: 0,
+              width: wrapW,
+              height: pageH,
+              zIndex: 10,
+            }}
+          >
+            {fields.map((f) => {
+              const style: React.CSSProperties = {
+                position: "absolute",
+                left: f.x * scale,
+                top: f.y * scale,
+                width: f.w * scale,
+                height: f.h * scale,
+              };
 
-            if (f.type === "checkbox") {
-              const checked = values[f.key] === "1";
+              // ===== CAPTURE MODE: input 없이 "그림"으로만 =====
+              if (mode === "capture") {
+                if (f.type === "checkbox") {
+                  const checked = values[f.key] === "1";
+                  return (
+                    <div key={f.key} style={style}>
+                      {checked ? (
+                        <div
+                          style={{
+                            width: "100%",
+                            height: "100%",
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "center",
+                            fontSize: 14,
+                            fontWeight: 700,
+                            color: "#000",
+                          }}
+                        >
+                          ✓
+                        </div>
+                      ) : null}
+                    </div>
+                  );
+                }
+
+                if (f.type === "signature") {
+                  return (
+                    <div key={f.key} style={style}>
+                      {values.signature ? (
+                        <img
+                          src={values.signature}
+                          alt="signature"
+                          draggable={false}
+                          style={{ width: "100%", height: "100%", objectFit: "contain" }}
+                        />
+                      ) : null}
+                    </div>
+                  );
+                }
+
+                return (
+                  <div key={f.key} style={style}>
+                    <span style={captureTextStyle}>{values[f.key] ?? ""}</span>
+                  </div>
+                );
+              }
+
+              // ===== EDIT MODE: 기존 input =====
+              if (f.type === "checkbox") {
+                const checked = values[f.key] === "1";
+                return (
+                  <input
+                    key={f.key}
+                    type="checkbox"
+                    style={{ ...style, accentColor: "#000" }}
+                    checked={checked}
+                    onChange={(e) => {
+                      const next = e.target.checked;
+                      if (f.key === "agreeYes") {
+                        onChange({ ...values, agreeYes: next ? "1" : "0", agreeNo: "0" });
+                      } else {
+                        onChange({ ...values, agreeNo: next ? "1" : "0", agreeYes: "0" });
+                      }
+                    }}
+                  />
+                );
+              }
+
+              if (f.type === "signature") {
+                return (
+                  <div key={f.key} style={style}>
+                    {values.signature ? (
+                      <button
+                        type="button"
+                        style={{
+                          width: "100%",
+                          height: "100%",
+                          border: "1px solid #d1d5db",
+                          background: "rgba(255,255,255,0.7)",
+                        }}
+                        onClick={() => setSignOpen(true)}
+                        title="클릭해서 서명 수정"
+                      >
+                        <img
+                          src={values.signature}
+                          alt="signature"
+                          draggable={false}
+                          style={{ width: "100%", height: "100%", objectFit: "contain" }}
+                        />
+                      </button>
+                    ) : (
+                      <button
+                        type="button"
+                        style={{
+                          width: "100%",
+                          height: "100%",
+                          border: "1px solid #d1d5db",
+                          background: "rgba(255,255,255,0.7)",
+                          fontSize: 10,
+                          color: "#4b5563",
+                        }}
+                        onClick={() => setSignOpen(true)}
+                      >
+                        서명
+                      </button>
+                    )}
+
+                    {signOpen && (
+                      <div
+                        style={{
+                          position: "fixed",
+                          inset: 0,
+                          zIndex: 60,
+                          background: "rgba(0,0,0,0.4)",
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "center",
+                          padding: 16,
+                        }}
+                      >
+                        <div
+                          style={{
+                            width: 520,
+                            maxWidth: "calc(100vw - 32px)",
+                            borderRadius: 12,
+                            background: "#fff",
+                            padding: 16,
+                          }}
+                        >
+                          <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 12 }}>
+                            <p style={{ fontSize: 14, fontWeight: 600 }}>서명 입력</p>
+                            <button type="button" style={{ fontSize: 14, color: "#4b5563" }} onClick={() => setSignOpen(false)}>
+                              닫기
+                            </button>
+                          </div>
+
+                          <SignaturePad
+                            width={480}
+                            height={200}
+                            onEnd={(img) => onChange({ ...values, signature: img })}
+                            onClear={() => onChange({ ...values, signature: "" })}
+                          />
+
+                          <div style={{ marginTop: 12, display: "flex", justifyContent: "flex-end", gap: 8 }}>
+                            <Button variant="outline" onClick={() => onChange({ ...values, signature: "" })}>
+                              비우기
+                            </Button>
+                            <Button onClick={() => setSignOpen(false)}>완료</Button>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                );
+              }
+
               return (
                 <input
                   key={f.key}
-                  type="checkbox"
-                  className="absolute accent-black"
-                  style={style}
-                  checked={checked}
-                  onChange={(e) => {
-                    const next = e.target.checked;
-                    if (f.key === "agreeYes") {
-                      onChange({ ...values, agreeYes: next ? "1" : "0", agreeNo: "0" });
-                    } else {
-                      onChange({ ...values, agreeNo: next ? "1" : "0", agreeYes: "0" });
-                    }
+                  type="text"
+                  value={values[f.key]}
+                  onChange={(e) => onChange({ ...values, [f.key]: e.target.value })}
+                  style={{
+                    ...style,
+                    border: "1px solid #d1d5db",
+                    background: "rgba(255,255,255,0.7)",
+                    padding: "0 4px",
+                    fontSize: 11,
                   }}
                 />
               );
-            }
-
-            if (f.type === "signature") {
-              return (
-                <div key={f.key} style={style}>
-                  {values.signature ? (
-                    <button
-                      type="button"
-                      className="w-full h-full border border-gray-300 bg-white/70"
-                      onClick={() => setSignOpen(true)}
-                      title="클릭해서 서명 수정"
-                    >
-                      <img
-                        src={values.signature}
-                        alt="signature"
-                        className="w-full h-full object-contain"
-                        draggable={false}
-                      />
-                    </button>
-                  ) : (
-                    <button
-                      type="button"
-                      className="w-full h-full border border-gray-300 bg-white/70 text-[10px] text-gray-600"
-                      onClick={() => setSignOpen(true)}
-                    >
-                      서명
-                    </button>
-                  )}
-
-                  {signOpen && (
-                    <div className="fixed inset-0 z-[60] bg-black/40 flex items-center justify-center p-4">
-                      <div className="w-[520px] max-w-[calc(100vw-32px)] rounded-xl bg-white p-4">
-                        <div className="flex items-center justify-between mb-3">
-                          <p className="text-sm font-semibold">서명 입력</p>
-                          <button
-                            type="button"
-                            className="text-sm text-gray-600"
-                            onClick={() => setSignOpen(false)}
-                          >
-                            닫기
-                          </button>
-                        </div>
-
-                        <SignaturePad
-                          width={480}
-                          height={200}
-                          onEnd={(img) => onChange({ ...values, signature: img })}
-                          onClear={() => onChange({ ...values, signature: "" })}
-                        />
-
-                        <div className="mt-3 flex justify-end gap-2">
-                          <Button
-                            variant="outline"
-                            onClick={() => onChange({ ...values, signature: "" })}
-                          >
-                            비우기
-                          </Button>
-                          <Button onClick={() => setSignOpen(false)}>완료</Button>
-                        </div>
-                      </div>
-                    </div>
-                  )}
-                </div>
-              );
-            }
-
-            return (
-              <input
-                key={f.key}
-                type="text"
-                className="absolute border border-gray-300 bg-white/70 px-1 text-[11px]"
-                style={style}
-                value={values[f.key]}
-                onChange={(e) => onChange({ ...values, [f.key]: e.target.value })}
-              />
-            );
-          })}
-        </div>
-      )}
+            })}
+          </div>
+        )}
+      </div>
     </div>
   );
 }

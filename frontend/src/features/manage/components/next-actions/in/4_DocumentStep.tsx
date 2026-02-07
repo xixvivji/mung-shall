@@ -15,15 +15,13 @@ import type { DocumentType } from "@/features/adoptionApplication/types";
 import type { AdoptionDocumentItem, StepStatus } from "@/features/manage/types";
 
 type Props = {
-  isEditable: boolean; // 제출 가능 여부(단계에 따른)
+  isEditable: boolean;
   onSubmitSuccess: () => void;
-  adoptionId: number; // 부모 컴포넌트에서 유효한 ID를 보장해야 함
+  adoptionId: number;
 };
 
 type DocKey = "idCard" | "familyCert" | "lease";
-
 type UploadStatus = "idle" | "uploading" | "success" | "error";
-
 type UploadState = Record<DocKey, { status: UploadStatus; error?: string }>;
 
 type DocumentCard = {
@@ -58,8 +56,7 @@ const normalizeStepStatus = (status?: string | null) =>
   typeof status === "string" ? status.trim().toUpperCase() : "";
 
 const findDocumentStepInstance = (steps: AdoptionStepStatusItem[]) =>
-  steps.find((step, index) => resolveServerStepKeyWithIndex(step, index) === "DOCUMENT") ??
-  null;
+  steps.find((step, index) => resolveServerStepKeyWithIndex(step, index) === "DOCUMENT") ?? null;
 
 const createEmptyLocalDocs = () =>
   DOCS.reduce((acc, doc) => {
@@ -89,6 +86,15 @@ function resolveApiErrorMessage(error: unknown, fallback: string) {
 }
 
 export function DocumentStep({ isEditable, onSubmitSuccess, adoptionId }: Props) {
+  // ✅ DocumentStep 전용: 기본 mypage(파란 버튼) + size default 통일
+  const LgButton = ({
+    variant = "mypage",
+    className,
+    ...props
+  }: React.ComponentProps<typeof Button>) => (
+    <Button variant={variant} size="default" className={className} {...props} />
+  );
+
   const [docStepStatus, setDocStepStatus] = useState<StepStatus | null>(null);
   const [stepError, setStepError] = useState<string | null>(null);
 
@@ -121,17 +127,7 @@ export function DocumentStep({ isEditable, onSubmitSuccess, adoptionId }: Props)
         return;
       }
       setDocStepStatus(normalizeStepStatus(documentStep.status ?? null) as StepStatus);
-      if (import.meta.env.DEV) {
-        console.debug("[documents] step status", {
-          adoptionId: targetId,
-          stepInstanceId: documentStep.id ?? null,
-          status: documentStep.status ?? null,
-        });
-      }
     } catch (err) {
-      if (err instanceof ApiError && err.status === 404 && import.meta.env.DEV) {
-        console.warn("[documents] steps/status 404 - check API path");
-      }
       setStepError(resolveApiErrorMessage(err, "Failed to load step status."));
       setDocStepStatus(null);
     }
@@ -142,10 +138,7 @@ export function DocumentStep({ isEditable, onSubmitSuccess, adoptionId }: Props)
       setStepError("Adoption ID가 유효하지 않습니다. 페이지를 새로고침 해주세요.");
       return;
     }
-
-    loadStepStatus(adoptionId).catch(() => {
-      // loadStepStatus handles its own errors
-    });
+    loadStepStatus(adoptionId).catch(() => {});
   }, [adoptionId, loadStepStatus]);
 
   const uploadedDocuments = useMemo<AdoptionDocumentItem[]>(() => {
@@ -154,19 +147,15 @@ export function DocumentStep({ isEditable, onSubmitSuccess, adoptionId }: Props)
 
   const uploadedMap = useMemo(() => {
     const map = new Map<DocumentType, AdoptionDocumentItem>();
-    uploadedDocuments.forEach((doc) => {
-      map.set(doc.documentType as DocumentType, doc);
-    });
+    uploadedDocuments.forEach((doc) => map.set(doc.documentType as DocumentType, doc));
     return map;
   }, [uploadedDocuments]);
 
   const uploadedCount = useMemo(() => uploadedMap.size, [uploadedMap]);
   const allUploaded = DOCS.every((doc) => uploadedMap.has(doc.type));
 
-  const canEdit =
-    isEditable && (docStepStatus === "PENDING" || docStepStatus === "SUBMITTED");
-  const canSubmit =
-    isEditable && (docStepStatus === "PENDING" || docStepStatus === "SUBMITTED");
+  const canEdit = isEditable && (docStepStatus === "PENDING" || docStepStatus === "SUBMITTED");
+  const canSubmit = isEditable && (docStepStatus === "PENDING" || docStepStatus === "SUBMITTED");
   const canSubmitNow = canSubmit && allUploaded && !submitting;
 
   const handlePickFile = useCallback(
@@ -182,17 +171,11 @@ export function DocumentStep({ isEditable, onSubmitSuccess, adoptionId }: Props)
       }
 
       setSubmitError(null);
-      setUploadState((prev) => ({
-        ...prev,
-        [doc.key]: { status: "uploading" },
-      }));
+      setUploadState((prev) => ({ ...prev, [doc.key]: { status: "uploading" } }));
 
       try {
         const response = await uploadAdoptionDocument(adoptionId, doc.type, file);
-        setUploadState((prev) => ({
-          ...prev,
-          [doc.key]: { status: "success" },
-        }));
+        setUploadState((prev) => ({ ...prev, [doc.key]: { status: "success" } }));
         setUploadedByType((prev) => ({
           ...prev,
           [doc.type]: {
@@ -204,14 +187,8 @@ export function DocumentStep({ isEditable, onSubmitSuccess, adoptionId }: Props)
           },
         }));
       } catch (err) {
-        if (err instanceof ApiError && err.status === 404 && import.meta.env.DEV) {
-          console.warn("[documents] upload 404 - check API path");
-        }
         const message = "업로드에 실패했습니다. 다시 시도해주세요.";
-        setUploadState((prev) => ({
-          ...prev,
-          [doc.key]: { status: "error", error: message },
-        }));
+        setUploadState((prev) => ({ ...prev, [doc.key]: { status: "error", error: message } }));
         setSubmitError(message);
       }
     },
@@ -224,15 +201,8 @@ export function DocumentStep({ isEditable, onSubmitSuccess, adoptionId }: Props)
         setSubmitError("현재 단계에서는 삭제할 수 없습니다.");
         return;
       }
-      // TODO: 삭제 API가 없으므로 로컬 상태만 정리
-      if (import.meta.env.DEV) {
-        console.warn("[documents] delete API not available; local state only");
-      }
       setUploadedByType((prev) => ({ ...prev, [doc.type]: null }));
-      setUploadState((prev) => ({
-        ...prev,
-        [doc.key]: { status: "idle" },
-      }));
+      setUploadState((prev) => ({ ...prev, [doc.key]: { status: "idle" } }));
     },
     [canEdit]
   );
@@ -263,9 +233,7 @@ export function DocumentStep({ isEditable, onSubmitSuccess, adoptionId }: Props)
         <div className="flex items-start justify-between gap-4">
           <div>
             <p className="text-sm font-semibold text-gray-900">Uploaded documents</p>
-            <p className="mt-1 text-sm text-gray-500">
-              Review or delete uploaded documents.
-            </p>
+            <p className="mt-1 text-sm text-gray-500">Review or delete uploaded documents.</p>
           </div>
         </div>
 
@@ -285,43 +253,31 @@ export function DocumentStep({ isEditable, onSubmitSuccess, adoptionId }: Props)
                 <div className="flex items-start justify-between gap-4">
                   <div className="min-w-0">
                     <p className="text-sm font-semibold text-gray-900">
-                      {DOCS.find((item) => item.type === doc.documentType)?.label ??
-                        doc.documentType}
+                      {DOCS.find((item) => item.type === doc.documentType)?.label ?? doc.documentType}
                     </p>
-                    <p className="mt-1 truncate text-xs text-gray-500">
-                      {doc.originalFileName}
-                    </p>
+                    <p className="mt-1 truncate text-xs text-gray-500">{doc.originalFileName}</p>
                   </div>
 
+                  {/* ✅ 우측 정렬 유지 + 버튼 통일 */}
                   <div className="flex shrink-0 items-center gap-2">
-                    <span className="text-xs text-gray-500">
-                      {formatFileSize(doc.fileSize)}
-                    </span>
-                    <Button
+                    <span className="text-xs text-gray-500">{formatFileSize(doc.fileSize)}</span>
+                    <LgButton
                       variant="outline"
                       className="rounded-lg"
                       disabled={!canEdit}
                       onClick={() => {
                         const matched = DOCS.find((item) => item.type === doc.documentType);
-                        if (matched) {
-                          handleDelete(matched);
-                        }
+                        if (matched) handleDelete(matched);
                       }}
                     >
                       Delete
-                    </Button>
+                    </LgButton>
                   </div>
                 </div>
               </div>
             ))}
           </div>
         )}
-
-        {!adoptionId ? (
-          <p className="mt-4 text-xs text-gray-500">
-            Adoption ID is missing. Please reopen this step from the adoption flow.
-          </p>
-        ) : null}
       </div>
 
       <div className="rounded-2xl border border-gray-200 p-6">
@@ -329,20 +285,14 @@ export function DocumentStep({ isEditable, onSubmitSuccess, adoptionId }: Props)
         <div className="flex items-start justify-between gap-4">
           <div>
             <p className="text-sm font-semibold text-gray-900">입양 문서 제출</p>
-            <p className="mt-1 text-sm text-gray-500">
-              아래 3가지 서류를 각각 첨부한 뒤 제출하세요.
-            </p>
+            <p className="mt-1 text-sm text-gray-500">아래 3가지 서류를 각각 첨부한 뒤 제출하세요.</p>
             <p className="mt-2 text-xs text-gray-500">업로드된 파일: {uploadedCount}/3</p>
-            {docStepStatus ? (
-              <p className="mt-1 text-xs text-gray-400">단계 상태: {docStepStatus}</p>
-            ) : null}
+            {docStepStatus ? <p className="mt-1 text-xs text-gray-400">단계 상태: {docStepStatus}</p> : null}
           </div>
 
           <span
             className={`shrink-0 rounded-full border px-3 py-1 text-xs font-semibold ${
-              canSubmit
-                ? "bg-blue-50 text-blue-700 border-blue-200"
-                : "bg-gray-50 text-gray-600 border-gray-200"
+              canSubmit ? "bg-blue-50 text-blue-700 border-blue-200" : "bg-gray-50 text-gray-600 border-gray-200"
             }`}
           >
             {canSubmit ? "제출 가능" : "제출 불가"}
@@ -354,6 +304,7 @@ export function DocumentStep({ isEditable, onSubmitSuccess, adoptionId }: Props)
           {DOCS.map((doc) => {
             const uploaded = uploadedMap.get(doc.type) ?? null;
             const state = uploadState[doc.key];
+
             return (
               <div key={doc.key} className="rounded-2xl border border-gray-200 p-5">
                 <div className="flex items-start justify-between gap-4">
@@ -362,14 +313,16 @@ export function DocumentStep({ isEditable, onSubmitSuccess, adoptionId }: Props)
                     <p className="mt-1 text-sm text-gray-500">{doc.hint}</p>
                   </div>
 
-                  <div className="flex shrink-0 gap-2">
-                    <Button
+                  {/* ✅ 버튼 우측 정렬 */}
+                  <div className="flex shrink-0 justify-end gap-2">
+                    <LgButton
                       className="rounded-lg"
                       disabled={!canEdit || state.status === "uploading"}
                       onClick={() => fileInputRefs.current[doc.key]?.click()}
                     >
                       첨부하기
-                    </Button>
+                    </LgButton>
+
                     <input
                       ref={(el) => {
                         fileInputRefs.current[doc.key] = el;
@@ -379,22 +332,20 @@ export function DocumentStep({ isEditable, onSubmitSuccess, adoptionId }: Props)
                       onChange={(e) => {
                         const file = e.target.files?.[0] ?? null;
                         e.currentTarget.value = "";
-                        handlePickFile(doc, file).catch(() => {
-                          // handlePickFile handles its own errors
-                        });
+                        handlePickFile(doc, file).catch(() => {});
                       }}
                       disabled={!canEdit}
                     />
 
                     {uploaded ? (
-                      <Button
+                      <LgButton
                         variant="outline"
                         className="rounded-lg"
                         disabled={!canEdit}
                         onClick={() => handleDelete(doc)}
                       >
                         삭제
-                      </Button>
+                      </LgButton>
                     ) : null}
                   </div>
                 </div>
@@ -404,9 +355,7 @@ export function DocumentStep({ isEditable, onSubmitSuccess, adoptionId }: Props)
                     <p className="text-gray-500">첨부된 파일이 없습니다.</p>
                   ) : (
                     <div className="space-y-1">
-                      <p className="font-medium text-gray-900 truncate">
-                        {uploaded.originalFileName}
-                      </p>
+                      <p className="font-medium text-gray-900 truncate">{uploaded.originalFileName}</p>
                       <p className="text-gray-500">
                         {formatFileSize(uploaded.fileSize)} · {doc.type}
                       </p>
@@ -414,16 +363,10 @@ export function DocumentStep({ isEditable, onSubmitSuccess, adoptionId }: Props)
                   )}
                 </div>
 
-                {state.status === "uploading" && (
-                  <p className="mt-2 text-xs text-blue-600">업로드 중...</p>
-                )}
-                {state.status === "success" && (
-                  <p className="mt-2 text-xs text-emerald-600">업로드 완료</p>
-                )}
+                {state.status === "uploading" && <p className="mt-2 text-xs text-blue-600">업로드 중...</p>}
+                {state.status === "success" && <p className="mt-2 text-xs text-emerald-600">업로드 완료</p>}
                 {state.status === "error" && (
-                  <p className="mt-2 text-xs text-red-600">
-                    {state.error ?? "업로드에 실패했습니다."}
-                  </p>
+                  <p className="mt-2 text-xs text-red-600">{state.error ?? "업로드에 실패했습니다."}</p>
                 )}
               </div>
             );
@@ -432,26 +375,16 @@ export function DocumentStep({ isEditable, onSubmitSuccess, adoptionId }: Props)
 
         {/* 제출 영역 */}
         <div className="mt-6 space-y-2">
-          {!canEdit && (
-            <p className="text-xs text-gray-500">
-              현재 단계에서는 업로드/삭제가 불가합니다.
-            </p>
-          )}
-
+          {!canEdit && <p className="text-xs text-gray-500">현재 단계에서는 업로드/삭제가 불가합니다.</p>}
           {canSubmit && !allUploaded && (
-            <p className="text-xs text-gray-500">
-              3가지 서류를 모두 업로드해야 제출할 수 있습니다.
-            </p>
+            <p className="text-xs text-gray-500">3가지 서류를 모두 업로드해야 제출할 수 있습니다.</p>
           )}
 
-          <div className="flex flex-wrap gap-3">
-            <Button
-              className="rounded-lg"
-              disabled={!canSubmitNow}
-              onClick={handleConfirmUpload}
-            >
+          {/* ✅ 제출 버튼도 우측 정렬 */}
+          <div className="flex flex-wrap justify-end gap-3">
+            <LgButton className="rounded-lg" disabled={!canSubmitNow} onClick={handleConfirmUpload}>
               {submitting ? "확인 중..." : "문서 제출"}
-            </Button>
+            </LgButton>
           </div>
 
           {submitError ? <p className="text-xs text-red-600">{submitError}</p> : null}

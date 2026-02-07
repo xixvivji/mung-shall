@@ -463,22 +463,24 @@ export function CareStep({ adoptionId }: Props) {
           })}
 
           <div className="stepper-controls">
-            <button
+            <Button
                 type="button"
-                className="stepper-button"
+                variant="mypage"
+                className="rounded-lg"
                 onClick={onPrev}
                 disabled={activeIndex === 0}
             >
               이전
-            </button>
-            <button
+            </Button>
+            <Button
                 type="button"
-                className="stepper-button stepper-button-primary"
+                variant="mypage"
+                className="rounded-lg"
                 onClick={onNext}
                 disabled={activeIndex === stepStates.length - 1}
             >
               다음
-            </button>
+            </Button>
           </div>
         </div>
 
@@ -601,22 +603,24 @@ export function CareStep({ adoptionId }: Props) {
                             {ui.error ? <p className="mt-2 text-xs text-red-600">{ui.error}</p> : null}
 
                             <div className="mt-3 flex gap-2">
-                              <button
+                              <Button
                                   type="button"
+                                  variant="mypage"
                                   onClick={() => void submitSubmission(s)}
                                   disabled={disabled || !ui.file}
-                                  className="rounded-lg border border-gray-200 bg-white px-4 py-2 text-sm font-semibold text-gray-800 hover:bg-gray-100 disabled:cursor-not-allowed disabled:opacity-40"
+                                  className="rounded-lg"
                               >
                                 업로드
-                              </button>
-                              <button
+                              </Button>
+                              <Button
                                   type="button"
+                                  variant="outline"
                                   onClick={() => void deleteSubmission(s)}
                                   disabled={disabled}
-                                  className="rounded-lg border border-gray-200 bg-white px-4 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-100 disabled:opacity-40"
+                                  className="rounded-lg"
                               >
                                 삭제
-                              </button>
+                              </Button>
                             </div>
 
                             {s.fileUrl ? (
@@ -686,20 +690,22 @@ export function CareStep({ adoptionId }: Props) {
 
                   <div className="mt-5 space-y-3">
                     <Button
-                        className="w-full rounded-xl bg-blue-500 text-white hover:bg-blue-600"
+                        variant="mypage"
+                        className="w-full rounded-xl"
                         onClick={enterVideo}
                         disabled={!postAdoptionId}
                     >
                       통화 입장하기
                     </Button>
 
-                    <button
+                    <Button
                         type="button"
-                        className="w-full text-center text-sm font-semibold text-blue-600 hover:underline"
+                        variant="mypage"
+                        className="w-full rounded-xl"
                         onClick={openReserve}
                     >
                       {reserved?.datetimeLocal ? "예약 변경하기" : "예약하기"}
-                    </button>
+                    </Button>
                   </div>
                 </div>
 
@@ -730,7 +736,7 @@ export function CareStep({ adoptionId }: Props) {
                       >
                         취소
                       </Button>
-                      <Button className="rounded-lg" onClick={saveReserve}>
+                      <Button variant="mypage" className="rounded-lg" onClick={saveReserve}>
                         저장
                       </Button>
                     </DialogFooter>

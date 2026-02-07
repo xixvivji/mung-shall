@@ -233,6 +233,7 @@ export function ConsultScheduleModal({
             취소
           </Button>
           <Button
+            variant="mypage"
             className="rounded-lg"
             onClick={() => onConfirm({ date: selectedDate, startTime: selectedSlot.start, endTime: selectedSlot.end })}
           >

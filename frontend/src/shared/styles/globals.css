@@ -1,1 +1,35 @@
-/* Optional global styles placeholder */
+@layer base {
+  html,
+  body,
+  #root {
+    min-height: 100%;
+  }
+
+  a {
+    transition: color 150ms ease;
+  }
+
+  button,
+  [role="button"] {
+    transition:
+      color 150ms ease,
+      background-color 150ms ease,
+      border-color 150ms ease,
+      box-shadow 150ms ease;
+  }
+
+  button:focus-visible,
+  [role="button"]:focus-visible {
+    outline: none;
+    box-shadow: 0 0 0 3px rgb(37 99 235 / 0.18);
+  }
+
+  input,
+  textarea,
+  select {
+    transition:
+      border-color 150ms ease,
+      box-shadow 150ms ease,
+      background-color 150ms ease;
+  }
+}

@@ -1,5 +1,6 @@
 import { useMemo, useState } from "react";
 import type { AdoptionProcessStatus, AdoptionStep } from "@/features/manage/types";
+import { Button } from "@/shared/ui/button";
 
 import { ApplicationStep } from "./before/ApplicationStep";
 import { EducationCertStep } from "./before/EducationCertStep";
@@ -191,14 +192,14 @@ export function NextActions({
   };
 
   return (
-      <div className="bg-white rounded-2xl p-8 shadow-sm border border-gray-100">
+      <div className="rounded-2xl border border-[#E5E7EB] bg-white p-8 shadow-[0_1px_3px_rgba(17,24,39,0.08)]">
         <div className="flex items-start justify-between gap-4 mb-6">
           <div>
-            <h2 className="text-xl text-gray-400">해야 할 일</h2>
-            <p className="mt-1 text-sm text-gray-500">
+            <h2 className="text-2xl font-semibold text-[#111827]">해야 할 일</h2>
+            <p className="mt-1 text-sm text-[#6B7280]">
               선택 단계:{" "}
-              <span className="font-semibold text-gray-800">{stepLabel(selectedStepN)}</span>
-              <span className="ml-2 text-xs text-gray-400">
+              <span className="font-semibold text-[#111827]">{stepLabel(selectedStepN)}</span>
+              <span className="ml-2 text-xs text-[#9CA3AF]">
               (
                 {selectedStatus === "current"
                     ? "진행중"
@@ -210,9 +211,9 @@ export function NextActions({
             </p>
           </div>
 
-          <div className="text-sm text-gray-500">
+          <div className="text-sm text-[#6B7280]">
             {isEditable ? (
-                <span className="font-semibold text-[#3182F6]">편집 가능</span>
+                <span className="font-semibold text-[#2563EB]">편집 가능</span>
             ) : (
                 <span>조회 전용</span>
             )}
@@ -220,10 +221,12 @@ export function NextActions({
         </div>
 
         {!isEditable && lockReason && (
-            <div className="mb-6 rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 text-sm text-gray-600">
+            <div className="mb-6 rounded-xl border border-[#E5E7EB] bg-[#F9FAFB] px-4 py-3 text-sm text-[#6B7280]">
               {lockReason}
             </div>
         )}
+
+        <div className="rounded-2xl border border-[#E5E7EB] bg-[#FCFDFF] p-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.8)]">
 
         {/* A단계 */}
         {selectedStepN === "PROFILE" && (
@@ -292,10 +295,11 @@ export function NextActions({
         )}
 
         {selectedStepN === "CARE" && adoptionId != null && <CareStep adoptionId={adoptionId} />}
+        </div>
 
         <div className="mt-8 flex items-center justify-between gap-3">
-          <button
-              className="rounded-md border border-gray-200 px-4 py-2 text-sm text-gray-700 disabled:opacity-40"
+          <Button
+              variant="mypage"
               disabled={!prevOf(selectedStepN)}
               onClick={() => {
                 const prev = prevOf(selectedStepN);
@@ -303,15 +307,15 @@ export function NextActions({
               }}
           >
             이전 단계로
-          </button>
+          </Button>
 
-          <button
-              className="rounded-md bg-[#0064FF] hover:bg-[#0056E6] px-4 py-2 text-sm text-white disabled:opacity-40"
+          <Button
+              variant="mypage"
               disabled={!nextOf(selectedStepN)}
               onClick={safeGoNextFromSelected}
           >
             다음 단계로
-          </button>
+          </Button>
         </div>
 
         {/* 심사 진입 확인 모달 */}
@@ -325,18 +329,20 @@ export function NextActions({
                 </p>
 
                 <div className="mt-6 flex justify-end gap-2">
-                  <button
-                      className="rounded-xl border border-gray-200 px-4 py-2 text-sm"
+                  <Button
+                      variant="outline"
+                      className="rounded-lg"
                       onClick={() => {
                         setIsPreApprovalModalOpen(false);
                         setPendingNextStep(null);
                       }}
                   >
                     취소
-                  </button>
+                  </Button>
 
-                  <button
-                      className="rounded-xl bg-[#3182F6] px-4 py-2 text-sm text-white"
+                  <Button
+                      variant="mypage"
+                      className="rounded-lg"
                       onClick={() => {
                         setIsPreApprovalModalOpen(false);
                         if (pendingNextStep) void advanceTo(pendingNextStep, selectedStepN);
@@ -344,7 +350,7 @@ export function NextActions({
                       }}
                   >
                     확인
-                  </button>
+                  </Button>
                 </div>
               </div>
             </div>

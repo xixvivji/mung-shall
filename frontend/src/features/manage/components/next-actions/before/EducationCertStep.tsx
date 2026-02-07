@@ -124,7 +124,7 @@ function resolveApiErrorMessage(error: unknown, fallback: string) {
 }
 
 export function EducationCertStep({ isEditable, onSubmitSuccess, adoptionId }: Props) {
-  // ✅ EducationCertStep 전용: 모든 버튼 default 통일
+  // ✅ EducationCertStep 전용: 기본 mypage 버튼 + size default 통일
   const LgButton = ({
     variant = "mypage",
     ...props
@@ -343,7 +343,7 @@ export function EducationCertStep({ isEditable, onSubmitSuccess, adoptionId }: P
   return (
     <div className="space-y-6">
       {/* ===== 교육 링크 카드 ===== */}
-      <div className="rounded-2xl border border-gray-200 p-6">
+      <div className="rounded-2xl border border-[#E5E7EB] bg-white p-6 shadow-[0_1px_2px_rgba(15,23,42,0.06)]">
         <div className="flex items-start gap-4">
           <div className="min-w-0 flex-1">
             <p className="text-sm font-semibold text-gray-900">입양 전 교육</p>
@@ -365,7 +365,7 @@ export function EducationCertStep({ isEditable, onSubmitSuccess, adoptionId }: P
       </div>
 
       {/* ===== 조회/삭제 카드 ===== */}
-      <div className="rounded-2xl border border-gray-200 p-6">
+      <div className="rounded-2xl border border-[#E5E7EB] bg-white p-6 shadow-[0_1px_2px_rgba(15,23,42,0.06)]">
         <div className="flex items-start justify-between gap-4">
           <div>
             <p className="text-sm font-semibold text-gray-900">Education certificate</p>
@@ -423,7 +423,6 @@ export function EducationCertStep({ isEditable, onSubmitSuccess, adoptionId }: P
         {certError && adoptionId ? (
           <div className="mt-4 flex justify-end">
             <LgButton
-              variant="outline"
               onClick={() => loadCertificate(adoptionId)}
               disabled={certLoading}
             >
@@ -434,7 +433,7 @@ export function EducationCertStep({ isEditable, onSubmitSuccess, adoptionId }: P
       </div>
 
       {/* ===== 업로드 카드 (좌: 파일첨부 / 우: 폼+제출) ===== */}
-      <div className="rounded-2xl border border-gray-200 p-6">
+      <div className="rounded-2xl border border-[#E5E7EB] bg-white p-6 shadow-[0_1px_2px_rgba(15,23,42,0.06)]">
         <div className="flex items-start justify-between gap-4">
           <div>
             <p className="text-sm font-semibold text-gray-900">교육 수료증 업로드</p>
@@ -478,7 +477,7 @@ export function EducationCertStep({ isEditable, onSubmitSuccess, adoptionId }: P
             <div className="flex flex-wrap justify-end items-center gap-3">
               {file && (
                 <LgButton
-                  variant="mypage"
+                  variant="outline"
                   disabled={!canAttach}
                   onClick={() => {
                     setFile(null);

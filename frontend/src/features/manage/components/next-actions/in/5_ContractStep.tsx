@@ -301,7 +301,7 @@ export function ContractStep({ isEditable, onSubmitSuccess, adoptionId, userId }
   return (
     <div className="space-y-6">
       {/* ===== 조회/삭제 카드 ===== */}
-      <div className="rounded-2xl border border-gray-200 p-6">
+      <div className="rounded-2xl border border-[#E5E7EB] bg-white p-6 shadow-[0_1px_2px_rgba(15,23,42,0.06)]">
         <div className="flex items-start justify-between gap-4">
           <div>
             <p className="text-sm font-semibold text-gray-900">입양 신청서</p>
@@ -362,7 +362,7 @@ export function ContractStep({ isEditable, onSubmitSuccess, adoptionId, userId }
       </div>
 
       {/* ===== 작성/첨부/제출 카드 ===== */}
-      <div className="rounded-2xl border border-gray-200 p-6">
+      <div className="rounded-2xl border border-[#E5E7EB] bg-white p-6 shadow-[0_1px_2px_rgba(15,23,42,0.06)]">
         <div>
           <p className="text-sm font-semibold text-gray-900">입양 신청서 작성</p>
           <p className="mt-1 text-sm text-gray-500">
@@ -391,20 +391,19 @@ export function ContractStep({ isEditable, onSubmitSuccess, adoptionId, userId }
                       미리보기
                     </a>
                   ) : null}
-                  <button
-                    type="button"
-                    className="text-xs font-semibold text-gray-600 hover:underline"
+                  <LgButton
+                    variant="outline"
+                    className="h-auto px-0 py-0 text-xs font-semibold text-gray-600 hover:bg-transparent hover:underline"
                     onClick={handleClearPending}
                     disabled={submitting}
                   >
                     첨부 제거
-                  </button>
+                  </LgButton>
                 </div>
               </div>
 
               <div className="flex flex-wrap justify-end gap-3">
                 <LgButton
-                  variant="mypage"
                   className="rounded-lg"
                   onClick={() => setOpen(true)}
                   disabled={!isEditable || capturing || submitting}
@@ -413,7 +412,6 @@ export function ContractStep({ isEditable, onSubmitSuccess, adoptionId, userId }
                 </LgButton>
 
                 <LgButton
-                  variant="mypage"
                   className="rounded-lg"
                   onClick={handleSubmitUpload}
                   disabled={!isEditable || submitting}
@@ -425,7 +423,6 @@ export function ContractStep({ isEditable, onSubmitSuccess, adoptionId, userId }
           ) : (
             <div className="flex justify-end">
               <LgButton
-                variant="mypage"
                 className="rounded-lg"
                 onClick={() => setOpen(true)}
                 disabled={!isEditable}
@@ -477,7 +474,6 @@ export function ContractStep({ isEditable, onSubmitSuccess, adoptionId, userId }
 
                 <div className="border-t p-4 flex justify-end gap-2 bg-white sticky bottom-0">
                   <LgButton
-                    variant="mypage"
                     onClick={() => setValues(createDefaultContractOverlayValues())}
                     disabled={capturing}
                   >

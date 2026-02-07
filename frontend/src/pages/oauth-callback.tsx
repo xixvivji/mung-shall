@@ -41,14 +41,14 @@ export default function OAuthCallbackPage() {
   }, [navigate]);
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-white">
+    <div className="flex min-h-[60vh] items-center justify-center rounded-2xl border border-[#E5E7EB] bg-white px-6 py-12 shadow-sm">
       {error ? (
         <div className="text-center">
           <p className="text-[14px] text-[#d14343]">{error}</p>
           <button
             type="button"
             onClick={() => navigate(ROUTES.login, { replace: true })}
-            className="mt-4 rounded-[8px] border border-[#e5e5e5] px-4 py-2 text-[12px] text-[#333] hover:text-black"
+            className="mt-4 rounded-[10px] border border-[#D1D5DB] bg-white px-4 py-2 text-[12px] text-[#374151] hover:bg-[#F9FAFB] hover:text-[#111827]"
           >
             로그인으로 돌아가기
           </button>

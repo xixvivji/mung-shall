@@ -1409,7 +1409,8 @@ export function ApplicationStep({ isEditable, onSubmitSuccess, adoptionId }: Pro
               <div className="flex items-center justify-between">
                 <p className="text-sm font-semibold text-gray-900">✅ 비상연락망</p>
                 <Button
-                  variant="outline"
+                  variant="mypage"
+                  size="sm"
                   className="rounded-lg"
                   onClick={() =>
                     setField("emergencyContacts", [
@@ -1433,6 +1434,7 @@ export function ApplicationStep({ isEditable, onSubmitSuccess, adoptionId }: Pro
                       <p className="text-sm font-semibold text-gray-900">비상연락처 {idx + 1}</p>
                       <Button
                         variant="outline"
+                        size="sm"
                         className="rounded-lg"
                         onClick={() =>
                           setField(
@@ -1612,7 +1614,8 @@ export function ApplicationStep({ isEditable, onSubmitSuccess, adoptionId }: Pro
                   <div className="flex items-center justify-between">
                     <p className="text-sm font-semibold text-gray-900">동거인 상세</p>
                     <Button
-                      variant="outline"
+                      variant="mypage"
+                      size="sm"
                       className="rounded-lg"
                       onClick={() =>
                         setField("cohabitantDetails", [
@@ -1631,6 +1634,7 @@ export function ApplicationStep({ isEditable, onSubmitSuccess, adoptionId }: Pro
                         <p className="text-sm font-semibold text-gray-900">동거인 {idx + 1}</p>
                         <Button
                           variant="outline"
+                          size="sm"
                           className="rounded-lg"
                           onClick={() =>
                             setField(
@@ -1758,7 +1762,8 @@ export function ApplicationStep({ isEditable, onSubmitSuccess, adoptionId }: Pro
                   <div className="flex items-center justify-between">
                     <p className="text-sm font-semibold text-gray-900">현재 반려동물 상세</p>
                     <Button
-                      variant="outline"
+                      variant="mypage"
+                      size="sm"
                       className="rounded-lg"
                       onClick={() =>
                         setField("currentPetDetails", [
@@ -1788,6 +1793,7 @@ export function ApplicationStep({ isEditable, onSubmitSuccess, adoptionId }: Pro
                         <p className="text-sm font-semibold text-gray-900">반려동물 {idx + 1}</p>
                         <Button
                           variant="outline"
+                          size="sm"
                           className="rounded-lg"
                           onClick={() =>
                             setField(
@@ -1941,7 +1947,8 @@ export function ApplicationStep({ isEditable, onSubmitSuccess, adoptionId }: Pro
                   <div className="flex items-center justify-between">
                     <p className="text-sm font-semibold text-gray-900">과거 경험 상세</p>
                     <Button
-                      variant="outline"
+                      variant="mypage"
+                      size="sm"
                       className="rounded-lg"
                       onClick={() =>
                         setField("pastPetExperiences", [
@@ -1970,6 +1977,7 @@ export function ApplicationStep({ isEditable, onSubmitSuccess, adoptionId }: Pro
                         <p className="text-sm font-semibold text-gray-900">경험 {idx + 1}</p>
                         <Button
                           variant="outline"
+                          size="sm"
                           className="rounded-lg"
                           onClick={() =>
                             setField(
@@ -2370,7 +2378,7 @@ export function ApplicationStep({ isEditable, onSubmitSuccess, adoptionId }: Pro
 
   return (
     <div className="space-y-3">
-      <div className="rounded-2xl border border-gray-200 bg-white p-4">
+      <div className="rounded-2xl border border-[#E5E7EB] bg-white p-4 shadow-[0_1px_2px_rgba(15,23,42,0.06)]">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <p className="text-sm font-semibold text-gray-900">입양 신청서</p>
@@ -2390,34 +2398,30 @@ export function ApplicationStep({ isEditable, onSubmitSuccess, adoptionId }: Pro
           <div className="flex items-center gap-2">
             {!hasExisting ? (
               <Button
+                variant="mypage"
+                size="sm"
                 onClick={() => setOpen(true)}
                 disabled={!isEditable || loading || !hasAdoptionId}
-                className="
-                  h-10 rounded-md
-                  bg-[#3182f6] text-white
-                  hover:bg-[#1f6fe0]
-                  disabled:cursor-not-allowed disabled:opacity-50
-                "
+                className="rounded-lg"
               >
                 서류 작성하기
               </Button>
             ) : (
               <>
                 <Button
+                  variant="mypage"
+                  size="sm"
                   onClick={() => setOpen(true)}
                   disabled={!isEditable || loading || !hasAdoptionId}
-                  className="
-                    h-10 rounded-md
-                    bg-[#3182f6] text-white
-                    hover:bg-[#1f6fe0]
-                    disabled:cursor-not-allowed disabled:opacity-50
-                  "
+                  className="rounded-lg"
                 >
                   서류 수정하기
                 </Button>
 
                 <Button
-                  className="h-10 rounded-md bg-[#0064FF] hover:bg-[#0056E6] disabled:opacity-50"
+                  variant="mypage"
+                  size="sm"
+                  className="rounded-lg"
                   onClick={handleFinalSave}
                   disabled={!isEditable || submitting || loading || !hasAdoptionId}
                 >
@@ -2437,7 +2441,7 @@ export function ApplicationStep({ isEditable, onSubmitSuccess, adoptionId }: Pro
                 <p className="text-base font-semibold text-gray-900">입양 신청서</p>
                 <p className="text-xs text-gray-500">필수 항목을 모두 작성하면 저장할 수 있어요.</p>
               </div>
-              <Button variant="outline" className="rounded-xl" onClick={() => setOpen(false)}>
+              <Button size="sm" variant="outline" className="rounded-xl" onClick={() => setOpen(false)}>
                 닫기
               </Button>
             </div>
@@ -2471,7 +2475,8 @@ export function ApplicationStep({ isEditable, onSubmitSuccess, adoptionId }: Pro
 
               <div className="flex items-center gap-2">
                 <Button
-                  variant="outline"
+                  variant="mypage"
+                  size="sm"
                   className="rounded-md"
                   onClick={handlePrev}
                   disabled={stepIndex === 0}
@@ -2480,7 +2485,7 @@ export function ApplicationStep({ isEditable, onSubmitSuccess, adoptionId }: Pro
                 </Button>
 
                 {!isLastStep ? (
-                  <Button variant="outline" className="rounded-md" onClick={handleNext}>
+                  <Button size="sm" variant="mypage" className="rounded-md" onClick={handleNext}>
                     다음
                   </Button>
                 ) : (
@@ -2488,7 +2493,8 @@ export function ApplicationStep({ isEditable, onSubmitSuccess, adoptionId }: Pro
                     {hasExisting ? (
                       <Button
                         variant="outline"
-                        className="rounded-md border-red-200 text-red-600 hover:bg-red-50"
+                        size="sm"
+                        className="rounded-md"
                         onClick={handleDelete}
                         disabled={deleting || submitting}
                       >
@@ -2497,7 +2503,9 @@ export function ApplicationStep({ isEditable, onSubmitSuccess, adoptionId }: Pro
                     ) : null}
 
                     <Button
-                      className="rounded-md bg-[#0064FF] hover:bg-[#0056E6] disabled:opacity-50"
+                      variant="mypage"
+                      size="sm"
+                      className="rounded-md"
                       onClick={handleFinalSave}
                       disabled={submitting || loading}
                     >

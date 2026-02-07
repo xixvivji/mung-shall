@@ -8,7 +8,7 @@ type Props = {
 export function PickupStep({ onSubmitSuccess }: Props) {
   return (
     <div className="space-y-6">
-      <div className="rounded-2xl border border-gray-200 p-6">
+      <div className="rounded-2xl border border-[#E5E7EB] bg-white p-6 shadow-[0_1px_2px_rgba(15,23,42,0.06)]">
         <div className="space-y-2">
           <h3 className="text-lg font-semibold text-gray-900">
             사전 설문
@@ -25,7 +25,8 @@ export function PickupStep({ onSubmitSuccess }: Props) {
 
         <div className="mt-6 flex justify-end">
           <Button
-            className="rounded-xl bg-[#5f7cf7] px-6 py-2 text-white"
+            variant="mypage"
+            className="rounded-lg"
             onClick={onSubmitSuccess}
           >
             제출하기

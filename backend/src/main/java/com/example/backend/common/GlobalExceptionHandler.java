@@ -2,12 +2,11 @@ package com.example.backend.common;
 
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.servlet.resource.NoResourceFoundException;
-import org.springframework.web.bind.MethodArgumentNotValidException;
 
-import java.util.LinkedHashMap;
 import java.util.Map;
 
 @RestControllerAdvice
@@ -44,17 +43,9 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(Exception.class)
     public ResponseEntity<Map<String, String>> handleException(Exception e) {
         e.printStackTrace();
-        Map<String, String> body = new LinkedHashMap<>();
-        body.put("message", "서버 오류가 발생했습니다.");
-        body.put("error", e.getClass().getSimpleName());
-        body.put("detail", abbreviate(e.getMessage(), 2000));
-        Throwable cause = e.getCause();
-        if (cause != null) {
-            body.put("cause", abbreviate(cause.getClass().getSimpleName() + ": " + cause.getMessage(), 2000));
-        }
         return ResponseEntity
                 .status(HttpStatus.INTERNAL_SERVER_ERROR)
-                .body(body);
+                .body(Map.of("message", "서버 오류가 발생했습니다."));
     }
 
     @ExceptionHandler(MethodArgumentNotValidException.class)
@@ -69,14 +60,4 @@ public class GlobalExceptionHandler {
                 .body(Map.of("message", msg));
     }
 
-    private String abbreviate(String value, int maxLen) {
-        if (value == null) {
-            return "null";
-        }
-        String normalized = value.replaceAll("\\s+", " ").trim();
-        if (normalized.length() <= maxLen) {
-            return normalized;
-        }
-        return normalized.substring(0, maxLen) + "...";
-    }
 }

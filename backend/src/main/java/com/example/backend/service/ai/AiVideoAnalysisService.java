@@ -1,5 +1,6 @@
 package com.example.backend.service.ai;
 
+import com.example.backend.common.ApiException;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
@@ -9,9 +10,14 @@ import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.HttpStatusCode;
 import org.springframework.stereotype.Service;
 import org.springframework.util.LinkedMultiValueMap;
 import org.springframework.util.MultiValueMap;
+import org.springframework.web.client.HttpStatusCodeException;
+import org.springframework.web.client.ResourceAccessException;
+import org.springframework.web.client.RestClientException;
 import org.springframework.web.client.RestTemplate;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -47,7 +53,27 @@ public class AiVideoAnalysisService {
         body.add("target_duration", Double.toString(targetDuration));
 
         HttpEntity<MultiValueMap<String, Object>> requestEntity = new HttpEntity<>(body, headers);
-        return aiRestTemplate.exchange(url, HttpMethod.POST, requestEntity, byte[].class);
+        try {
+            return aiRestTemplate.exchange(url, HttpMethod.POST, requestEntity, byte[].class);
+        } catch (HttpStatusCodeException e) {
+            String bodySnippet = abbreviate(e.getResponseBodyAsString(), 2000);
+            HttpStatusCode statusCode = e.getStatusCode();
+            String message = String.format(
+                    "AI analyze failed: status=%d body=%s",
+                    statusCode.value(),
+                    bodySnippet
+            );
+            HttpStatus status = statusCode instanceof HttpStatus
+                    ? (HttpStatus) statusCode
+                    : HttpStatus.BAD_GATEWAY;
+            throw new ApiException(status, message);
+        } catch (ResourceAccessException e) {
+            String message = "AI analyze failed: connection error=" + e.getMessage();
+            throw new ApiException(HttpStatus.SERVICE_UNAVAILABLE, message);
+        } catch (RestClientException e) {
+            String message = "AI analyze failed: " + e.getMessage();
+            throw new ApiException(HttpStatus.BAD_GATEWAY, message);
+        }
     }
 
     private String buildUrl(String base, String path) {
@@ -78,6 +104,17 @@ public class AiVideoAnalysisService {
         } catch (IOException e) {
             throw new IllegalStateException("Failed to read video file stream.", e);
         }
+    }
+
+    private String abbreviate(String value, int maxLen) {
+        if (value == null) {
+            return "null";
+        }
+        String normalized = value.replaceAll("\\s+", " ").trim();
+        if (normalized.length() <= maxLen) {
+            return normalized;
+        }
+        return normalized.substring(0, maxLen) + "...";
     }
 
     private static class NamedInputStreamResource extends InputStreamResource {

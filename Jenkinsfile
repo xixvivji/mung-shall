@@ -40,6 +40,11 @@ pipeline {
                 dir('frontend') {
                     sh 'docker build -t frontend-image:latest .'
                 }
+
+                // 3. AI Build
+                dir('ai') {
+                    sh 'docker build -t ai-image:latest .'
+                }
             }
         }
 
@@ -108,6 +113,7 @@ pipeline {
                         echo "REDIS_HOST=redis-container" >> .env
                         echo "REDIS_PORT=6379" >> .env
                         echo "REDIS_PASSWORD=" >> .env
+                        echo "AI_BASE_URL=http://ai-server:8000" >> .env
                         echo "MAIL_USERNAME=${MAIL_USERNAME}" >> .env
                         echo "MAIL_PASSWORD=${MAIL_PASSWORD}" >> .env
 
@@ -152,7 +158,7 @@ EOF
                         sh 'docker-compose up -d --force-recreate --remove-orphans mysql redis prometheus grafana node-exporter'
 
                                                // [단계 2] 앱: 여기도 혹시 모르니 추가
-                        sh 'docker-compose up -d --force-recreate --build --remove-orphans backend frontend'
+                        sh 'docker-compose up -d --force-recreate --build --remove-orphans ai-server backend frontend'
 
                         // 뒷정리
                         sh 'docker image prune -f'

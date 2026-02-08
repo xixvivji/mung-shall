@@ -1,8 +1,12 @@
 package com.example.backend.api.postadoption.controller;
 
+import com.example.backend.api.postadoption.dto.PostAdoptionTrainingVideoAnalyzeRequest;
 import com.example.backend.service.ai.AiVideoAnalysisService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
+import io.swagger.v3.oas.annotations.media.Content;
+import io.swagger.v3.oas.annotations.media.Schema;
+import io.swagger.v3.oas.annotations.parameters.RequestBody;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -13,9 +17,10 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RequestPart;
 import org.springframework.web.bind.annotation.RestController;
-import org.springframework.web.multipart.MultipartFile;
+import org.springframework.web.bind.annotation.ModelAttribute;
+
+import jakarta.validation.Valid;
 
 @RestController
 @RequiredArgsConstructor
@@ -25,27 +30,31 @@ public class PostAdoptionTrainingVideoController {
 
     private final AiVideoAnalysisService aiVideoAnalysisService;
 
-    @Operation(summary = "Analyze training video", description = "Uploads a training video and returns the analyzed video.")
+    @Operation(
+            summary = "Analyze training video",
+            description = "Uploads a training video and returns the analyzed video.",
+            requestBody = @RequestBody(
+                    content = @Content(
+                            mediaType = MediaType.MULTIPART_FORM_DATA_VALUE,
+                            schema = @Schema(implementation = PostAdoptionTrainingVideoAnalyzeRequest.class)
+                    )
+            )
+    )
     @ApiResponses({
             @ApiResponse(responseCode = "200", description = "Analysis succeeded"),
             @ApiResponse(responseCode = "400", description = "Bad request"),
             @ApiResponse(responseCode = "500", description = "Analysis failed")
     })
-    @PostMapping(value = "/analyze", consumes = {"multipart/form-data"})
+    @PostMapping(value = "/analyze", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ResponseEntity<byte[]> analyzeTrainingVideo(
             @Parameter(description = "Post-adoption process ID", required = true)
             @PathVariable Long postAdoptionId,
-            @Parameter(description = "Training video file", required = true)
-            @RequestPart("file") MultipartFile file,
-            @Parameter(description = "Target action", required = true)
-            @RequestPart("targetAction") String targetAction,
-            @Parameter(description = "Target duration in seconds", required = true)
-            @RequestPart("targetDuration") Double targetDuration
+            @Valid @ModelAttribute PostAdoptionTrainingVideoAnalyzeRequest request
     ) {
         ResponseEntity<byte[]> aiResponse = aiVideoAnalysisService.analyzeVideo(
-                file,
-                targetAction,
-                targetDuration
+                request.getFile(),
+                request.getTargetAction(),
+                request.getTargetDuration()
         );
 
         HttpHeaders responseHeaders = new HttpHeaders();

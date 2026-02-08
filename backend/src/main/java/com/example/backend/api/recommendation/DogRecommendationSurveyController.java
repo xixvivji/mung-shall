@@ -4,7 +4,10 @@ import com.example.backend.api.dog.dto.DogSummaryResponse;
 import com.example.backend.api.recommendation.dto.*;
 import com.example.backend.service.dog.DogService;
 import com.example.backend.service.recommendation.DogRecommendationSurveyService;
-import com.example.backend.service.recommendation.matching.MatchingService;
+import com.example.backend.service.recommendation.RecommendationAsyncService;
+import com.example.backend.service.recommendation.cache.RecommendationCacheEntry;
+import com.example.backend.service.recommendation.cache.RecommendationCacheService;
+import com.example.backend.service.recommendation.cache.RecommendationMatch;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.media.Content;
@@ -22,6 +25,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 
 // {userId}를 쿼리 파라미터로 쓰지 말고, 인증 정보로 가져오기 파라미터 없이
 @Tag(name = "강아지 추천 설문 API", description = "유저의 강아지 추천 설문 CRUD API")
@@ -30,11 +34,10 @@ import java.util.Map;
 @RequiredArgsConstructor
 public class DogRecommendationSurveyController {
 
-    private static final int TOP_K = 12;
-
     private final DogRecommendationSurveyService dogRecommendationSurveyService;
     private final DogService dogService;
-    private final MatchingService matchingService;
+    private final RecommendationAsyncService recommendationAsyncService;
+    private final RecommendationCacheService recommendationCacheService;
 
     @Operation(summary = "추천 리스트 조회", description = "요청한 유저의 설문을 기반으로 추천 리스트를 반환합니다.")
     @ApiResponses(value = {
@@ -50,9 +53,15 @@ public class DogRecommendationSurveyController {
     ) {
         DogRecommendationSurveyResponse survey = dogRecommendationSurveyService.getSurveyByUserId(userId);
 
-        List<RecommendedDogDto> recs = buildRecommendations(survey);
+        RecommendationCacheEntry cached = recommendationCacheService.get(userId);
+        if (cached != null && isCacheFresh(cached, survey)) {
+            List<RecommendedDogDto> recs = buildRecommendationsFromMatches(cached.matches(), survey.getUserId());
+            return ResponseEntity.ok(new DogRecommendationsResponse(recs));
+        }
 
-        return ResponseEntity.ok(new DogRecommendationsResponse(recs));
+        recommendationAsyncService.generateRecommendations(survey);
+        return ResponseEntity.status(HttpStatus.ACCEPTED)
+                .body(new DogRecommendationsResponse(List.of()));
     }
 
     @Operation(summary = "강아지 추천 설문 생성", description = "유저의 강아지 추천 설문 응답을 생성합니다. 유저당 하나의 설문만 생성 가능합니다.")
@@ -68,7 +77,11 @@ public class DogRecommendationSurveyController {
     ) {
         DogRecommendationSurveyResponse survey = dogRecommendationSurveyService.createSurvey(request);
 
-        DogSurveyWithRecommendationsResponse body = buildSurveyWithRecommendations(survey);
+        recommendationCacheService.evict(survey.getUserId());
+        recommendationAsyncService.generateRecommendations(survey);
+
+        DogSurveyWithRecommendationsResponse body =
+                new DogSurveyWithRecommendationsResponse(survey, List.of());
         return ResponseEntity.status(HttpStatus.CREATED).body(body);
     }
 
@@ -99,7 +112,11 @@ public class DogRecommendationSurveyController {
     ) {
         DogRecommendationSurveyResponse survey = dogRecommendationSurveyService.updateSurvey(userId, request);
 
-        DogSurveyWithRecommendationsResponse body = buildSurveyWithRecommendations(survey);
+        recommendationCacheService.evict(survey.getUserId());
+        recommendationAsyncService.generateRecommendations(survey);
+
+        DogSurveyWithRecommendationsResponse body =
+                new DogSurveyWithRecommendationsResponse(survey, List.of());
         return ResponseEntity.ok(body);
     }
 
@@ -112,26 +129,24 @@ public class DogRecommendationSurveyController {
     public ResponseEntity<Void> deleteSurveyByUserId(
             @Parameter(description = "삭제할 유저 ID") @PathVariable Long userId) {
         dogRecommendationSurveyService.deleteSurveyByUserId(userId);
+        recommendationCacheService.evict(userId);
         return ResponseEntity.noContent().build();
     }
 
 
     // Helper
-    private DogSurveyWithRecommendationsResponse buildSurveyWithRecommendations(DogRecommendationSurveyResponse survey) {
-        List<RecommendedDogDto> recs = buildRecommendations(survey);
-        return new DogSurveyWithRecommendationsResponse(survey, recs);
-    }
-
-    private List<RecommendedDogDto> buildRecommendations(DogRecommendationSurveyResponse survey) {
-        var matches = matchingService.match(survey, TOP_K);
-        if (matches.isEmpty()) {
+    private List<RecommendedDogDto> buildRecommendationsFromMatches(
+            List<RecommendationMatch> matches,
+            Long userId
+    ) {
+        if (matches == null || matches.isEmpty()) {
             return List.of();
         }
 
         List<Long> dogIds = matches.stream()
-                .map(MatchingService.DogMatch::dogId)
+                .map(RecommendationMatch::dogId)
                 .toList();
-        List<DogSummaryResponse> summaries = dogService.getDogSummariesByIds(dogIds, survey.getUserId());
+        List<DogSummaryResponse> summaries = dogService.getDogSummariesByIds(dogIds, userId);
 
         Map<Long, DogSummaryResponse> summaryById = new HashMap<>(summaries.size());
         for (DogSummaryResponse summary : summaries) {
@@ -139,7 +154,7 @@ public class DogRecommendationSurveyController {
         }
 
         List<RecommendedDogDto> recs = new ArrayList<>(matches.size());
-        for (var match : matches) {
+        for (RecommendationMatch match : matches) {
             DogSummaryResponse summary = summaryById.get(match.dogId());
             if (summary == null) {
                 continue;
@@ -147,5 +162,15 @@ public class DogRecommendationSurveyController {
             recs.add(RecommendedDogDto.fromSummary(summary, match.similarity()));
         }
         return recs;
+    }
+
+    private boolean isCacheFresh(RecommendationCacheEntry cached, DogRecommendationSurveyResponse survey) {
+        if (cached == null || survey == null) {
+            return false;
+        }
+        if (cached.surveyUpdatedAt() == null || survey.getUpdatedAt() == null) {
+            return false;
+        }
+        return Objects.equals(cached.surveyUpdatedAt(), survey.getUpdatedAt());
     }
 }

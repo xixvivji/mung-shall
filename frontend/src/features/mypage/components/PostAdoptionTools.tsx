@@ -7,7 +7,10 @@ import {
   fetchPostAdoptionStep,
   verifyPostAdoptionStep,
   completePostAdoptionProcess,
+  fetchPostAdoptionVideoCallByMonthSafe,
 } from "@/features/postAdoption/api/postAdoptionApi";
+import { createConnection } from "@/features/video-call/api/openViduApi";
+import useAuth from "@/features/auth/hooks/useAuth";
 import type {
   PostAdoptionStep,
   PostAdoptionStepStatus,
@@ -75,6 +78,7 @@ export function PostAdoptionTools({
                                     onStart,
                                   }: Props) {
   const navigate = useNavigate();
+  const { user } = useAuth();
 
   const [selectedStepId, setSelectedStepId] = useState<number | null>(null);
   const [detail, setDetail] = useState<PostAdoptionStep | null>(null);
@@ -86,6 +90,7 @@ export function PostAdoptionTools({
   const [completeLoading, setCompleteLoading] = useState(false);
   const [completeError, setCompleteError] = useState<string | null>(null);
   const [completeMessage, setCompleteMessage] = useState<string | null>(null);
+  const [enteringVideo, setEnteringVideo] = useState(false);
   const [rejectReason, setRejectReason] = useState("");
 
   const orderedSteps = useMemo(() => {
@@ -221,11 +226,61 @@ export function PostAdoptionTools({
   const videoStageTitle = getVideoStageTitle(detail);
   const stepKey = detail?.stepOrder ?? null;
 
-  const handleEnterVideo = () => {
+  const resolveMonthByStepKey = (value: number) => {
+    if (value === 30) return 1;
+    if (value === 60) return 2;
+    if (value === 90) return 3;
+    return null;
+  };
+
+  const handleEnterVideo = async () => {
     if (!postAdoptionId) return;
     if (!stepKey) return;
     if (![30, 60, 90].includes(stepKey)) return;
-    navigate(`/video/${postAdoptionId}/${stepKey}`);
+    if (enteringVideo) return;
+
+    const month = resolveMonthByStepKey(stepKey);
+    if (!month) return;
+
+    setEnteringVideo(true);
+    try {
+      const videoCall = await fetchPostAdoptionVideoCallByMonthSafe(postAdoptionId, month);
+      const sessionId = videoCall?.openViduSessionId ?? null;
+      if (!sessionId) {
+        alert("보호소가 아직 방을 열지 않았습니다. 잠시 후 다시 시도해주세요.");
+        return;
+      }
+
+      const { token } = await createConnection(sessionId, {
+        role: "PUBLISHER",
+        clientData: "AdopterUser",
+      });
+
+      navigate(`/video/${postAdoptionId}/${stepKey}`, {
+        state: {
+          sessionId,
+          token,
+          postAdoptionId,
+          month,
+          role: String(user?.userType ?? "ADOPTER"),
+          clientData: "AdopterUser",
+        },
+      });
+    } catch (err) {
+      if (err instanceof ApiError && (err.status === 401 || err.status === 403)) {
+        window.location.assign("/auth/login");
+        return;
+      }
+      console.error("[mypage] failed to enter video call", {
+        postAdoptionId,
+        stepKey,
+        err,
+      });
+      const message = err instanceof Error ? err.message : "화상 상담 입장에 실패했습니다.";
+      alert(message);
+    } finally {
+      setEnteringVideo(false);
+    }
   };
 
   return (
@@ -354,8 +409,8 @@ export function PostAdoptionTools({
                         <div className="mt-4">
                           <Button
                               className="w-full rounded-lg bg-blue-500 text-white hover:bg-blue-600"
-                              onClick={handleEnterVideo}
-                              disabled={!postAdoptionId || !stepKey}
+                              onClick={() => void handleEnterVideo()}
+                              disabled={!postAdoptionId || !stepKey || enteringVideo}
                           >
                             화상 상담 입장하기
                           </Button>

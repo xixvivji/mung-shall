@@ -1,4 +1,4 @@
-﻿import { useEffect, useMemo, useRef, useState } from "react";
+﻿import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import "@/shared/styles/uiverse/PostAdoptionStepper.css";
 
@@ -13,7 +13,9 @@ import {
 
 import {
   fetchPostAdoptionProcessByAdoptionId,
+  fetchPostAdoptionVideoCalls,
   fetchPostAdoptionStepDetail,
+  schedulePostAdoptionVideoCall,
   updatePostAdoptionChecklistItem,
   uploadPostAdoptionSubmissionFile,
   deletePostAdoptionSubmissionFile,
@@ -103,6 +105,42 @@ function consultTitleByKey(key: VideoConsultKey) {
   return "3차 화상 상담";
 }
 
+function consultMonthByKey(key: VideoConsultKey): number {
+  if (key === 30) return 1;
+  if (key === 60) return 2;
+  return 3;
+}
+
+function consultKeyByMonth(month: number): VideoConsultKey | null {
+  if (month === 1) return 30;
+  if (month === 2) return 60;
+  if (month === 3) return 90;
+  return null;
+}
+
+function normalizeScheduleDateTime(value: string) {
+  if (/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/.test(value)) return `${value}:00`;
+  if (/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}$/.test(value)) return value;
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) {
+    throw new Error("예약 날짜/시간 형식이 올바르지 않습니다.");
+  }
+  const pad2 = (n: number) => String(n).padStart(2, "0");
+  return `${parsed.getFullYear()}-${pad2(parsed.getMonth() + 1)}-${pad2(parsed.getDate())}T${pad2(parsed.getHours())}:${pad2(parsed.getMinutes())}:00`;
+}
+
+function toDatetimeLocalValue(value: string | null | undefined) {
+  if (!value) return "";
+  const normalized = value.replace(" ", "T");
+  if (/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}/.test(normalized)) {
+    return normalized.slice(0, 16);
+  }
+  const parsed = new Date(normalized);
+  if (Number.isNaN(parsed.getTime())) return "";
+  const pad2 = (n: number) => String(n).padStart(2, "0");
+  return `${parsed.getFullYear()}-${pad2(parsed.getMonth() + 1)}-${pad2(parsed.getDate())}T${pad2(parsed.getHours())}:${pad2(parsed.getMinutes())}`;
+}
+
 function formatKoreanDateTimeFromLocal(value?: string | null) {
   if (!value) return "-";
   // value is yyyy-mm-ddThh:mm (datetime-local)
@@ -132,35 +170,13 @@ export function CareStep({ adoptionId }: Props) {
   const [stepDetail, setStepDetail] =
       useState<PostAdoptionStepDetailResponse | null>(null);
 
-  // 1/2/3차 화상 상담 예약(프론트 임시 저장: localStorage)
   const [videoReservations, setVideoReservations] = useState<
       Partial<Record<VideoConsultKey, VideoReservation>>
-  >(() => {
-    try {
-      const raw = localStorage.getItem("postAdoption.videoReservations");
-      if (!raw) return {};
-      const parsed = JSON.parse(
-          raw
-      ) as Partial<Record<VideoConsultKey, VideoReservation>>;
-      return parsed ?? {};
-    } catch {
-      return {};
-    }
-  });
+  >({});
 
   const [reserveDialogOpen, setReserveDialogOpen] = useState(false);
   const [reserveDraft, setReserveDraft] = useState<string>("");
-
-  useEffect(() => {
-    try {
-      localStorage.setItem(
-          "postAdoption.videoReservations",
-          JSON.stringify(videoReservations)
-      );
-    } catch {
-      // ignore
-    }
-  }, [videoReservations]);
+  const [reserveSaving, setReserveSaving] = useState(false);
 
   const [uploads, setUploads] = useState<Record<number, UploadUi>>({}); // key: submissionId
 
@@ -213,17 +229,73 @@ export function CareStep({ adoptionId }: Props) {
     setReserveDialogOpen(true);
   };
 
-  const saveReserve = () => {
-    if (!consultKey) return;
+  const syncVideoReservations = useCallback(async (pid: number) => {
+    const videoCalls = await fetchPostAdoptionVideoCalls(pid);
+    const next: Partial<Record<VideoConsultKey, VideoReservation>> = {};
+
+    for (const videoCall of videoCalls) {
+      const key = consultKeyByMonth(videoCall.month);
+      if (!key) continue;
+      const datetimeLocal = toDatetimeLocalValue(videoCall.scheduledDateTime);
+      if (!datetimeLocal) continue;
+      next[key] = { datetimeLocal };
+    }
+
+    setVideoReservations(next);
+  }, []);
+
+  const resolvePostAdoptionId = useCallback(async () => {
+    if (postAdoptionId) return postAdoptionId;
+    if (!adoptionId) {
+      throw new Error("adoptionId가 없어서 postAdoptionId를 조회할 수 없습니다.");
+    }
+    const process = await fetchPostAdoptionProcessByAdoptionId(adoptionId);
+    if (!process?.id) {
+      throw new Error("postAdoptionId를 찾지 못했습니다.");
+    }
+    setPostAdoptionId(process.id);
+    return process.id;
+  }, [adoptionId, postAdoptionId]);
+
+  const saveReserve = async () => {
+    if (!consultKey || reserveSaving) return;
     if (!reserveDraft) {
       alert("예약 날짜/시간을 선택해 주세요.");
       return;
     }
-    setVideoReservations((prev) => ({
-      ...prev,
-      [consultKey]: { datetimeLocal: reserveDraft },
-    }));
-    setReserveDialogOpen(false);
+
+    setReserveSaving(true);
+    try {
+      const pid = await resolvePostAdoptionId();
+      const month = consultMonthByKey(consultKey);
+      const scheduledDateTime = normalizeScheduleDateTime(reserveDraft);
+
+      await schedulePostAdoptionVideoCall(pid, month, { scheduledDateTime });
+      await syncVideoReservations(pid);
+
+      setReserveDialogOpen(false);
+    } catch (error) {
+      console.error("[care-step] failed to save video call reservation", {
+        adoptionId,
+        postAdoptionId,
+        consultKey,
+        reserveDraft,
+        error,
+      });
+      if (error instanceof ApiError) {
+        if (error.status === 404) {
+          alert("예약 정보를 찾을 수 없어 저장하지 못했습니다. 잠시 후 다시 시도해 주세요.");
+        } else {
+          alert(error.message || "화상 상담 예약 저장에 실패했습니다.");
+        }
+      } else if (error instanceof Error) {
+        alert(error.message || "화상 상담 예약 저장에 실패했습니다.");
+      } else {
+        alert("화상 상담 예약 저장에 실패했습니다.");
+      }
+    } finally {
+      setReserveSaving(false);
+    }
   };
 
   const enterVideo = () => {
@@ -284,6 +356,16 @@ export function CareStep({ adoptionId }: Props) {
     })();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [adoptionId, stepOrder]);
+
+  useEffect(() => {
+    if (!postAdoptionId) return;
+    void syncVideoReservations(postAdoptionId).catch((error) => {
+      console.warn("[care-step] failed to sync video reservations", {
+        postAdoptionId,
+        error,
+      });
+    });
+  }, [postAdoptionId, syncVideoReservations]);
 
   const onPrev = () => setActiveIndex((v) => Math.max(0, v - 1));
   const onNext = () =>
@@ -724,7 +806,7 @@ export function CareStep({ adoptionId }: Props) {
                           onChange={(e) => setReserveDraft(e.target.value)}
                       />
                       <p className="text-xs text-gray-500">
-                        * 현재는 프론트에서만 임시 저장됩니다. (추후 서버 예약 API 연동 예정)
+                        * 저장 시 서버 예약 API를 호출해 일정을 저장합니다.
                       </p>
                     </div>
 
@@ -732,12 +814,18 @@ export function CareStep({ adoptionId }: Props) {
                       <Button
                           variant="outline"
                           className="rounded-lg"
+                          disabled={reserveSaving}
                           onClick={() => setReserveDialogOpen(false)}
                       >
                         취소
                       </Button>
-                      <Button variant="mypage" className="rounded-lg" onClick={saveReserve}>
-                        저장
+                      <Button
+                          variant="mypage"
+                          className="rounded-lg"
+                          onClick={() => void saveReserve()}
+                          disabled={reserveSaving}
+                      >
+                        {reserveSaving ? "저장 중..." : "저장"}
                       </Button>
                     </DialogFooter>
                   </DialogContent>
@@ -748,3 +836,4 @@ export function CareStep({ adoptionId }: Props) {
       </div>
   );
 }
+

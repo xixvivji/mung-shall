@@ -1,5 +1,5 @@
-import com.example.backend.api.postadoption.dto.videocall.VideoCallOpenRoomRequest;
-import com.example.backend.service.postadoption.PostAdoptionVideoCallService;
+package com.example.backend.api.openvidu;
+
 import io.openvidu.java.client.*;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
@@ -27,8 +27,6 @@ import java.util.Map;
 @CrossOrigin(origins = "*")
 @RequiredArgsConstructor
 public class OpenViduController {
-
-    private final PostAdoptionVideoCallService postAdoptionVideoCallService;
 
     @Value("${openvidu.url}")
     private String OPENVIDU_URL;

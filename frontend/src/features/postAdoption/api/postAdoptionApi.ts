@@ -1,4 +1,4 @@
-﻿import { api } from "@/shared/api/client";
+﻿import { ApiError, api } from "@/shared/api/client";
 
 import type {
   AdoptionDetail,
@@ -500,3 +500,88 @@ export function deletePostAdoptionSubmissionFile(
     { method: "DELETE" }
   );
 }
+
+export type VideoCallScheduleRequest = {
+  scheduledDateTime: string;
+};
+
+export type PostAdoptionVideoCallResponse = {
+  videoCallId: number;
+  month: number;
+  scheduledDateTime: string | null;
+  completedAt: string | null;
+  openViduSessionId: string | null;
+  status: string | null;
+};
+
+function toOptionalText(value: unknown): string | null {
+  return typeof value === "string" ? value : null;
+}
+
+function normalizePostAdoptionVideoCallResponse(raw: unknown): PostAdoptionVideoCallResponse {
+  const record = isRecord(raw) ? raw : {};
+  return {
+    videoCallId:
+      toNumber(record.videoCallId ?? record.video_call_id ?? record.id) ?? 0,
+    month: toNumber(record.month) ?? 0,
+    scheduledDateTime: toOptionalText(
+      record.scheduledDateTime ?? record.scheduled_at ?? record.scheduledAt
+    ),
+    completedAt: toOptionalText(record.completedAt ?? record.completed_at),
+    openViduSessionId: toOptionalText(
+      record.openViduSessionId ?? record.openviduSessionId ?? record.openvidu_session_id
+    ),
+    status: toOptionalText(record.status),
+  };
+}
+
+export async function schedulePostAdoptionVideoCall(
+  postAdoptionId: number,
+  month: number,
+  payload: VideoCallScheduleRequest
+): Promise<PostAdoptionVideoCallResponse> {
+  const data = await api<unknown>(`/post-adoptions/${postAdoptionId}/video-calls/${month}`, {
+    method: "PUT",
+    body: JSON.stringify(payload),
+  });
+  return normalizePostAdoptionVideoCallResponse(data);
+}
+
+export async function fetchPostAdoptionVideoCallByMonth(
+  postAdoptionId: number,
+  month: number
+): Promise<PostAdoptionVideoCallResponse> {
+  const data = await api<unknown>(`/post-adoptions/${postAdoptionId}/video-calls/${month}`);
+  return normalizePostAdoptionVideoCallResponse(data);
+}
+
+function resolveVideoCallsList(raw: unknown): unknown[] {
+  if (Array.isArray(raw)) return raw;
+  if (!isRecord(raw)) return [];
+  if (Array.isArray(raw.videoCalls)) return raw.videoCalls;
+  if (Array.isArray(raw.items)) return raw.items;
+  if (Array.isArray(raw.content)) return raw.content;
+  return [];
+}
+
+export async function fetchPostAdoptionVideoCalls(
+  postAdoptionId: number
+): Promise<PostAdoptionVideoCallResponse[]> {
+  const data = await api<unknown>(`/post-adoptions/${postAdoptionId}/video-calls`);
+  return resolveVideoCallsList(data).map((item) => normalizePostAdoptionVideoCallResponse(item));
+}
+
+export async function fetchPostAdoptionVideoCallByMonthSafe(
+  postAdoptionId: number,
+  month: number
+): Promise<PostAdoptionVideoCallResponse | null> {
+  try {
+    return await fetchPostAdoptionVideoCallByMonth(postAdoptionId, month);
+  } catch (error) {
+    if (error instanceof ApiError && error.status === 404) {
+      return null;
+    }
+    throw error;
+  }
+}
+

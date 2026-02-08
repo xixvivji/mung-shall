@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Link, useNavigate, useParams } from "react-router-dom";
+import { Link, useLocation, useNavigate, useParams } from "react-router-dom";
 import { Button } from "@/shared/ui/button";
-import { api } from "@/shared/api/client";
 import { OpenVidu } from "openvidu-browser";
+import { createOpenViduConnection, createOpenViduSession } from "@/features/video-call/api/openViduApi";
 
 type StepKey = 30 | 60 | 90;
 
@@ -33,6 +33,16 @@ type SessionLike = {
 type PublisherLike = StreamManagerLike & {
   publishAudio: (enabled: boolean) => void;
   publishVideo: (enabled: boolean) => void;
+};
+
+type VideoMeetingLocationState = {
+  sessionId?: string;
+  token?: string;
+  clientData?: string;
+  postAdoptionId?: number;
+  month?: number;
+  role?: string;
+  autoJoin?: boolean;
 };
 
 function titleForStepKey(stepKey?: string) {
@@ -66,23 +76,6 @@ function parseClientData(raw?: string) {
   return "참여자";
 }
 
-async function createOpenViduSession(sessionId: string) {
-  return api<string>("/openvidu/sessions", {
-    method: "POST",
-    body: JSON.stringify({ customSessionId: sessionId }),
-  });
-}
-
-async function createOpenViduToken(sessionId: string, clientData: string) {
-  return api<string>(`/openvidu/sessions/${encodeURIComponent(sessionId)}/connections`, {
-    method: "POST",
-    body: JSON.stringify({
-      role: "PUBLISHER",
-      data: JSON.stringify({ clientData }),
-    }),
-  });
-}
-
 function VideoTile({
                      streamManager,
                      title,
@@ -113,10 +106,12 @@ function VideoTile({
 
 export default function VideoMeetingPage() {
   const navigate = useNavigate();
+  const location = useLocation();
   const { postAdoptionId, stepOrder } = useParams<{
     postAdoptionId: string;
     stepOrder: string;
   }>();
+  const locationState = (location.state as VideoMeetingLocationState | null) ?? null;
 
   const [isConnecting, setIsConnecting] = useState(false);
   const [isConnected, setIsConnected] = useState(false);
@@ -128,15 +123,35 @@ export default function VideoMeetingPage() {
 
   const [session, setSession] = useState<SessionLike | null>(null);
   const sessionRef = useRef<SessionLike | null>(null);
+  const autoJoinAttemptedRef = useRef(false);
 
   const stepKeyParam = stepOrder;
   const pageTitle = useMemo(() => titleForStepKey(stepKeyParam), [stepKeyParam]);
   const currentStepKey = useMemo(() => toStepKey(stepKeyParam), [stepKeyParam]);
+  const prefetchedSessionId = useMemo(
+    () => (typeof locationState?.sessionId === "string" ? locationState.sessionId : null),
+    [locationState?.sessionId]
+  );
+  const prefetchedClientData = useMemo(
+    () => (typeof locationState?.clientData === "string" && locationState.clientData.trim() ? locationState.clientData : "WebUser"),
+    [locationState?.clientData]
+  );
+  const prefetchedRole = useMemo(
+    () => (typeof locationState?.role === "string" ? locationState.role.toLowerCase() : ""),
+    [locationState?.role]
+  );
+  const isShelterRole = prefetchedRole === "shelter" || prefetchedRole === "center";
+  const prefetchedTokenRef = useRef<string | null>(
+    typeof locationState?.token === "string" && locationState.token.trim()
+      ? locationState.token
+      : null
+  );
 
   const sessionId = useMemo(() => {
+    if (prefetchedSessionId) return prefetchedSessionId;
     if (!postAdoptionId || !currentStepKey) return null;
     return `postcare_${postAdoptionId}_${currentStepKey}`;
-  }, [postAdoptionId, currentStepKey]);
+  }, [postAdoptionId, currentStepKey, prefetchedSessionId]);
 
   const handleGo = (targetStepKey: StepKey) => {
     if (!postAdoptionId) return;
@@ -166,12 +181,28 @@ export default function VideoMeetingPage() {
       return;
     }
 
+    if (import.meta.env.DEV) {
+      console.debug("[call] joining video room", {
+        sessionId,
+        hasPrefetchedToken: Boolean(prefetchedTokenRef.current),
+        isShelterRole,
+      });
+    }
+
     setIsConnecting(true);
     setErrorMessage(null);
 
     try {
-      await createOpenViduSession(sessionId);
-      const token = await createOpenViduToken(sessionId, "WebUser");
+      let token = prefetchedTokenRef.current;
+      if (!token) {
+        if (isShelterRole) {
+          await createOpenViduSession(sessionId);
+        }
+        token = await createOpenViduConnection(sessionId, {
+          role: "PUBLISHER",
+          clientData: prefetchedClientData,
+        });
+      }
 
       const openVidu = new OpenVidu() as any;
       const newSession = openVidu.initSession();
@@ -187,7 +218,7 @@ export default function VideoMeetingPage() {
         setSubscribers((prev) => prev.filter((sm) => sm.stream?.connection?.connectionId !== cid));
       });
 
-      await newSession.connect(token, { clientData: "WebUser" });
+      await newSession.connect(token, { clientData: prefetchedClientData });
 
       const publisher = await openVidu.initPublisherAsync(undefined, {
         audioSource: undefined,
@@ -205,6 +236,7 @@ export default function VideoMeetingPage() {
       setSession(newSession);
       setLocalPublisher(publisher);
       setIsConnected(true);
+      prefetchedTokenRef.current = null;
     } catch (error) {
       const message = error instanceof Error ? error.message : "화상 연결에 실패했습니다.";
       setErrorMessage(message);
@@ -212,7 +244,7 @@ export default function VideoMeetingPage() {
     } finally {
       setIsConnecting(false);
     }
-  }, [leaveSession, sessionId]);
+  }, [isShelterRole, leaveSession, prefetchedClientData, sessionId]);
 
   const handleToggleAudio = useCallback(() => {
     if (!localPublisher) return;
@@ -231,6 +263,27 @@ export default function VideoMeetingPage() {
   useEffect(() => {
     sessionRef.current = session;
   }, [session]);
+
+  useEffect(() => {
+    const hasPrefetchedToken =
+      typeof locationState?.token === "string" && locationState.token.trim().length > 0;
+    const shouldAutoJoin = hasPrefetchedToken || locationState?.autoJoin === true;
+    if (!shouldAutoJoin) return;
+    if (!sessionId) return;
+    if (isConnected || isConnecting) return;
+    if (autoJoinAttemptedRef.current) return;
+
+    if (import.meta.env.DEV) {
+      console.debug("[call] auto-join trigger", {
+        sessionId,
+        hasPrefetchedToken,
+        autoJoin: locationState?.autoJoin === true,
+      });
+    }
+
+    autoJoinAttemptedRef.current = true;
+    void handleJoin();
+  }, [handleJoin, isConnected, isConnecting, locationState?.autoJoin, locationState?.token, sessionId]);
 
   useEffect(() => {
     return () => {

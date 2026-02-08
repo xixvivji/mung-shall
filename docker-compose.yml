@@ -51,12 +51,28 @@ services:
       - S3_SECRET_KEY=${S3_SECRET_KEY}
       - S3_BUCKET_NAME=${S3_BUCKET_NAME}
       - GMS_KEY=${GMS_KEY}
+      - AI_BASE_URL=${AI_BASE_URL}
     networks:
       - app-network
     restart: on-failure
     depends_on:
       - mysql
       - redis
+      - ai-server
+
+  # 2-1. AI Server (FastAPI + YOLO)
+  ai-server:
+    container_name: ai-server
+    image: ai-image:latest
+    build:
+      context: ./ai
+    ports:
+      - "127.0.0.1:8000:8000"
+    volumes:
+      - /opt/mungshall/models:/app/pose_analyze/model:ro
+    networks:
+      - app-network
+    restart: always
 
   # 3. MySQL
   mysql:

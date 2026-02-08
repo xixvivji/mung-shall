@@ -23,6 +23,8 @@ import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
 import java.io.InputStream;
+import java.nio.file.Files;
+import java.nio.file.Path;
 
 @Service
 @RequiredArgsConstructor
@@ -76,6 +78,48 @@ public class AiVideoAnalysisService {
         }
     }
 
+    public ResponseEntity<byte[]> analyzeVideo(
+            Path filePath,
+            String filename,
+            String contentType,
+            long contentLength,
+            String targetAction,
+            double targetDuration
+    ) {
+        String url = buildUrl(baseUrl, analyzeVideoPath);
+
+        HttpHeaders headers = new HttpHeaders();
+        headers.setContentType(MediaType.MULTIPART_FORM_DATA);
+
+        MultiValueMap<String, Object> body = new LinkedMultiValueMap<>();
+        body.add("file", toFileResource(filePath, filename, contentType, contentLength));
+        body.add("target_action", targetAction);
+        body.add("target_duration", Double.toString(targetDuration));
+
+        HttpEntity<MultiValueMap<String, Object>> requestEntity = new HttpEntity<>(body, headers);
+        try {
+            return aiRestTemplate.exchange(url, HttpMethod.POST, requestEntity, byte[].class);
+        } catch (HttpStatusCodeException e) {
+            String bodySnippet = abbreviate(e.getResponseBodyAsString(), 2000);
+            HttpStatusCode statusCode = e.getStatusCode();
+            String message = String.format(
+                    "AI analyze failed: status=%d body=%s",
+                    statusCode.value(),
+                    bodySnippet
+            );
+            HttpStatus status = statusCode instanceof HttpStatus
+                    ? (HttpStatus) statusCode
+                    : HttpStatus.BAD_GATEWAY;
+            throw new ApiException(status, message);
+        } catch (ResourceAccessException e) {
+            String message = "AI analyze failed: connection error=" + e.getMessage();
+            throw new ApiException(HttpStatus.SERVICE_UNAVAILABLE, message);
+        } catch (RestClientException e) {
+            String message = "AI analyze failed: " + e.getMessage();
+            throw new ApiException(HttpStatus.BAD_GATEWAY, message);
+        }
+    }
+
     private String buildUrl(String base, String path) {
         if (base.endsWith("/") && path.startsWith("/")) {
             return base.substring(0, base.length() - 1) + path;
@@ -89,21 +133,49 @@ public class AiVideoAnalysisService {
     private HttpEntity<InputStreamResource> toFileResource(MultipartFile file) {
         try {
             InputStream inputStream = file.getInputStream();
-            InputStreamResource resource = new NamedInputStreamResource(
+            return toFileResource(
                     inputStream,
                     file.getOriginalFilename(),
+                    file.getContentType(),
                     file.getSize()
             );
-
-            HttpHeaders partHeaders = new HttpHeaders();
-            if (file.getContentType() != null && !file.getContentType().isBlank()) {
-                partHeaders.setContentType(MediaType.parseMediaType(file.getContentType()));
-            }
-
-            return new HttpEntity<>(resource, partHeaders);
         } catch (IOException e) {
             throw new IllegalStateException("Failed to read video file stream.", e);
         }
+    }
+
+    private HttpEntity<InputStreamResource> toFileResource(
+            Path filePath,
+            String filename,
+            String contentType,
+            long contentLength
+    ) {
+        try {
+            InputStream inputStream = Files.newInputStream(filePath);
+            return toFileResource(inputStream, filename, contentType, contentLength);
+        } catch (IOException e) {
+            throw new IllegalStateException("Failed to read video file stream.", e);
+        }
+    }
+
+    private HttpEntity<InputStreamResource> toFileResource(
+            InputStream inputStream,
+            String filename,
+            String contentType,
+            long contentLength
+    ) {
+        InputStreamResource resource = new NamedInputStreamResource(
+                inputStream,
+                filename,
+                contentLength
+        );
+
+        HttpHeaders partHeaders = new HttpHeaders();
+        if (contentType != null && !contentType.isBlank()) {
+            partHeaders.setContentType(MediaType.parseMediaType(contentType));
+        }
+
+        return new HttpEntity<>(resource, partHeaders);
     }
 
     private String abbreviate(String value, int maxLen) {

@@ -1,0 +1,42 @@
+<svg width="460" height="280" viewBox="0 0 460 280" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="bg" x1="74" y1="22" x2="396" y2="246" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#EEF5FF"/>
+      <stop offset="1" stop-color="#DCEBFF"/>
+    </linearGradient>
+    <linearGradient id="ring" x1="230" y1="70" x2="230" y2="194" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#4F8FFB"/>
+      <stop offset="1" stop-color="#2563EB"/>
+    </linearGradient>
+    <filter id="shadow" x="132" y="36" width="196" height="208" filterUnits="userSpaceOnUse" color-interpolation-filters="sRGB">
+      <feFlood flood-opacity="0" result="BackgroundImageFix"/>
+      <feColorMatrix in="SourceAlpha" type="matrix" values="0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 127 0" result="hardAlpha"/>
+      <feOffset dy="10"/>
+      <feGaussianBlur stdDeviation="10"/>
+      <feColorMatrix type="matrix" values="0 0 0 0 0.145098 0 0 0 0 0.388235 0 0 0 0 0.921569 0 0 0 0.2 0"/>
+      <feBlend mode="normal" in2="BackgroundImageFix" result="effect1_dropShadow_1_1"/>
+      <feBlend mode="normal" in="SourceGraphic" in2="effect1_dropShadow_1_1" result="shape"/>
+    </filter>
+  </defs>
+
+  <rect x="10" y="10" width="440" height="260" rx="28" fill="url(#bg)"/>
+
+  <circle cx="88" cy="72" r="8" fill="#93C5FD"/>
+  <circle cx="112" cy="56" r="5" fill="#60A5FA"/>
+  <circle cx="90" cy="48" r="3" fill="#1D4ED8"/>
+
+  <circle cx="372" cy="56" r="7" fill="#BFDBFE"/>
+  <circle cx="392" cy="74" r="4" fill="#60A5FA"/>
+  <circle cx="356" cy="80" r="3" fill="#2563EB"/>
+
+  <g filter="url(#shadow)">
+    <circle cx="230" cy="120" r="56" fill="url(#ring)"/>
+    <circle cx="230" cy="120" r="42" fill="#FFFFFF"/>
+    <path d="M214 120L226 132L248 108" stroke="#2563EB" stroke-width="10" stroke-linecap="round" stroke-linejoin="round"/>
+  </g>
+
+  <path d="M196 164L214 224L230 204L246 224L264 164" fill="#3B82F6"/>
+  <path d="M206 168L220 214L230 201L240 214L254 168" fill="#1D4ED8" fill-opacity="0.85"/>
+
+  <rect x="156" y="220" width="148" height="16" rx="8" fill="#93C5FD" fill-opacity="0.35"/>
+</svg>

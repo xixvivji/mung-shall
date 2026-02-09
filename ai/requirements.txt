@@ -1,0 +1,12 @@
+# 1. 웹 서버
+fastapi
+uvicorn
+python-multipart
+
+# 2. AI 및 영상 처리
+ultralytics
+opencv-python-headless
+numpy
+
+# 3. 유틸리티
+python-dotenv

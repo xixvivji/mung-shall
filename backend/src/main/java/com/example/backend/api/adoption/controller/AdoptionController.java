@@ -1,0 +1,108 @@
+package com.example.backend.api.adoption.controller;
+
+import com.example.backend.api.adoption.dto.AdoptionCreateRequest;
+import com.example.backend.api.adoption.dto.AdoptionDetailResponse;
+import com.example.backend.api.adoption.dto.AdoptionStepInstanceResponse;
+import com.example.backend.api.adoption.dto.AdoptionStatusResponse;
+import com.example.backend.domain.adoption.enums.AdoptionProcessStatus;
+import com.example.backend.security.principal.CustomUserPrincipal;
+import com.example.backend.service.adoption.AdoptionService;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
+import io.swagger.v3.oas.annotations.media.Content;
+import io.swagger.v3.oas.annotations.media.Schema;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
+import io.swagger.v3.oas.annotations.responses.ApiResponses;
+import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.validation.Valid;
+import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.Authentication;
+import org.springframework.web.bind.annotation.*;
+
+import java.util.List;
+import java.util.Map;
+
+@Tag(name = "입양 API", description = "입양 프로세스 관련 API")
+@RestController
+@RequiredArgsConstructor
+@RequestMapping("/api/adoptions")
+public class AdoptionController {
+
+    private final AdoptionService adoptionService;
+
+    @Operation(summary = "입양 프로세스 생성", description = "사용자가 '입양하기' 버튼을 눌렀을 때 호출되어 초기 입양 프로세스를 생성합니다.")
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "201", description = "입양 프로세스 생성 성공",
+                    content = @Content(schema = @Schema(implementation = Map.class))),
+            @ApiResponse(responseCode = "401", description = "인증되지 않은 사용자")
+    })
+    @PostMapping("")
+    public ResponseEntity<?> createAdoptionProcess(
+            @Valid @RequestBody AdoptionCreateRequest request,
+            @Parameter(hidden = true) Authentication authentication
+    ) {
+        Long currentUserId = ((CustomUserPrincipal) authentication.getPrincipal()).getUserId();
+        Long adoptionId = adoptionService.createAdoptionProcess(currentUserId, request.getAbandonedDogId());
+        return ResponseEntity.status(HttpStatus.CREATED).body(Map.of("adoptionId", adoptionId));
+    }
+
+    @Operation(summary = "입양 프로세스 삭제", description = "진행 중인 입양 프로세스를 삭제합니다.")
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "200", description = "입양 프로세스 삭제 성공"),
+
+            @ApiResponse(responseCode = "404", description = "해당 입양 프로세스를 찾을 수 없음")
+    })
+    @DeleteMapping("/{adoptionId}")
+    public ResponseEntity<?> deleteAdoptionProcess(
+            @Parameter(description = "삭제할 입양 프로세스 ID") @PathVariable Long adoptionId) {
+        adoptionService.deleteAdoptionProcess(adoptionId);
+        return ResponseEntity.ok(Map.of("message", "입양 프로세스가 성공적으로 삭제되었습니다."));
+    }
+
+
+    @Operation(summary = "상태별 입양 목록 조회", description = "현재 인증된 사용자의 입양 프로세스 상태에 따른 입양 목록을 조회합니다.")
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "200", description = "입양 프로세스 목록 조회 성공",
+                    content = @Content(schema = @Schema(implementation = AdoptionStatusResponse.class))),
+            @ApiResponse(responseCode = "400", description = "잘못된 요청 데이터"),
+            @ApiResponse(responseCode = "401", description = "인증되지 않은 사용자")
+    })
+    @GetMapping
+    public ResponseEntity<?> getAdoptionsByStatus(
+            @Parameter(description = "입양 프로세스 상태 목록 (예: IN_PROGRESS,COMPLETED)") @RequestParam List<AdoptionProcessStatus> statuses,
+            @Parameter(hidden = true) Authentication authentication) {
+        Long currentUserId = ((CustomUserPrincipal) authentication.getPrincipal()).getUserId();
+
+        List<AdoptionStatusResponse> response = adoptionService.getAdoptionsByUserIdAndStatuses(currentUserId, statuses);
+        return ResponseEntity.ok(response);
+    }
+
+    @Operation(summary = "입양 단계별 상태 조회", description = "특정 입양 프로세스의 상세 정보를 조회합니다.")
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "200", description = "입양 상세 정보 조회 성공",
+                    content = @Content(schema = @Schema(implementation = AdoptionDetailResponse.class))),
+            @ApiResponse(responseCode = "404", description = "해당 입양 프로세스를 찾을 수 없음")
+    })
+    @GetMapping("/{adoptionId}/steps/status")
+    public ResponseEntity<AdoptionDetailResponse> getAdoptionDetail(
+            @Parameter(description = "조회할 입양 프로세스 ID") @PathVariable Long adoptionId) {
+        AdoptionDetailResponse response = adoptionService.getAdoptionDetail(adoptionId);
+        return ResponseEntity.ok(response);
+    }
+
+    @Operation(summary = "입양 단계 상세 정보 조회", description = "특정 입양 프로세스의 특정 단계에 대한 상세 정보를 조회합니다.")
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "200", description = "입양 단계 상세 정보 조회 성공",
+                    content = @Content(schema = @Schema(implementation = AdoptionStepInstanceResponse.class))),
+            @ApiResponse(responseCode = "404", description = "해당 입양 프로세스 또는 단계를 찾을 수 없음")
+    })
+    @GetMapping("/{adoptionId}/steps/{stepOrder}")
+    public ResponseEntity<AdoptionStepInstanceResponse> getAdoptionStepInstanceDetail(
+            @Parameter(description = "조회할 입양 프로세스 ID") @PathVariable Long adoptionId,
+            @Parameter(description = "조회할 입양 단계 순서 (1~5)") @PathVariable Integer stepOrder) {
+        AdoptionStepInstanceResponse response = adoptionService.getAdoptionStepInstanceDetail(adoptionId, stepOrder);
+        return ResponseEntity.ok(response);
+    }
+}

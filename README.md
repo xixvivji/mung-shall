@@ -1,92 +1,124 @@
 # Mung-Shall
-![메인](/uploads/f5a357990d40c7d030a2fa65728058c1/메인.png){width=590 height=331}
 
-## 개요
-본 프로젝트는 유기견 입양의 전(사전 검증)·중(입양 심사)·후(사후 관리)
-전 과정을 하나의 시스템으로 통합하여, 입양 과정에서 발생하는 단절을 줄이고
-유기견 파양률을 낮추는 것을 목표로 하는 AI 기반 유기견 입양 플랫폼입니다.
+유기견 입양 과정의 단절을 줄이기 위해 만든 AI 기반 입양 지원 플랫폼입니다.  
+설문 기반 추천, 훈련 영상 분석, 화상 상담을 하나의 서비스 흐름으로 연결했습니다.
 
-## 팀원 및 포지션
-| 분류 | 이름 | 포지션 |
-| --- | --- | --- |
-| 팀장 | 김지원 | Infra |
-| 팀원 | 문희성 | FrontEnd |
-| 팀원 | 박정희 | FrontEnd |
-| 팀원 | 손홍민 | AI & BackEnd |
-| 팀원 | 정유찬 | BackEnd |
-| 팀원 | 차민성 | BackEnd |
+## 프로젝트 한눈에 보기
+- 기간: 2026.01 ~ 2026.02
+- 형태: 팀 프로젝트
+- 목표: 입양 전 탐색부터 상담/훈련까지 이어지는 경험 제공
 
-## 주요 기능 화면 설계
-![화면_1](/uploads/23c1a2745d59ced7658014e5c2d86b8b/화면_1.png){width=547 height=231}
-![화면_2](/uploads/71c919d8064f8fd172681227ecc3d352/화면_2.png){width=546 height=230}
-![화면_3](/uploads/4edff8003b46a271c218d7f9bec8bfb1/화면_3.png){width=547 height=233}
+## 주요 기능
+- 유기견 추천: 설문 응답을 기반으로 성향 매칭 추천
+- 영상 분석: FastAPI + YOLO/OpenCV 기반 반려견 훈련 영상 분석
+- 화상 상담: OpenVidu 기반 실시간 상담
+- 운영 자동화: Docker Compose + Jenkins 배포
+- 운영 관측: Prometheus + Grafana 모니터링
+
+## 내가 맡은 역할 
+- 인프라 및 배포 안정화
+- 백엔드 추천/매칭 파이프라인 구현
+
+
+##  요약 (문제-해결-결과)
+### 1) 실시간 상담 연결 안정화
+- 문제: OpenVidu 연결 시 프록시 경로, CORS, 포트 정책이 엇갈리며 접속 실패가 반복됨
+- 해결: Nginx/OpenVidu 경로와 포트 정책을 정리하고, 외부 노출 포트를 재배치해 통신 경계를 단순화함
+- 결과: 화상 상담 기능을 실제 배포 환경에서 안정적으로 연결 가능한 상태로 고정
+
+### 2) 추천/매칭 응답 흐름 개선
+- 문제: 추천 처리 구간이 길어지면서 응답 지연과 일관성 저하가 발생함
+- 해결: 매칭 DTO/서비스를 분리하고 코사인 유사도 로직, Redis 캐싱, Batch 스케줄러를 적용해 파이프라인을 정리함
+- 결과: 추천 API 흐름이 단순해지고, 반복 요청 구간의 부하를 줄일 수 있는 구조로 개선
+
+
+
+## 트러블슈팅
+### 1) OpenVidu 연결 실패
+- 상황: 배포 환경에서 화상 상담 연결이 간헐적으로 실패
+- 원인: 프록시 경로, CORS, 포트 정책이 서로 다르게 설정됨
+- 해결: Nginx/OpenVidu 경로를 통일하고 포트 정책을 정리해 통신 경계를 단순화
+- 결과: 배포 환경에서도 화상 상담 세션 생성/입장이 안정적으로 동작
+
+### 2) 추천 응답 지연
+- 상황: 설문 이후 추천 응답이 느리거나 일관성이 떨어짐
+- 원인: 동기 처리 구간이 길고 반복 계산이 많았음
+- 해결: Redis 캐싱과 Batch 스케줄러를 적용해 반복 구간을 분리하고 API 경로를 단순화
+- 결과: 추천 응답 흐름이 단순해지고 반복 요청 시 처리 부담 완화
+
+### 3) AI 서버 연동 시 요청/응답 포맷 불일치
+- 상황: 백엔드-AI 서버 연동 구간에서 요청 형식 차이로 분석 요청 실패가 발생
+- 원인: API 명세와 실제 전송 포맷(JSON/multipart) 간 불일치
+- 해결: 요청 스펙을 재정의하고 응답 포맷을 통일해 연동 인터페이스를 정리
+- 결과: 분석 API 실패 케이스가 줄고 백엔드 후속 처리 로직 단순화
+
+### 4) 배포 파이프라인 빌드 실패
+- 상황: Jenkins 배포 단계에서 환경설정/경로 문제로 빌드가 반복 실패
+- 원인: 서비스별 설정값 관리 방식이 일관되지 않아 배포 시점에 누락/충돌 발생
+- 해결: 빌드 설정과 환경변수 관리 방식을 정리하고 compose 기반 실행 경로를 표준화
+- 결과: 배포 재시도 횟수를 줄이고 운영 반영 시간을 단축
 
 ## 기술 스택
-| Category | Tech |
-| --- | --- |
-| Frontend | React, Vite, TypeScript, Tailwind CSS, Material-UI |
-| Backend | Spring Boot, Java 17, Spring Data JPA, Spring Security, Spring Batch |
-| AI Server | Python, FastAPI, Ultralytics(YOLO), OpenCV |
-| Database | MySQL |
-| Cache | Redis |
-| CI/CD | Jenkins, Docker, Git |
-| Monitoring | Prometheus, Grafana |
-| Infra | AWS EC2, Nginx, OpenVidu |
-| API Docs | SpringDoc (Swagger UI) |
-| Auth | JWT, OAuth 2.0 |
+- Frontend: React, Vite, TypeScript, Tailwind CSS, MUI
+- Backend: Spring Boot 3, Java 17, Spring Data JPA, Spring Security, Spring Batch
+- AI Server: Python, FastAPI, Ultralytics YOLO, OpenCV
+- Data: MySQL, Redis
+- Infra/DevOps: Docker Compose, Nginx, Jenkins, OpenVidu, AWS EC2
+- Monitoring: Prometheus, Grafana
 
-## 시스템 아키텍쳐
-본 시스템은 MSA(Microservice Architecture)를 일부 채용한 컨테이너 기반으로 설계되었으며,
-각 컴포넌트는 Docker를 통해 격리/관리되고 Jenkins CI/CD 파이프라인을 통해 자동 배포된다.
+## 시스템 구성
+- `frontend`(Nginx) -> `backend`(Spring Boot) -> `mysql`/`redis`
+- `backend` <-> `ai-server`(FastAPI)
+- 실시간 상담: OpenVidu 연동
+- 운영 지표: Prometheus 수집, Grafana 대시보드 시각화
 
-서비스 간 통신은 REST API를 기반으로 하며,
-주요 데이터는 MySQL에, 캐시 및 실시간 데이터는 Redis에 저장된다.
-![시스템_아키텍쳐](/uploads/3be8e59a1e296605e916e551377ebdbb/시스템_아키텍쳐.png){width=531 height=265}
-![image](/uploads/1ffe82acdfb096dc7c97d2a02766e481/image.png){width=585 height=261}
-![자동화](/uploads/e4b2ba09bc35de04700c593afc67deeb/자동화.png){width=414 height=262}
-![모니터링](/uploads/d7bea5fe3e3f3ca2b7b2df56c6877fd0/모니터링.png){width=544 height=226}
+## 회고
+이번 프로젝트에서 가장 크게 배운 점은, 화상 기능의 안정성은 코드보다 인프라/네트워크 조건에 더 크게 좌우된다는 점이었습니다.  
+처음에는 애플리케이션 로직 문제라고 생각했지만, 실제 원인은 배포 환경의 포트 정책과 권한 제약이었습니다.  
+이 경험을 통해 문제를 코드만 보지 않고 서비스 경로(브라우저-프록시-미디어 서버-보안그룹) 전체로 확장해 진단하는 습관을 갖게 되었습니다.
 
-## 커밋 컨벤션
-기본 구조
-```
-type : subject
+또한 운영 관점에서, 단일 서버에 모든 기능을 몰아넣는 방식보다 역할을 분리한 아키텍처가 장애 대응과 확장성에서 유리하다는 점을 체감했습니다.  
+앞으로도 기능 구현뿐 아니라 배포 구조, 관측 가능성, 장애 격리까지 함께 설계하는 개발자가 되는 것을 목표로 하고 있습니다.
 
-body
-```
+## 가장 큰 어려움: SSAFY EC2 제약 환경에서 OpenVidu ICE Disconnection 해결
+- 상황: SSAFY 지급 EC2에서 콘솔 권한 없이 SSH(PEM)만 사용 가능했고, 인바운드 정책이 불명확하며 보안그룹 수정도 제한적이었습니다.
+- 증상: 로컬에서는 OpenVidu 화상 연결이 정상 동작했지만, EC2 배포 환경에서는 `ICE disconnection`이 반복 발생했습니다.
+- 핵심 원인: 시그널링(HTTPS/WSS)은 연결되더라도, 실제 미디어 전송에 필요한 UDP 포트 범위(일반적으로 `40000-57000`)가 외부에 열려 있지 않아 ICE 연결이 성립되지 않았습니다.
+- 해결: OpenVidu 전용 EC2를 별도로 구성하고 필요한 포트를 명확히 개방한 뒤, 기존 서비스 EC2의 Nginx에서 요청을 리버스 프록시로 전달해 진입점을 통합했습니다.
+- 결과: 배포 환경에서도 화상 상담 연결이 안정적으로 동작했고, 이후 운영 구조를 앱 서버와 미디어 서버 분리 방식으로 정리할 수 있었습니다.
 
-type 종류
-```
-feat : 새로운 기능 추가
-fix : 버그 수정
-docs : 문서 수정
-style : 코드 포맷팅, 세미콜론 누락, 코드 변경이 없는 경우
-refactor : 코드 리펙토링
-test : 테스트 코드, 리펙토링 테스트 코드 추가
-chore : 빌드 업무 수정, 패키지 매니저 수정
-```
+## 아키텍처 비교: 단일 EC2 vs 분리 EC2(앱/미디어)
+### 1) 단일 EC2(앱 + OpenVidu 함께 운영)
+- 장점: 초기 구축이 단순하고 빠르며, 소규모 트래픽에서는 비용 효율이 좋음
+- 장점: 서버 수가 적어 배포/운영 포인트가 단순함
+- 단점: 앱 서버와 미디어 서버가 CPU/메모리/네트워크 자원을 경쟁함
+- 단점: OpenVidu용 포트 정책까지 한 서버에서 관리해야 해 보안그룹 구성이 복잡해짐
+- 단점: 장애 발생 시 영향 범위가 전체 서비스로 커질 수 있음
 
-커밋 예시
-```
-== ex1
-✨Feat: BE - 회원 가입 기능 구현
+### 2) 분리 EC2(앱 EC2 + OpenVidu EC2)
+- 장점: 역할 분리로 장애 격리가 쉬워지고 운영 안정성이 높아짐
+- 장점: 화상 트래픽 증가 시 OpenVidu 서버만 독립적으로 튜닝/확장 가능
+- 장점: 앱 서버 정책과 미디어 서버 포트 정책을 분리해 관리 가능
+- 단점: 인프라 구성과 운영 복잡도가 증가함
+- 단점: 서버/모니터링/배포 관리 포인트가 늘어 비용이 증가할 수 있음
+- 단점: 네트워크 경로가 늘어나 초기 디버깅 난이도가 높아질 수 있음
 
-== ex2
-📚chore: docker-compose 수정
-```
+## OpenVidu 네트워크 모드 비교: Bridge vs Host
+### 1) Bridge 모드
+- 장점: 컨테이너 네트워크가 분리되어 보안/격리 측면에서 유리함
+- 장점: 컨테이너 단위 라우팅/정책 제어가 쉬워 운영 유연성이 높음
+- 장점: 다른 서비스와 함께 구성할 때 Docker 네트워크 관리가 체계적임
+- 단점: 포트 매핑/방화벽/NAT 구성이 복잡해져 WebRTC(UDP) 디버깅 난이도가 올라감
+- 단점: 잘못 구성하면 ICE 후보 연결 실패 가능성이 커짐
 
+### 2) Host 모드
+- 장점: NAT/포트 매핑 계층이 줄어 WebRTC 연결 문제를 단순하게 볼 수 있음
+- 장점: 대량 UDP 트래픽 처리에서 성능/지연 측면 이점이 있을 수 있음
+- 장점: OpenVidu/Kurento 포트 정책을 서버 기준으로 직접 관리 가능
+- 단점: 컨테이너 격리 수준이 낮아지고 포트 충돌 위험이 커짐
+- 단점: 같은 서버에서 여러 서비스 운용 시 보안/운영 관리가 까다로워질 수 있음
 
-## ⚖️ 라이선스 및 출처 (License & Acknowledgements)
-
-본 프로젝트는 **GNU Affero General Public License v3.0 (AGPL-3.0)** 라이선스를 따릅니다.
-
-### 1. YOLOv8 (Ultralytics)
-이 프로젝트는 [Ultralytics](https://github.com/ultralytics/ultralytics)에서 개발한 **YOLOv8** 모델을 기반으로 합니다.
-- **라이선스:** AGPL-3.0
-- **출처:** https://github.com/ultralytics/ultralytics
-- 본 프로젝트는 YOLOv8의 라이선스 규정을 준수하여, 파인튜닝 코드 및 추론 로직을 오픈소스로 공개합니다.
-
-### 2. Stanford Dogs Dataset
-모델 학습 및 튜닝을 위해 **[Stanford Dogs Dataset](http://vision.stanford.edu/aditya86/ImageNetDogs/)**을 사용하였습니다.
-- **사용 목적:** 해당 데이터셋은 **비상업적 연구 및 교육 목적**으로만 사용되었습니다.
-- **인용:**
-  > Khosla, Aditya, et al. "Novel dataset for fine-grained image categorization." *First Workshop on Fine-Grained Visual Categorization, IEEE Conference on Computer Vision and Pattern Recognition (CVPR)*, 2011.
+### 선택 기준
+- 빠른 안정화와 WebRTC 연결 단순화가 우선이면: `host` 모드가 유리
+- 보안 격리/운영 표준화가 우선이고 네트워크 설계를 충분히 제어할 수 있으면: `bridge` 모드가 유리
+- 실제 운영에서는 인프라 권한 범위(보안그룹 수정 가능 여부, 방화벽 제어 가능 여부)에 따라 선택이 크게 달라짐

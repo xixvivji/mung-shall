@@ -1,0 +1,25 @@
+version: 1
+
+# Start the public canary with the repository's explicit Java boundary. Environment
+# and feature contracts can be enabled independently after their canonical manifests exist.
+versions:
+  java:
+    expected: "17"
+    gradle:
+      - backend/build.gradle
+    dockerfiles:
+      - backend/Dockerfile
+    compose:
+      - docker-compose.yml
+    workflows: []
+    docs:
+      - README.md
+    ignore: []
+    required:
+      - gradle
+      - dockerfiles
+
+rules:
+  VER001: error
+  VER002: warning
+  VER003: error

@@ -1,0 +1,53 @@
+name: RepoInvariant
+
+on:
+  workflow_dispatch:
+  pull_request:
+    branches: [master, develop]
+  push:
+    branches: [master, develop]
+
+permissions:
+  contents: read
+  security-events: write
+
+concurrency:
+  group: repoinvariant-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  contracts:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Audit repository contracts
+        uses: xixvivji/RepoInvariant@ea489aa32cba6eb31760070eecde543726a91caf # v0.4.0
+        with:
+          path: .
+          format: sarif
+          output: repoinvariant-report.sarif
+          fail-on: error
+          no-env: "true"
+          no-features: "true"
+          no-versions: "false"
+      - name: Upload SARIF to Code Scanning
+        uses: github/codeql-action/upload-sarif@f205ea1c3313d32999d8d6a48b4f6530d4437b38 # v4.37.4
+        if: >-
+          always() &&
+          (github.event_name != 'pull_request' ||
+          github.event.pull_request.head.repo.full_name == github.repository)
+        with:
+          sarif_file: repoinvariant-report.sarif
+          category: repoinvariant
+      - name: Upload RepoInvariant report artifact
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        if: always()
+        with:
+          name: repoinvariant-sarif
+          path: repoinvariant-report.sarif
+          if-no-files-found: warn
+          retention-days: 7
